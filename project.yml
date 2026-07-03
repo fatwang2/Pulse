@@ -1,0 +1,46 @@
+name: Pulse
+options:
+  bundleIdPrefix: app.pulse
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+
+packages:
+  PulseCore:
+    path: Packages/PulseCore
+  PulseUI:
+    path: Packages/PulseUI
+
+targets:
+  PulseMac:
+    type: application
+    platform: macOS
+    sources:
+      - PulseMac/Sources
+    dependencies:
+      - package: PulseCore
+      - package: PulseUI
+    info:
+      path: PulseMac/Info.plist
+      properties:
+        CFBundleName: Pulse
+        CFBundleDisplayName: Pulse
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        LSMinimumSystemVersion: "26.0"
+        NSHumanReadableCopyright: "© 2026 Pulse"
+    entitlements:
+      path: PulseMac/Pulse.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+    settings:
+      base:
+        PRODUCT_NAME: Pulse
+        PRODUCT_BUNDLE_IDENTIFIER: app.pulse.mac
+        SWIFT_VERSION: "6.0"
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_HARDENED_RUNTIME: false
+        SWIFT_STRICT_CONCURRENCY: complete

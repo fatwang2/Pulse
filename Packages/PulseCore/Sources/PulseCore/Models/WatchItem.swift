@@ -31,4 +31,52 @@ public struct WatchItem: Codable, Sendable, Hashable, Identifiable {
     }
 
     public var id: SymbolID { symbol }
+
+    public var positionQuantity: Double {
+        lots.reduce(0) { $0 + $1.quantity }
+    }
+
+    public var costBasis: Double {
+        lots.reduce(0) { $0 + $1.price * $1.quantity }
+    }
+
+    public var averageCost: Double? {
+        let quantity = positionQuantity
+        guard quantity > 0 else { return nil }
+        return costBasis / quantity
+    }
+
+    public var hasPosition: Bool {
+        positionQuantity > 0 && averageCost != nil
+    }
+}
+
+public struct PositionMetrics: Sendable, Hashable {
+    public var quantity: Double
+    public var averageCost: Double
+    public var costBasis: Double
+    public var marketValue: Double
+    public var totalPnL: Double
+    public var totalReturnPercent: Double
+    public var todayPnL: Double
+    public var todayReturnPercent: Double
+
+    public init?(item: WatchItem, quote: Quote) {
+        let quantity = item.positionQuantity
+        guard quantity > 0, let averageCost = item.averageCost else { return nil }
+
+        let costBasis = item.costBasis
+        let marketValue = quote.price * quantity
+        let totalPnL = marketValue - costBasis
+        let todayPnL = quote.change * quantity
+
+        self.quantity = quantity
+        self.averageCost = averageCost
+        self.costBasis = costBasis
+        self.marketValue = marketValue
+        self.totalPnL = totalPnL
+        self.totalReturnPercent = costBasis == 0 ? 0 : totalPnL / costBasis * 100
+        self.todayPnL = todayPnL
+        self.todayReturnPercent = quote.previousClose == 0 ? 0 : quote.change / quote.previousClose * 100
+    }
 }

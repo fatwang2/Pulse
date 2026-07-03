@@ -41,7 +41,7 @@ struct WatchlistView: View {
                     .buttonStyle(.glassProminent)
                     .controlSize(.small)
                     .padding(.trailing, 12)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 4)
                 }
             }
         }
@@ -52,15 +52,19 @@ struct WatchlistView: View {
     private var chrome: some View {
         VStack(spacing: 7) {
             HStack(spacing: 8) {
-                // The title just floats over the content, no glass (the scroll edge effect keeps it readable)
                 Image(systemName: "waveform.path.ecg")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.tint)
                 Text("Pulse")
                     .font(.system(size: 12.5, weight: .semibold))
                 Spacer()
-                // Standard Liquid Glass idiom: a group of tool buttons shares one glass capsule (instead of separate rings)
                 HStack(spacing: 2) {
+                    ClusterIcon(
+                        systemName: appState.settings.watchRowMetricMode.systemImage,
+                        help: "列表显示：\(appState.settings.watchRowMetricMode.displayName)"
+                    ) {
+                        appState.settings.watchRowMetricMode = appState.settings.watchRowMetricMode.next
+                    }
                     if appState.watchlist.items.count > 1 {
                         ClusterIcon(systemName: "arrow.up.arrow.down", help: "调整顺序",
                                     isActive: isReordering) {
@@ -78,15 +82,71 @@ struct WatchlistView: View {
                         NSApplication.shared.terminate(nil)
                     }
                 }
-                .padding(.horizontal, 4)
-                .frame(height: 28)
-                .glassEffect(.regular, in: Capsule())
+                .frame(height: 26)
             }
             searchField
+            if searchText.isEmpty && !isReordering {
+                portfolioSummary
+            }
         }
         .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 7)
+    }
+
+    @ViewBuilder
+    private var portfolioSummary: some View {
+        if let summary = portfolioSummaryData {
+            HStack(spacing: 12) {
+                summaryItem("今日", value: summary.todayPnL, currencyCode: summary.currencyCode)
+                summaryItem("持仓", value: summary.totalPnL, currencyCode: summary.currencyCode)
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 1)
+        } else if hasPositionInMultipleCurrencies {
+            HStack(spacing: 4) {
+                Image(systemName: "sum")
+                    .font(.system(size: 10, weight: .medium))
+                Text("多币种持仓，进入详情查看单项盈亏")
+                    .font(.system(size: 10))
+            }
+            .foregroundStyle(.tertiary)
+            .padding(.top, 1)
+        }
+    }
+
+    private func summaryItem(_ label: String, value: Double, currencyCode: String?) -> some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+            Text(PriceFormatter.moneyMagnitude(value, currencyCode: currencyCode))
+                .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                .foregroundStyle(appState.palette.color(for: value))
+        }
+    }
+
+    private var portfolioSummaryData: (todayPnL: Double, totalPnL: Double, currencyCode: String?)? {
+        let rows = positionRows
+        let currencyCodes = Set(rows.map(\.currencyCode))
+        guard !rows.isEmpty, currencyCodes.count == 1 else { return nil }
+        return (
+            rows.reduce(0) { $0 + $1.metrics.todayPnL },
+            rows.reduce(0) { $0 + $1.metrics.totalPnL },
+            currencyCodes.first
+        )
+    }
+
+    private var hasPositionInMultipleCurrencies: Bool {
+        Set(positionRows.map(\.currencyCode)).count > 1
+    }
+
+    private var positionRows: [(metrics: PositionMetrics, currencyCode: String)] {
+        appState.watchlist.items.compactMap { item -> (PositionMetrics, String)? in
+            guard let quote = appState.market.quote(for: item.symbol) else { return nil }
+            guard let metrics = PositionMetrics(item: item, quote: quote) else { return nil }
+            return (metrics, quote.currencyCode ?? item.symbol.market.currencyCode)
+        }
     }
 
     private var footer: some View {
@@ -110,9 +170,8 @@ struct WatchlistView: View {
         }
         .padding(.horizontal, 9)
         .frame(height: 22)
-        .glassEffect()
         .padding(.leading, 12)
-        .padding(.bottom, 10)
+        .padding(.bottom, 4)
     }
 
     // MARK: - Search
@@ -139,8 +198,12 @@ struct WatchlistView: View {
             }
         }
         .padding(.horizontal, 9)
-        .frame(height: 28)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 9))
+        .frame(height: 26)
+        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(.separator.opacity(0.35), lineWidth: 0.5)
+        }
         .disabled(isReordering)
         .opacity(isReordering ? 0.45 : 1)
         .task(id: searchText) {
@@ -238,13 +301,16 @@ struct WatchlistView: View {
                 WatchRow(item: item, isReordering: isReordering) {
                     route = .detail(item.symbol)
                 }
-                .listRowInsets(EdgeInsets(top: 0, leading: 6, bottom: 0, trailing: 6))
+                .listRowInsets(EdgeInsets(top: 0, leading: 2, bottom: 0, trailing: 2))
                 .listRowSeparator(.hidden)
                 .contextMenu {
                     Button("设为菜单栏显示") {
                         appState.settings.primarySymbol = item.symbol
                         appState.settings.menuBarMode = .single
                         appState.settings.showPriceInMenuBar = true
+                    }
+                    Button("编辑持仓") {
+                        route = .position(item.symbol, .list)
                     }
                     Divider()
                     Button("删除", role: .destructive) {
@@ -263,26 +329,31 @@ struct WatchlistView: View {
 
 // MARK: - Components
 
-/// Standalone single glass round button (back button on detail/settings pages)
+/// Compact icon button for popover chrome.
 struct IconButton: View {
     let systemName: String
     let help: String
     let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 11, weight: .medium))
-                .frame(width: 14, height: 14)
+                .foregroundStyle(hovering ? .primary : .secondary)
+                .frame(width: 24, height: 22)
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(hovering ? Color.primary.opacity(0.08) : .clear)
+                )
         }
-        .buttonStyle(.glass)
-        .buttonBorderShape(.circle)
-        .controlSize(.small)
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
         .help(help)
     }
 }
 
-/// Icon button inside the shared glass capsule: a highlight appears within the capsule on hover; isActive marks the corresponding mode as on
+/// Small icon button for dense menu-bar popover chrome.
 struct ClusterIcon: View {
     let systemName: String
     let help: String
@@ -295,10 +366,11 @@ struct ClusterIcon: View {
             Image(systemName: systemName)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(isActive ? Color.accentColor : (hovering ? .primary : .secondary))
-                .frame(width: 26, height: 22)
+                .frame(width: 24, height: 22)
                 .background(
-                    Capsule().fill(isActive ? Color.accentColor.opacity(0.14)
-                                            : (hovering ? Color.primary.opacity(0.09) : .clear))
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(isActive ? Color.accentColor.opacity(0.12)
+                              : (hovering ? Color.primary.opacity(0.08) : .clear))
                 )
         }
         .buttonStyle(.plain)
@@ -365,10 +437,12 @@ struct WatchRow: View {
         let quote = appState.market.quote(for: item.symbol)
         let change = quote?.change ?? 0
         let color = appState.palette.color(for: change)
+        let metrics = quote.flatMap { PositionMetrics(item: item, quote: $0) }
+        let metricMode = appState.settings.watchRowMetricMode
 
         // Note: don't wrap the whole row in a Button — the button swallows mousedown, so List's drag-to-reorder (onMove) can never start.
         // Use contentShape + onTapGesture instead: tap opens the detail, press-and-drag is left to List for reordering.
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             // The name column sizes to its content; all remaining space goes to the sparkline (removes the blank band in the middle)
             VStack(alignment: .leading, spacing: 2.5) {
                 Text(quote?.name ?? item.displayName)
@@ -388,19 +462,20 @@ struct WatchRow: View {
                 baseline: quote?.previousClose,
                 tint: color
             )
-            .frame(maxWidth: .infinity, minHeight: 26, maxHeight: 26)
+            .frame(maxWidth: .infinity, minHeight: 30, maxHeight: 30)
+            .padding(.trailing, -2)
 
             VStack(alignment: .trailing, spacing: 2.5) {
                 Text(quote.map { PriceFormatter.price($0.price) } ?? "—")
                     .font(.system(size: 12.5, weight: .semibold).monospacedDigit())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .allowsTightening(true)
                     .contentTransition(.numericText())
-                Text(quote.map { PriceFormatter.percent($0.changePercent) } ?? "…")
-                    .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(.white)
-                    .frame(width: 58)
-                    .padding(.vertical, 1.5)
-                    .glassEffect(.regular.tint(color), in: RoundedRectangle(cornerRadius: 6))
+                rowMetricView(quote: quote, metrics: metrics, mode: metricMode)
             }
+            .frame(width: 88, alignment: .trailing)
+            .layoutPriority(2)
 
             // System-standard reorder grabber: at the row's end, participates in layout (content yields automatically, no overlap with the name)
             if isReordering {
@@ -412,7 +487,8 @@ struct WatchRow: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 7)
                 .fill(hovering ? Color.primary.opacity(0.05) : .clear)
@@ -422,5 +498,45 @@ struct WatchRow: View {
         // the gesture recognizer itself competes with List's drag arbitration for events, making press-and-drag impossible
         .gesture(TapGesture().onEnded { onOpen() }, isEnabled: !isReordering)
         .onHover { hovering = $0 }
+    }
+
+    @ViewBuilder
+    private func rowMetricView(quote: Quote?, metrics: PositionMetrics?, mode: WatchRowMetricMode) -> some View {
+        let display = rowMetricDisplay(quote: quote, metrics: metrics, mode: mode)
+        Text(display.text)
+            .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
+            .foregroundStyle(display.color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.65)
+            .allowsTightening(true)
+            .contentTransition(.numericText())
+        .lineLimit(1)
+    }
+
+    private func rowMetricDisplay(quote: Quote?, metrics: PositionMetrics?, mode: WatchRowMetricMode) -> (text: String, color: Color) {
+        guard let quote else { return ("…", .secondary) }
+        let currencyCode = quote.currencyCode ?? item.symbol.market.currencyCode
+        switch mode {
+        case .changePercent:
+            return (PriceFormatter.percentMagnitude(quote.changePercent), appState.palette.color(for: quote.change))
+        case .todayPnL:
+            guard let metrics else {
+                return (PriceFormatter.percentMagnitude(quote.changePercent), appState.palette.color(for: quote.change))
+            }
+            return (PriceFormatter.moneyMagnitude(metrics.todayPnL, currencyCode: currencyCode),
+                    appState.palette.color(for: metrics.todayPnL))
+        case .totalPnL:
+            guard let metrics else {
+                return (PriceFormatter.percentMagnitude(quote.changePercent), appState.palette.color(for: quote.change))
+            }
+            return (PriceFormatter.moneyMagnitude(metrics.totalPnL, currencyCode: currencyCode),
+                    appState.palette.color(for: metrics.totalPnL))
+        case .summary:
+            guard let metrics else {
+                return (PriceFormatter.percentMagnitude(quote.changePercent), appState.palette.color(for: quote.change))
+            }
+            return (PriceFormatter.moneyMagnitude(metrics.totalPnL, currencyCode: currencyCode),
+                    appState.palette.color(for: metrics.totalPnL))
+        }
     }
 }

@@ -15,15 +15,17 @@ struct DetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
             quoteSummary
             statsGrid
+            positionSection
             picker
             chart
                 .padding(.horizontal, 10)
                 .padding(.bottom, 10)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .scrollEdgeEffectStyle(.soft, for: .all)
+        .safeAreaInset(edge: .top, spacing: 0) { header }
         .task(id: period) {
             isLoading = true
             defer { isLoading = false }
@@ -35,6 +37,7 @@ struct DetailView: View {
     }
 
     private var quote: Quote? { appState.market.quote(for: symbol) }
+    private var item: WatchItem? { appState.watchlist.item(for: symbol) }
 
     private var header: some View {
         HStack(spacing: 8) {
@@ -51,6 +54,11 @@ struct DetailView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            if let item {
+                IconButton(systemName: "pencil", help: "编辑持仓") {
+                    route = .position(item.symbol, .detail(symbol))
+                }
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -69,10 +77,7 @@ struct DetailView: View {
                     .foregroundStyle(color)
                 Text(PriceFormatter.percent(quote.changePercent))
                     .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 1.5)
-                    .glassEffect(.regular.tint(color), in: RoundedRectangle(cornerRadius: 6))
+                    .foregroundStyle(color)
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     if let currency = quote.currencyCode {
@@ -109,6 +114,86 @@ struct DetailView: View {
         .padding(.bottom, 8)
     }
 
+    @ViewBuilder
+    private var positionSection: some View {
+        if let item {
+            if let quote, let metrics = PositionMetrics(item: item, quote: quote) {
+                VStack(spacing: 7) {
+                    HStack {
+                        Text("持仓")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("编辑") {
+                            route = .position(item.symbol, .detail(symbol))
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10, weight: .medium))
+                    }
+                    HStack(spacing: 0) {
+                        positionStat("数量", PriceFormatter.quantity(metrics.quantity))
+                        positionStat("成本", PriceFormatter.price(metrics.averageCost))
+                        positionStat("市值", PriceFormatter.money(metrics.marketValue, currencyCode: currencyCode))
+                    }
+                    HStack(spacing: 0) {
+                        pnlStat("今日", value: metrics.todayPnL, percent: metrics.todayReturnPercent)
+                        pnlStat("持仓", value: metrics.totalPnL, percent: metrics.totalReturnPercent)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 9)
+            } else {
+                Button {
+                    route = .position(item.symbol, .detail(symbol))
+                } label: {
+                    HStack {
+                        Label("录入持仓数量和成本价", systemImage: "plus")
+                            .font(.system(size: 11, weight: .medium))
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 9)
+            }
+        }
+    }
+
+    private var currencyCode: String? {
+        quote?.currencyCode ?? symbol.market.currencyCode
+    }
+
+    private func positionStat(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundStyle(.tertiary)
+            Text(value)
+                .font(.system(size: 10.5, weight: .medium).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .allowsTightening(true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func pnlStat(_ label: String, value: Double, percent: Double) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundStyle(.tertiary)
+            Text("\(PriceFormatter.signedMoney(value, currencyCode: currencyCode)) · \(PriceFormatter.percent(percent))")
+                .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
+                .foregroundStyle(appState.palette.color(for: value))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .allowsTightening(true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func stat(_ label: String, _ value: String?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
@@ -117,6 +202,9 @@ struct DetailView: View {
             Text(value ?? "—")
                 .font(.system(size: 10.5, weight: .medium).monospacedDigit())
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .allowsTightening(true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

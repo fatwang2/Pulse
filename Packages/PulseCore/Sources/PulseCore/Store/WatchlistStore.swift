@@ -24,6 +24,10 @@ public final class WatchlistStore {
         items.contains { $0.symbol == symbol }
     }
 
+    public func item(for symbol: SymbolID) -> WatchItem? {
+        items.first { $0.symbol == symbol }
+    }
+
     public func add(_ info: SymbolInfo) {
         guard !contains(info.symbol) else { return }
         items.append(WatchItem(symbol: info.symbol, displayName: info.name))
@@ -49,6 +53,16 @@ public final class WatchlistStore {
               items[index].displayName != name else { return }
         items[index].displayName = name
         save()
+    }
+
+    public func updateLots(_ symbol: SymbolID, lots: [CostLot]) {
+        guard let index = items.firstIndex(where: { $0.symbol == symbol }) else { return }
+        items[index].lots = lots
+        save()
+    }
+
+    public func clearPosition(_ symbol: SymbolID) {
+        updateLots(symbol, lots: [])
     }
 
     // MARK: - Persistence

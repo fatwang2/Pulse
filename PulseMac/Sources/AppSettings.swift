@@ -15,6 +15,48 @@ enum MenuBarMode: String, Codable, CaseIterable, Sendable {
     }
 }
 
+enum WatchRowMetricMode: String, Codable, CaseIterable, Sendable {
+    case changePercent
+    case todayPnL
+    case totalPnL
+    case summary
+
+    static var allCases: [WatchRowMetricMode] {
+        [.changePercent, .todayPnL, .totalPnL]
+    }
+
+    var displayName: String {
+        switch self {
+        case .changePercent: "涨跌幅"
+        case .todayPnL: "今日盈亏"
+        case .totalPnL: "持仓盈亏"
+        case .summary: "持仓盈亏"
+        }
+    }
+
+    var next: WatchRowMetricMode {
+        switch self {
+        case .changePercent:
+            .todayPnL
+        case .todayPnL:
+            .totalPnL
+        case .totalPnL, .summary:
+            .changePercent
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .changePercent:
+            "percent"
+        case .todayPnL:
+            "calendar"
+        case .totalPnL, .summary:
+            "briefcase"
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class AppSettings {
@@ -26,6 +68,7 @@ final class AppSettings {
     var primarySymbol: SymbolID? { didSet { save() } }
     var rotateInterval: TimeInterval = 6 { didSet { save() } }
     var refreshInterval: TimeInterval = 15 { didSet { save() } }
+    var watchRowMetricMode: WatchRowMetricMode = .totalPnL { didSet { save() } }
     /// Red-up/green-down (A-share convention); false means green-up/red-down
     var redUp: Bool = true { didSet { save() } }
 
@@ -59,6 +102,14 @@ final class AppSettings {
             primarySymbol = snapshot.primarySymbol
             rotateInterval = snapshot.rotateInterval
             refreshInterval = snapshot.refreshInterval
+            watchRowMetricMode = switch snapshot.watchRowMetricMode {
+            case .changePercent, .todayPnL, .totalPnL:
+                snapshot.watchRowMetricMode!
+            case .summary:
+                .totalPnL
+            case nil:
+                .totalPnL
+            }
             redUp = snapshot.redUp
             disabledProviderIDs = snapshot.disabledProviderIDs ?? []
             showPriceInMenuBar = snapshot.showPriceInMenuBar ?? false
@@ -71,6 +122,7 @@ final class AppSettings {
         var primarySymbol: SymbolID?
         var rotateInterval: TimeInterval
         var refreshInterval: TimeInterval
+        var watchRowMetricMode: WatchRowMetricMode?
         var redUp: Bool
         var disabledProviderIDs: Set<String>?
         var showPriceInMenuBar: Bool?
@@ -79,7 +131,8 @@ final class AppSettings {
     private func save() {
         let snapshot = Snapshot(menuBarMode: menuBarMode, primarySymbol: primarySymbol,
                                 rotateInterval: rotateInterval, refreshInterval: refreshInterval,
-                                redUp: redUp, disabledProviderIDs: disabledProviderIDs,
+                                watchRowMetricMode: watchRowMetricMode, redUp: redUp,
+                                disabledProviderIDs: disabledProviderIDs,
                                 showPriceInMenuBar: showPriceInMenuBar)
         if let data = try? JSONEncoder().encode(snapshot) {
             defaults.set(data, forKey: storageKey)

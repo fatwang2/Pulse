@@ -15,13 +15,11 @@ struct DetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            quoteSummary
-            statsGrid
+            marketSection
+            sectionSeparator
             positionSection
-            picker
-            chart
-                .padding(.horizontal, 10)
-                .padding(.bottom, 10)
+            sectionSeparator
+            chartSection
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .scrollEdgeEffectStyle(.soft, for: .all)
@@ -39,6 +37,47 @@ struct DetailView: View {
     private var quote: Quote? { appState.market.quote(for: symbol) }
     private var item: WatchItem? { appState.watchlist.item(for: symbol) }
 
+    private var marketSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            sectionHeader("行情")
+            quoteSummary
+            statsGrid
+        }
+    }
+
+    private var chartSection: some View {
+        VStack(spacing: 7) {
+            HStack(alignment: .center) {
+                sectionHeaderText("趋势")
+                Spacer()
+                picker
+            }
+            .padding(.horizontal, 12)
+            chart
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var sectionSeparator: some View {
+        Divider()
+            .opacity(0.45)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        sectionHeaderText(title)
+            .padding(.horizontal, 12)
+    }
+
+    private func sectionHeaderText(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(.secondary)
+    }
+
     private var header: some View {
         HStack(spacing: 8) {
             IconButton(systemName: "chevron.left", help: "返回") {
@@ -55,13 +94,16 @@ struct DetailView: View {
             }
             Spacer()
             if let item {
-                IconButton(systemName: "pencil", help: "编辑持仓") {
+                ClusterIcon(
+                    systemName: item.hasPosition ? "briefcase.fill" : "briefcase",
+                    help: item.hasPosition ? "编辑持仓" : "录入持仓"
+                ) {
                     route = .position(item.symbol, .detail(symbol))
                 }
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
     }
 
     private var quoteSummary: some View {
@@ -72,6 +114,11 @@ struct DetailView: View {
                     .font(.system(size: 26, weight: .semibold).monospacedDigit())
                     .foregroundStyle(color)
                     .contentTransition(.numericText())
+                if let sessionLabel = quote.marketState?.extendedSessionLabel {
+                    Text(sessionLabel)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
                 Text(PriceFormatter.change(quote.change))
                     .font(.system(size: 12, weight: .medium).monospacedDigit())
                     .foregroundStyle(color)
@@ -98,8 +145,7 @@ struct DetailView: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
+        .padding(.vertical, 3)
     }
 
     private var statsGrid: some View {
@@ -111,25 +157,17 @@ struct DetailView: View {
             stat("成交额", quote?.turnover.map(PriceFormatter.compact))
         }
         .padding(.horizontal, 12)
-        .padding(.bottom, 8)
     }
 
     @ViewBuilder
     private var positionSection: some View {
-        if let item {
-            if let quote, let metrics = PositionMetrics(item: item, quote: quote) {
-                VStack(spacing: 7) {
-                    HStack {
-                        Text("持仓")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button("编辑") {
-                            route = .position(item.symbol, .detail(symbol))
-                        }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 10, weight: .medium))
-                    }
+        VStack(spacing: 5) {
+            HStack {
+                sectionHeaderText("持仓")
+                Spacer()
+            }
+            if let item, item.hasPosition,
+               let quote, let metrics = PositionMetrics(item: item, quote: quote) {
                     HStack(spacing: 0) {
                         positionStat("数量", PriceFormatter.quantity(metrics.quantity))
                         positionStat("成本", PriceFormatter.price(metrics.averageCost))
@@ -139,25 +177,15 @@ struct DetailView: View {
                         pnlStat("今日", value: metrics.todayPnL, percent: metrics.todayReturnPercent)
                         pnlStat("持仓", value: metrics.totalPnL, percent: metrics.totalReturnPercent)
                     }
-                }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 9)
             } else {
-                Button {
-                    route = .position(item.symbol, .detail(symbol))
-                } label: {
-                    HStack {
-                        Label("录入持仓数量和成本价", systemImage: "plus")
-                            .font(.system(size: 11, weight: .medium))
-                        Spacer()
-                    }
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 9)
+                Text("未录入持仓")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 1)
             }
         }
+        .padding(.horizontal, 12)
     }
 
     private var currencyCode: String? {
@@ -165,7 +193,7 @@ struct DetailView: View {
     }
 
     private func positionStat(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 1.5) {
             Text(label)
                 .font(.system(size: 9))
                 .foregroundStyle(.tertiary)
@@ -180,7 +208,7 @@ struct DetailView: View {
     }
 
     private func pnlStat(_ label: String, value: Double, percent: Double) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 1.5) {
             Text(label)
                 .font(.system(size: 9))
                 .foregroundStyle(.tertiary)
@@ -195,7 +223,7 @@ struct DetailView: View {
     }
 
     private func stat(_ label: String, _ value: String?) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 1.5) {
             Text(label)
                 .font(.system(size: 9))
                 .foregroundStyle(.tertiary)
@@ -218,8 +246,7 @@ struct DetailView: View {
         .pickerStyle(.segmented)
         .controlSize(.small)
         .labelsHidden()
-        .padding(.horizontal, 12)
-        .padding(.bottom, 8)
+        .frame(width: 148)
     }
 
     @ViewBuilder

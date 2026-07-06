@@ -38,14 +38,13 @@ enum SelfTest {
                 return "\(r.count) candles, latest close \(r.last?.close ?? 0)"
             }
 
-            // Reproduce a user flow: add symbols from the Tencent (Chinese-name) search results that Yahoo doesn't cover
-            // -> quotes -> fetch sparklines one by one (including symbols Yahoo lacks) -> search again; health must not degrade
+            // Reproduce a mixed-provider user flow: Tencent supplies Chinese search/quotes, Yahoo supplies candles.
             await report("user flow: add watchlist(000847.SH/700.HK/80700.HK) -> sparkline -> search again") {
                 let flow = CompositeProvider(providers: [TencentProvider(), YahooProvider()])
                 let added = [
-                    SymbolID(market: .sh, code: "000847"),   // Tencent Ji'an Index: not available on Yahoo
+                    SymbolID(market: .sh, code: "000847"),
                     SymbolID(market: .hk, code: "700"),
-                    SymbolID(market: .hk, code: "80700"),    // RMB counter: not available on Yahoo
+                    SymbolID(market: .hk, code: "80700"),
                 ]
                 let quotes = try await flow.quotes(for: added)
                 var sparkOK = 0

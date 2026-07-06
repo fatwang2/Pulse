@@ -141,6 +141,29 @@ struct WatchlistView: View {
         Set(positionRows.map(\.currencyCode)).count > 1
     }
 
+    private var watchRowMetricColumnWidth: CGFloat {
+        let mode = appState.settings.watchRowMetricMode
+        let widths = appState.watchlist.items.map { item -> CGFloat in
+            let quote = appState.market.quote(for: item.symbol)
+            let metrics = quote.flatMap { PositionMetrics(item: item, quote: $0) }
+            let display = WatchRow.rowMetricDisplay(
+                quote: quote,
+                metrics: metrics,
+                mode: mode,
+                item: item,
+                palette: appState.palette
+            )
+            let priceText = quote.map { PriceFormatter.price($0.price) } ?? "—"
+            let sessionLabel = quote?.marketState?.extendedSessionLabel
+            return WatchRow.metricColumnWidth(
+                priceText: priceText,
+                metricText: display.text,
+                sessionLabel: sessionLabel
+            )
+        }
+        return widths.max() ?? 52
+    }
+
     private var positionRows: [(metrics: PositionMetrics, currencyCode: String)] {
         appState.watchlist.items.compactMap { item -> (PositionMetrics, String)? in
             guard let quote = appState.market.quote(for: item.symbol) else { return nil }
@@ -296,9 +319,10 @@ struct WatchlistView: View {
     }
 
     private var watchList: some View {
-        List {
+        let metricColumnWidth = watchRowMetricColumnWidth
+        return List {
             ForEach(appState.watchlist.items) { item in
-                WatchRow(item: item, isReordering: isReordering) {
+                WatchRow(item: item, metricColumnWidth: metricColumnWidth, isReordering: isReordering) {
                     route = .detail(item.symbol)
                 }
                 .listRowInsets(EdgeInsets(top: 0, leading: 2, bottom: 0, trailing: 2))
@@ -386,7 +410,7 @@ struct SearchResultRow: View {
     @State private var hovering = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(info.name)
                     .font(.system(size: 12.5))
@@ -429,6 +453,7 @@ struct SearchResultRow: View {
 struct WatchRow: View {
     @Environment(AppState.self) private var appState
     let item: WatchItem
+    let metricColumnWidth: CGFloat
     var isReordering: Bool = false
     let onOpen: () -> Void
     @State private var hovering = false
@@ -439,6 +464,15 @@ struct WatchRow: View {
         let color = appState.palette.color(for: change)
         let metrics = quote.flatMap { PositionMetrics(item: item, quote: $0) }
         let metricMode = appState.settings.watchRowMetricMode
+        let metricDisplay = Self.rowMetricDisplay(
+            quote: quote,
+            metrics: metrics,
+            mode: metricMode,
+            item: item,
+            palette: appState.palette
+        )
+        let priceText = quote.map { PriceFormatter.price($0.price) } ?? "—"
+        let sessionLabel = quote?.marketState?.extendedSessionLabel
 
         // Note: don't wrap the whole row in a Button — the button swallows mousedown, so List's drag-to-reorder (onMove) can never start.
         // Use contentShape + onTapGesture instead: tap opens the detail, press-and-drag is left to List for reordering.
@@ -463,18 +497,24 @@ struct WatchRow: View {
                 tint: color
             )
             .frame(maxWidth: .infinity, minHeight: 30, maxHeight: 30)
-            .padding(.trailing, -2)
 
             VStack(alignment: .trailing, spacing: 2.5) {
-                Text(quote.map { PriceFormatter.price($0.price) } ?? "—")
-                    .font(.system(size: 12.5, weight: .semibold).monospacedDigit())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                    .allowsTightening(true)
-                    .contentTransition(.numericText())
-                rowMetricView(quote: quote, metrics: metrics, mode: metricMode)
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    if let sessionLabel {
+                        Text(sessionLabel)
+                            .font(.system(size: 8.5, weight: .medium))
+                            .foregroundStyle(.tertiary)
+                    }
+                    Text(priceText)
+                        .font(.system(size: 12.5, weight: .semibold).monospacedDigit())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .allowsTightening(true)
+                        .contentTransition(.numericText())
+                }
+                rowMetricView(display: metricDisplay)
             }
-            .frame(width: 88, alignment: .trailing)
+            .frame(width: metricColumnWidth, alignment: .trailing)
             .layoutPriority(2)
 
             // System-standard reorder grabber: at the row's end, participates in layout (content yields automatically, no overlap with the name)
@@ -502,7 +542,18 @@ struct WatchRow: View {
 
     @ViewBuilder
     private func rowMetricView(quote: Quote?, metrics: PositionMetrics?, mode: WatchRowMetricMode) -> some View {
-        let display = rowMetricDisplay(quote: quote, metrics: metrics, mode: mode)
+        let display = Self.rowMetricDisplay(
+            quote: quote,
+            metrics: metrics,
+            mode: mode,
+            item: item,
+            palette: appState.palette
+        )
+        rowMetricView(display: display)
+    }
+
+    @ViewBuilder
+    private func rowMetricView(display: (text: String, color: Color)) -> some View {
         Text(display.text)
             .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
             .foregroundStyle(display.color)
@@ -513,30 +564,42 @@ struct WatchRow: View {
         .lineLimit(1)
     }
 
-    private func rowMetricDisplay(quote: Quote?, metrics: PositionMetrics?, mode: WatchRowMetricMode) -> (text: String, color: Color) {
+    static func rowMetricDisplay(
+        quote: Quote?,
+        metrics: PositionMetrics?,
+        mode: WatchRowMetricMode,
+        item: WatchItem,
+        palette: ChangePalette
+    ) -> (text: String, color: Color) {
         guard let quote else { return ("…", .secondary) }
         let currencyCode = quote.currencyCode ?? item.symbol.market.currencyCode
         switch mode {
         case .changePercent:
-            return (PriceFormatter.percentMagnitude(quote.changePercent), appState.palette.color(for: quote.change))
+            return (PriceFormatter.percent(quote.changePercent), palette.color(for: quote.change))
         case .todayPnL:
             guard let metrics else {
-                return (PriceFormatter.percentMagnitude(quote.changePercent), appState.palette.color(for: quote.change))
+                return (PriceFormatter.percent(quote.changePercent), palette.color(for: quote.change))
             }
-            return (PriceFormatter.moneyMagnitude(metrics.todayPnL, currencyCode: currencyCode),
-                    appState.palette.color(for: metrics.todayPnL))
+            return (PriceFormatter.signedMoney(metrics.todayPnL, currencyCode: currencyCode),
+                    palette.color(for: metrics.todayPnL))
         case .totalPnL:
             guard let metrics else {
-                return (PriceFormatter.percentMagnitude(quote.changePercent), appState.palette.color(for: quote.change))
+                return (PriceFormatter.percent(quote.changePercent), palette.color(for: quote.change))
             }
-            return (PriceFormatter.moneyMagnitude(metrics.totalPnL, currencyCode: currencyCode),
-                    appState.palette.color(for: metrics.totalPnL))
+            return (PriceFormatter.signedMoney(metrics.totalPnL, currencyCode: currencyCode),
+                    palette.color(for: metrics.totalPnL))
         case .summary:
             guard let metrics else {
-                return (PriceFormatter.percentMagnitude(quote.changePercent), appState.palette.color(for: quote.change))
+                return (PriceFormatter.percent(quote.changePercent), palette.color(for: quote.change))
             }
-            return (PriceFormatter.moneyMagnitude(metrics.totalPnL, currencyCode: currencyCode),
-                    appState.palette.color(for: metrics.totalPnL))
+            return (PriceFormatter.signedMoney(metrics.totalPnL, currencyCode: currencyCode),
+                    palette.color(for: metrics.totalPnL))
         }
+    }
+
+    static func metricColumnWidth(priceText: String, metricText: String, sessionLabel: String?) -> CGFloat {
+        let priceWidth = CGFloat(priceText.count) * 7.2 + (sessionLabel == nil ? 0 : 21)
+        let metricWidth = CGFloat(metricText.count) * 6.6
+        return min(max(max(priceWidth, metricWidth), 48), 104)
     }
 }

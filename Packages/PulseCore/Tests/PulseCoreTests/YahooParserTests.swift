@@ -53,4 +53,26 @@ struct YahooParserTests {
         let decoded = try YahooProvider.decode(ChartResponse.self, from: data)
         #expect(decoded.chart.error?.code == "Not Found")
     }
+
+    @Test("Extended sessions compare against the latest regular close")
+    func extendedSessionReferenceClose() {
+        #expect(YahooProvider.referenceClose(
+            for: .preMarket,
+            regularPrice: 308.63,
+            previousClose: 294.38,
+            chartPreviousClose: 294.38
+        ) == 308.63)
+        #expect(YahooProvider.referenceClose(
+            for: .postMarket,
+            regularPrice: 308.63,
+            previousClose: 294.38,
+            chartPreviousClose: 294.38
+        ) == 308.63)
+        #expect(YahooProvider.referenceClose(
+            for: .regular,
+            regularPrice: 308.63,
+            previousClose: 294.38,
+            chartPreviousClose: nil
+        ) == 294.38)
+    }
 }

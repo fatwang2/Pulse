@@ -8,6 +8,7 @@ struct MockProvider: QuoteProvider {
     var searchError: ProviderError?
     var searchResults: [SymbolInfo] = []
     var candleResult: [Candle] = [Candle(time: .now, open: 1, high: 2, low: 0.5, close: 1.5)]
+    var quotePrice: Double = 100
 
     var descriptor: ProviderDescriptor {
         ProviderDescriptor(id: id, name: id, markets: [.us, .hk, .sh, .sz],
@@ -20,7 +21,7 @@ struct MockProvider: QuoteProvider {
     }
 
     func quotes(for symbols: [SymbolID]) async throws -> [Quote] {
-        symbols.map { Quote(symbol: $0, price: 100, previousClose: 99) }
+        symbols.map { Quote(symbol: $0, price: quotePrice, previousClose: 99) }
     }
 
     func candles(for symbol: SymbolID, period: CandlePeriod, count: Int) async throws -> [Candle] {
@@ -90,5 +91,19 @@ struct CompositeProviderTests {
         await composite.setDisabled([])
         let results = try await composite.search("apple")
         #expect(results == [Self.apple])
+    }
+
+    @Test("US quotes prefer Yahoo while other markets keep provider order")
+    func usQuotesPreferYahoo() async throws {
+        let tencent = MockProvider(id: "tencent", quotePrice: 100)
+        let yahoo = MockProvider(id: "yahoo", quotePrice: 200)
+        let composite = CompositeProvider(providers: [tencent, yahoo])
+        let apple = SymbolID(market: .us, code: "AAPL")
+        let tencentHK = SymbolID(market: .hk, code: "700")
+
+        let quotes = try await composite.quotes(for: [apple, tencentHK])
+
+        #expect(quotes.first(where: { $0.symbol == apple })?.price == 200)
+        #expect(quotes.first(where: { $0.symbol == tencentHK })?.price == 100)
     }
 }

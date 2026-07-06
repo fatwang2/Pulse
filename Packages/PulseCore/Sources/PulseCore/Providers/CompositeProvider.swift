@@ -56,6 +56,13 @@ public actor CompositeProvider: QuoteProvider {
         unhealthyUntil[id] = Date.now.addingTimeInterval(cooldown)
     }
 
+    private func preferredQuoteProvider(for market: Market, among providers: [any QuoteProvider]) -> (any QuoteProvider)? {
+        if market == .us, let yahoo = providers.first(where: { $0.descriptor.id == "yahoo" }) {
+            return yahoo
+        }
+        return providers.first
+    }
+
     /// Only infrastructure-level errors (network down / 5xx / rate limiting) trip the circuit breaker;
     /// request-level errors (4xx, symbol not found) don't indicate a source failure and never trip it.
     /// Rate limiting gets a short cooldown (recovers quickly); network/5xx errors get the long one.
@@ -93,7 +100,10 @@ public actor CompositeProvider: QuoteProvider {
         var groups: [String: [SymbolID]] = [:]
         var providerByID: [String: any QuoteProvider] = [:]
         for symbol in symbols {
-            guard let primary = candidates(.quotes, market: symbol.market).first else { continue }
+            guard let primary = preferredQuoteProvider(
+                for: symbol.market,
+                among: candidates(.quotes, market: symbol.market)
+            ) else { continue }
             let id = primary.descriptor.id
             groups[id, default: []].append(symbol)
             providerByID[id] = primary

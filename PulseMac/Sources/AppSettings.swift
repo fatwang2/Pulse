@@ -57,6 +57,19 @@ enum WatchRowMetricMode: String, Codable, CaseIterable, Sendable {
     }
 }
 
+extension MarketState {
+    var extendedSessionLabel: String? {
+        switch self {
+        case .preMarket:
+            "盘前"
+        case .postMarket:
+            "盘后"
+        case .regular, .closed:
+            nil
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class AppSettings {

@@ -108,6 +108,14 @@ public struct YahooProvider: QuoteProvider {
     }
 
     func quote(for symbol: SymbolID) async throws -> Quote {
+        if symbol.market == .us, let quote = try? await extendedHoursQuote(for: symbol) {
+            return quote
+        }
+
+        return try await regularQuote(for: symbol)
+    }
+
+    private func regularQuote(for symbol: SymbolID) async throws -> Quote {
         let result = try await chart(for: symbol, interval: "1d", range: "1d")
         let meta = result.meta
         guard let price = meta.regularMarketPrice else {
@@ -125,7 +133,41 @@ public struct YahooProvider: QuoteProvider {
             low: meta.regularMarketDayLow,
             volume: meta.regularMarketVolume,
             currencyCode: meta.currency,
-            timestamp: meta.regularMarketTime.map { Date(timeIntervalSince1970: TimeInterval($0)) } ?? .now
+            timestamp: meta.regularMarketTime.map { Date(timeIntervalSince1970: TimeInterval($0)) } ?? .now,
+            marketState: .regular
+        )
+    }
+
+    private func extendedHoursQuote(for symbol: SymbolID) async throws -> Quote {
+        let result = try await chart(for: symbol, interval: "1m", range: "1d", includePrePost: true)
+        let meta = result.meta
+        guard let regularPrice = meta.regularMarketPrice else {
+            throw ProviderError.symbolNotFound(symbol)
+        }
+        let latest = Self.latestClose(from: result)
+        let regularTime = meta.regularMarketTime.map { Date(timeIntervalSince1970: TimeInterval($0)) }
+        let price = latest?.price ?? regularPrice
+        let timestamp = latest?.timestamp ?? regularTime ?? .now
+        let state = latest.flatMap { Self.marketState(for: $0.timestamp, periods: meta.currentTradingPeriod) }
+            ?? .regular
+        let prevClose = Self.referenceClose(
+            for: state,
+            regularPrice: regularPrice,
+            previousClose: meta.previousClose,
+            chartPreviousClose: meta.chartPreviousClose
+        )
+        return Quote(
+            symbol: symbol,
+            name: meta.longName ?? meta.shortName,
+            price: price,
+            previousClose: prevClose,
+            open: result.indicators.quote?.first?.open?.compactMap(\.self).first,
+            high: meta.regularMarketDayHigh,
+            low: meta.regularMarketDayLow,
+            volume: meta.regularMarketVolume,
+            currencyCode: meta.currency,
+            timestamp: timestamp,
+            marketState: state
         )
     }
 
@@ -159,13 +201,13 @@ public struct YahooProvider: QuoteProvider {
         }
     }
 
-    func chart(for symbol: SymbolID, interval: String, range: String) async throws -> ChartResponse.Result {
+    func chart(for symbol: SymbolID, interval: String, range: String, includePrePost: Bool = false) async throws -> ChartResponse.Result {
         let ySymbol = Self.yahooSymbol(for: symbol)
         var comps = URLComponents(string: "https://query1.finance.yahoo.com/v8/finance/chart/\(ySymbol)")!
         comps.queryItems = [
             .init(name: "interval", value: interval),
             .init(name: "range", value: range),
-            .init(name: "includePrePost", value: "false"),
+            .init(name: "includePrePost", value: includePrePost ? "true" : "false"),
         ]
         let data: Data
         do {
@@ -183,6 +225,42 @@ public struct YahooProvider: QuoteProvider {
             throw ProviderError.symbolNotFound(symbol)
         }
         return result
+    }
+
+    private static func latestClose(from result: ChartResponse.Result) -> (price: Double, timestamp: Date)? {
+        guard let timestamps = result.timestamp,
+              let closes = result.indicators.quote?.first?.close else {
+            return nil
+        }
+        let count = min(timestamps.count, closes.count)
+        guard count > 0 else { return nil }
+        for index in stride(from: count - 1, through: 0, by: -1) {
+            guard let close = closes[index] else { continue }
+            return (close, Date(timeIntervalSince1970: TimeInterval(timestamps[index])))
+        }
+        return nil
+    }
+
+    private static func marketState(for timestamp: Date, periods: ChartResponse.CurrentTradingPeriod?) -> MarketState? {
+        let seconds = Int(timestamp.timeIntervalSince1970)
+        if periods?.pre?.contains(seconds) == true { return .preMarket }
+        if periods?.regular?.contains(seconds) == true { return .regular }
+        if periods?.post?.contains(seconds) == true { return .postMarket }
+        return .closed
+    }
+
+    static func referenceClose(
+        for state: MarketState,
+        regularPrice: Double,
+        previousClose: Double?,
+        chartPreviousClose: Double?
+    ) -> Double {
+        switch state {
+        case .preMarket, .postMarket:
+            return regularPrice
+        case .regular, .closed:
+            return previousClose ?? chartPreviousClose ?? regularPrice
+        }
     }
 
     static func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
@@ -216,12 +294,28 @@ struct ChartResponse: Decodable {
         var regularMarketPrice: Double?
         var chartPreviousClose: Double?
         var previousClose: Double?
+        var hasPrePostMarketData: Bool?
+        var currentTradingPeriod: CurrentTradingPeriod?
         var regularMarketDayHigh: Double?
         var regularMarketDayLow: Double?
         var regularMarketVolume: Double?
         var regularMarketTime: Int?
         var shortName: String?
         var longName: String?
+    }
+    struct CurrentTradingPeriod: Decodable {
+        var pre: TradingPeriod?
+        var regular: TradingPeriod?
+        var post: TradingPeriod?
+    }
+    struct TradingPeriod: Decodable {
+        var start: Int?
+        var end: Int?
+
+        func contains(_ timestamp: Int) -> Bool {
+            guard let start, let end else { return false }
+            return timestamp >= start && timestamp <= end
+        }
     }
     struct Indicators: Decodable {
         var quote: [QuoteArrays]?

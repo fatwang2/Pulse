@@ -111,21 +111,12 @@ struct SettingsView: View {
 
             Section {
                 LabeledContent("当前版本", value: "\(softwareUpdate.currentVersion) (\(softwareUpdate.currentBuild))")
-                if let feedURL = softwareUpdate.feedURL {
-                    LabeledContent("更新通道", value: feedURL)
-                }
                 Button("检查更新") {
                     softwareUpdate.checkForUpdates()
                 }
                 .disabled(!softwareUpdate.isConfigured)
             } header: {
                 Text("版本与更新")
-            } footer: {
-                if softwareUpdate.isConfigured {
-                    Text("Pulse 会自动检查 GitHub Release 更新；也可以在这里手动检查。")
-                } else {
-                    Text("当前构建未配置 Sparkle 更新通道，发布版会启用自动更新。")
-                }
             }
         }
         .formStyle(.grouped)
@@ -133,7 +124,6 @@ struct SettingsView: View {
         .scrollContentBackground(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .all)
         .safeAreaInset(edge: .top, spacing: 0) { header }
-        .safeAreaInset(edge: .bottom, spacing: 0) { footer }
     }
 
     private var header: some View {
@@ -149,20 +139,4 @@ struct SettingsView: View {
         .padding(.vertical, 8)
     }
 
-    private var footer: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(.tertiary)
-            Text("Pulse 0.1 · 数据来自 Yahoo Finance / 腾讯行情，仅供参考")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 9)
-        .frame(height: 22)
-        .padding(.horizontal, 12)
-        .padding(.bottom, 10)
-    }
 }

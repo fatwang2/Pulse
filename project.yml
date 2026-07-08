@@ -28,8 +28,8 @@ targets:
     info:
       path: PulseMac/Info.plist
       properties:
-        CFBundleName: Pulse
-        CFBundleDisplayName: Pulse
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundleDisplayName: $(BUNDLE_DISPLAY_NAME)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
@@ -46,8 +46,6 @@ targets:
         com.apple.security.network.client: true
     settings:
       base:
-        PRODUCT_NAME: Pulse
-        PRODUCT_BUNDLE_IDENTIFIER: app.pulse.mac
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
@@ -57,3 +55,13 @@ targets:
         SPARKLE_FEED_URL: ""
         SPARKLE_PUBLIC_ED_KEY: ""
         SWIFT_STRICT_CONCURRENCY: complete
+      configs:
+        Debug:
+          PRODUCT_NAME: Pulse Dev
+          BUNDLE_DISPLAY_NAME: Pulse Dev
+          PRODUCT_BUNDLE_IDENTIFIER: app.pulse.mac.dev
+          ENABLE_HARDENED_RUNTIME: false
+        Release:
+          PRODUCT_NAME: Pulse
+          BUNDLE_DISPLAY_NAME: Pulse
+          PRODUCT_BUNDLE_IDENTIFIER: app.pulse.mac

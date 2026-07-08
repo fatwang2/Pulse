@@ -4,7 +4,8 @@
 # Flow:
 #   xcodegen -> archive (Release, Developer ID, hardened runtime)
 #   -> exportArchive -> notarytool submit/wait -> staple
-#   -> Pulse.app.zip -> Sparkle appcast -> GitHub Releases upload
+#   -> Pulse.app.zip for Sparkle -> Pulse.dmg for first install
+#   -> Sparkle appcast -> GitHub Releases upload
 #
 # Required local configuration:
 #   cp .env.release.example .env.release
@@ -126,6 +127,28 @@ find_sparkle_tool() {
   return 1
 }
 
+create_dmg() {
+  local source_dir="$1"
+  local output_path="$2"
+  local volume_name="$3"
+
+  rm -f "$output_path"
+  if command -v diskutil >/dev/null && diskutil image create from -help >/dev/null 2>&1; then
+    diskutil image create from \
+      --format UDZO \
+      --volumeName "$volume_name" \
+      "$source_dir" \
+      "$output_path" >/dev/null
+  else
+    hdiutil create \
+      -volname "$volume_name" \
+      -srcfolder "$source_dir" \
+      -ov \
+      -format UDZO \
+      "$output_path" >/dev/null
+  fi
+}
+
 GENERATE_APPCAST="$(find_sparkle_tool generate_appcast || true)"
 GENERATE_KEYS="$(find_sparkle_tool generate_keys || true)"
 if [[ -z "$GENERATE_APPCAST" ]]; then
@@ -204,6 +227,29 @@ echo "==> Creating update archive $ZIP_NAME"
 /usr/bin/ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
 cp "$ZIP_PATH" "$APPCAST_DIR/$ZIP_NAME"
 
+DMG_NAME="Pulse-${VERSION}.dmg"
+DMG_PATH="$DIST_DIR/$DMG_NAME"
+DMG_STAGE="$BUILD_DIR/dmg-stage"
+echo "==> Creating first-install disk image $DMG_NAME"
+rm -rf "$DMG_STAGE"
+mkdir -p "$DMG_STAGE"
+/usr/bin/ditto "$APP_PATH" "$DMG_STAGE/Pulse.app"
+ln -s /Applications "$DMG_STAGE/Applications"
+create_dmg "$DMG_STAGE" "$DMG_PATH" "Pulse"
+
+if [[ "${SKIP_NOTARIZE:-0}" != "1" ]]; then
+  echo "==> Notarizing disk image"
+  xcrun notarytool submit "$DMG_PATH" \
+    --key "$APPLE_API_KEY_PATH" \
+    --key-id "$APPLE_API_KEY" \
+    --issuer "$APPLE_API_ISSUER" \
+    --wait
+
+  echo "==> Stapling disk image"
+  xcrun stapler staple "$DMG_PATH"
+  xcrun stapler validate "$DMG_PATH"
+fi
+
 DOWNLOAD_PREFIX="https://github.com/${GH_REPO}/releases/download/${TAG}/"
 echo "==> Generating Sparkle appcast"
 "$GENERATE_APPCAST" \
@@ -217,12 +263,15 @@ fi
 
 echo "==> Uploading GitHub Release assets"
 if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
-  gh release upload "$TAG" "$ZIP_PATH" --repo "$GH_REPO" --clobber
+  gh release upload "$TAG" "$ZIP_PATH" "$DMG_PATH" --repo "$GH_REPO" --clobber
 else
-  gh release create "$TAG" "$ZIP_PATH" \
+  gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" \
     --repo "$GH_REPO" \
     --title "Pulse ${VERSION}" \
-    --notes "Pulse ${VERSION}"
+    --notes "Pulse ${VERSION}
+
+For first-time installation, download Pulse-${VERSION}.dmg and drag Pulse to Applications.
+The zip asset is used by Sparkle automatic updates."
 fi
 
 echo "==> Publishing stable Sparkle appcast asset"
@@ -238,3 +287,4 @@ echo ""
 echo "Done:"
 echo "  Release: https://github.com/${GH_REPO}/releases/tag/${TAG}"
 echo "  Appcast: ${SPARKLE_FEED_URL}"
+echo "  Installer: $DMG_PATH"

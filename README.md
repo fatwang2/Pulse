@@ -16,6 +16,10 @@ Pulse is a lightweight market-watching app, not a trading terminal. It solves ex
 - **Multi-provider data layer**: providers are routed per market and fail over automatically when one is rate-limited or down
 - **Trading-session-aware refresh**: polls only while each market is open, following its trading calendar — saving power and avoiding rate limits
 
+## Installation
+
+Download the latest `Pulse-*.dmg` from [GitHub Releases](https://github.com/fatwang2/Pulse/releases), open it, and drag `Pulse.app` to Applications before launching. The `Pulse-*.zip` asset is used by Sparkle for automatic updates.
+
 ## Building
 
 Requires **Xcode 26+** and [XcodeGen](https://github.com/yonaskolb/XcodeGen). `Pulse.xcodeproj` is generated from `project.yml` and is not checked in.

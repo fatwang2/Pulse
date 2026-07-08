@@ -36,6 +36,7 @@ targets:
         LSMinimumSystemVersion: "26.0"
         NSHumanReadableCopyright: "© 2026 Pulse"
         SUEnableAutomaticChecks: true
+        SUEnableInstallerLauncherService: true
         SUFeedURL: $(SPARKLE_FEED_URL)
         SUPublicEDKey: $(SPARKLE_PUBLIC_ED_KEY)
         SUScheduledCheckInterval: 86400
@@ -44,6 +45,9 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
+        com.apple.security.temporary-exception.mach-lookup.global-name:
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spks
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
     settings:
       base:
         MARKETING_VERSION: "0.1.0"

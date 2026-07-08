@@ -75,6 +75,11 @@ cat > "$ENTITLEMENTS_PATH" <<'PLIST'
     <true/>
     <key>com.apple.security.network.client</key>
     <true/>
+    <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+    <array>
+        <string>app.pulse.mac-spks</string>
+        <string>app.pulse.mac-spki</string>
+    </array>
 </dict>
 </plist>
 PLIST

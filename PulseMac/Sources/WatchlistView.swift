@@ -103,15 +103,6 @@ struct WatchlistView: View {
                 Spacer(minLength: 0)
             }
             .padding(.top, 1)
-        } else if hasPositionInMultipleCurrencies {
-            HStack(spacing: 4) {
-                Image(systemName: "sum")
-                    .font(.system(size: 10, weight: .medium))
-                Text("多币种持仓，进入详情查看单项盈亏")
-                    .font(.system(size: 10))
-            }
-            .foregroundStyle(.tertiary)
-            .padding(.top, 1)
         }
     }
 
@@ -135,10 +126,6 @@ struct WatchlistView: View {
             rows.reduce(0) { $0 + $1.metrics.totalPnL },
             currencyCodes.first
         )
-    }
-
-    private var hasPositionInMultipleCurrencies: Bool {
-        Set(positionRows.map(\.currencyCode)).count > 1
     }
 
     private var watchRowMetricColumnWidth: CGFloat {
@@ -182,8 +169,8 @@ struct WatchlistView: View {
                     Text("按住任意行拖动调整顺序")
                 } else if appState.market.lastError != nil {
                     Text("数据源异常，自动降级中")
-                } else if let refreshed = appState.market.lastRefresh {
-                    Text("更新于 \(refreshed.formatted(date: .omitted, time: .standard))")
+                } else if let timing = appState.refreshTimingText() {
+                    Text(timing)
                 } else {
                     Text("加载中…")
                 }
@@ -310,9 +297,6 @@ struct WatchlistView: View {
             Text("搜索添加你的第一只自选")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            Text("支持美股 · 港股 · A 股 · ETF · 指数")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
             Spacer()
         }
         .frame(maxWidth: .infinity)

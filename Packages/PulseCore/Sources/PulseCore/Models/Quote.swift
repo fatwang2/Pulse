@@ -18,13 +18,17 @@ public struct Quote: Codable, Sendable, Hashable {
     /// Turnover (in the market's local currency)
     public var turnover: Double?
     public var currencyCode: String?
+    public var sourceID: String?
+    public var sourceName: String?
+    public var sourceDelay: TimeInterval?
     public var timestamp: Date
     public var marketState: MarketState?
 
     public init(symbol: SymbolID, name: String? = nil, price: Double, previousClose: Double,
                 open: Double? = nil, high: Double? = nil, low: Double? = nil,
                 volume: Double? = nil, turnover: Double? = nil,
-                currencyCode: String? = nil, timestamp: Date = .now, marketState: MarketState? = nil) {
+                currencyCode: String? = nil, sourceID: String? = nil, sourceName: String? = nil,
+                sourceDelay: TimeInterval? = nil, timestamp: Date = .now, marketState: MarketState? = nil) {
         self.symbol = symbol
         self.name = name
         self.price = price
@@ -35,8 +39,19 @@ public struct Quote: Codable, Sendable, Hashable {
         self.volume = volume
         self.turnover = turnover
         self.currencyCode = currencyCode
+        self.sourceID = sourceID
+        self.sourceName = sourceName
+        self.sourceDelay = sourceDelay
         self.timestamp = timestamp
         self.marketState = marketState
+    }
+
+    public func sourced(by descriptor: ProviderDescriptor) -> Quote {
+        var quote = self
+        quote.sourceID = descriptor.id
+        quote.sourceName = descriptor.name
+        quote.sourceDelay = descriptor.delay[symbol.market]
+        return quote
     }
 
     public var change: Double { price - previousClose }

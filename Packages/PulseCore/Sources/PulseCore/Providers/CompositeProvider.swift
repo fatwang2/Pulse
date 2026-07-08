@@ -113,7 +113,8 @@ public actor CompositeProvider: QuoteProvider {
         var lastError: (any Error)?
         for (id, group) in groups {
             do {
-                result += try await providerByID[id]!.quotes(for: group)
+                let provider = providerByID[id]!
+                result += try await provider.quotes(for: group).map { $0.sourced(by: provider.descriptor) }
             } catch {
                 noteFailure(id, error)
                 lastError = error
@@ -122,7 +123,7 @@ public actor CompositeProvider: QuoteProvider {
                     guard let fallback = candidates(.quotes, market: market)
                         .first(where: { $0.descriptor.id != id }) else { continue }
                     if let recovered = try? await fallback.quotes(for: marketSymbols) {
-                        result += recovered
+                        result += recovered.map { $0.sourced(by: fallback.descriptor) }
                     }
                 }
             }

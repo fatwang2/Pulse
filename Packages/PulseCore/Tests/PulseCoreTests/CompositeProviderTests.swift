@@ -6,13 +6,16 @@ import Testing
 struct MockProvider: QuoteProvider {
     var id: String
     var searchError: ProviderError?
+    var quoteError: ProviderError?
     var searchResults: [SymbolInfo] = []
     var candleResult: [Candle] = [Candle(time: .now, open: 1, high: 2, low: 0.5, close: 1.5)]
     var quotePrice: Double = 100
+    var delay: [Market: TimeInterval] = [:]
 
     var descriptor: ProviderDescriptor {
         ProviderDescriptor(id: id, name: id, markets: [.us, .hk, .sh, .sz],
-                           capabilities: [.search, .quotes, .candles])
+                           capabilities: [.search, .quotes, .candles],
+                           delay: delay)
     }
 
     func search(_ query: String) async throws -> [SymbolInfo] {
@@ -21,7 +24,8 @@ struct MockProvider: QuoteProvider {
     }
 
     func quotes(for symbols: [SymbolID]) async throws -> [Quote] {
-        symbols.map { Quote(symbol: $0, price: quotePrice, previousClose: 99) }
+        if let quoteError { throw quoteError }
+        return symbols.map { Quote(symbol: $0, price: quotePrice, previousClose: 99) }
     }
 
     func candles(for symbol: SymbolID, period: CandlePeriod, count: Int) async throws -> [Candle] {
@@ -105,5 +109,22 @@ struct CompositeProviderTests {
 
         #expect(quotes.first(where: { $0.symbol == apple })?.price == 200)
         #expect(quotes.first(where: { $0.symbol == tencentHK })?.price == 100)
+    }
+
+    @Test("Quotes are annotated with the actual source and its market delay")
+    func quotesCarrySourceMetadata() async throws {
+        let tencent = MockProvider(id: "tencent",
+                                   quoteError: .network(underlying: "offline"),
+                                   delay: [.sh: 0])
+        let yahoo = MockProvider(id: "yahoo", quotePrice: 200, delay: [.sh: 900])
+        let composite = CompositeProvider(providers: [tencent, yahoo])
+        let maotai = SymbolID(market: .sh, code: "600519")
+
+        let quote = try #require(try await composite.quotes(for: [maotai]).first)
+
+        #expect(quote.price == 200)
+        #expect(quote.sourceID == "yahoo")
+        #expect(quote.sourceName == "yahoo")
+        #expect(quote.sourceDelay == 900)
     }
 }

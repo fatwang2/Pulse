@@ -38,11 +38,11 @@ struct DetailView: View {
     private var item: WatchItem? { appState.watchlist.item(for: symbol) }
 
     private var marketSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            sectionHeader("行情")
+        VStack(alignment: .leading, spacing: 8) {
             quoteSummary
             statsGrid
         }
+        .padding(.top, 4)
     }
 
     private var chartSection: some View {
@@ -65,11 +65,6 @@ struct DetailView: View {
             .opacity(0.45)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-    }
-
-    private func sectionHeader(_ title: String) -> some View {
-        sectionHeaderText(title)
-            .padding(.horizontal, 12)
     }
 
     private func sectionHeaderText(_ title: String) -> some View {
@@ -107,38 +102,38 @@ struct DetailView: View {
     }
 
     private var quoteSummary: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .top, spacing: 12) {
             if let quote {
                 let color = appState.palette.color(for: quote.change)
-                Text(PriceFormatter.price(quote.price))
-                    .font(.system(size: 26, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(color)
-                    .contentTransition(.numericText())
-                if let sessionLabel = quote.marketState?.extendedSessionLabel {
-                    Text(sessionLabel)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(quotePriceLabel(for: quote))
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(PriceFormatter.price(quote.price))
+                            .font(.system(size: 26, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(color)
+                            .contentTransition(.numericText())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.82)
+                        if let currency = quote.currencyCode {
+                            Text(currency)
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(PriceFormatter.change(quote.change))
+                            .font(.system(size: 12, weight: .medium).monospacedDigit())
+                            .foregroundStyle(color)
+                        Text(PriceFormatter.percent(quote.changePercent))
+                            .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(color)
+                    }
                 }
-                Text(PriceFormatter.change(quote.change))
-                    .font(.system(size: 12, weight: .medium).monospacedDigit())
-                    .foregroundStyle(color)
-                Text(PriceFormatter.percent(quote.changePercent))
-                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(color)
+                .layoutPriority(1)
                 Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    if let currency = quote.currencyCode {
-                        Text(currency)
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(.tertiary)
-                    }
-                    let delay = appState.quoteDelay(for: symbol.market)
-                    if delay > 0 {
-                        Text("延时约\(Int(delay / 60))分钟")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.tertiary)
-                    }
-                }
+                quoteMeta(for: quote)
             } else {
                 Text("—").font(.title2)
                 Spacer()
@@ -146,6 +141,52 @@ struct DetailView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 3)
+    }
+
+    private func quotePriceLabel(for quote: Quote) -> String {
+        switch quote.marketState {
+        case .preMarket:
+            "盘前价"
+        case .postMarket:
+            "盘后价"
+        case .closed:
+            "收盘价"
+        case .regular, .none:
+            "现价"
+        }
+    }
+
+    private func quoteMeta(for quote: Quote) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let sourceName = quote.sourceName {
+                quoteMetaRow("来源", sourceName)
+            }
+            quoteMetaRow("时间", appState.quoteMarketTimeText(for: quote))
+            quoteMetaRow("状态", appState.quoteDelayText(for: quote) ?? "实时", isWarning: appState.quoteDelayText(for: quote) != nil)
+        }
+        .font(.system(size: 9, weight: .medium))
+        .foregroundStyle(.tertiary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.78)
+        .allowsTightening(true)
+        .frame(width: 128, alignment: .leading)
+    }
+
+    private func quoteMetaRow(_ label: String, _ value: String, isWarning: Bool = false) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(label)
+                .frame(width: 24, alignment: .leading)
+                .foregroundStyle(.quaternary)
+            if isWarning {
+                Text(value)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .foregroundStyle(Color.orange.opacity(0.85))
+            } else {
+                Text(value)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .foregroundStyle(.tertiary)
+            }
+        }
     }
 
     private var statsGrid: some View {
@@ -161,22 +202,40 @@ struct DetailView: View {
 
     @ViewBuilder
     private var positionSection: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 7) {
             HStack {
                 sectionHeaderText("持仓")
                 Spacer()
             }
             if let item, item.hasPosition,
                let quote, let metrics = PositionMetrics(item: item, quote: quote) {
-                    HStack(spacing: 0) {
-                        positionStat("数量", PriceFormatter.quantity(metrics.quantity))
-                        positionStat("成本", PriceFormatter.price(metrics.averageCost))
-                        positionStat("市值", PriceFormatter.money(metrics.marketValue, currencyCode: currencyCode))
-                    }
-                    HStack(spacing: 0) {
-                        pnlStat("今日", value: metrics.todayPnL, percent: metrics.todayReturnPercent)
-                        pnlStat("持仓", value: metrics.totalPnL, percent: metrics.totalReturnPercent)
-                    }
+                HStack(spacing: 0) {
+                    positionStat("数量", PriceFormatter.quantity(metrics.quantity))
+                    positionStat("成本", PriceFormatter.price(metrics.averageCost))
+                    positionStat("市值", PriceFormatter.money(metrics.marketValue, currencyCode: currencyCode))
+                }
+                HStack(spacing: 10) {
+                    pnlStat(
+                        "今日金额",
+                        PriceFormatter.signedMoney(metrics.todayPnL, currencyCode: currencyCode),
+                        colorBasis: metrics.todayPnL
+                    )
+                    pnlStat(
+                        "今日涨幅",
+                        PriceFormatter.percent(metrics.todayReturnPercent),
+                        colorBasis: metrics.todayReturnPercent
+                    )
+                    pnlStat(
+                        "持仓金额",
+                        PriceFormatter.signedMoney(metrics.totalPnL, currencyCode: currencyCode),
+                        colorBasis: metrics.totalPnL
+                    )
+                    pnlStat(
+                        "持仓涨幅",
+                        PriceFormatter.percent(metrics.totalReturnPercent),
+                        colorBasis: metrics.totalReturnPercent
+                    )
+                }
             } else {
                 Text("未录入持仓")
                     .font(.system(size: 10.5))
@@ -207,14 +266,14 @@ struct DetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func pnlStat(_ label: String, value: Double, percent: Double) -> some View {
+    private func pnlStat(_ label: String, _ value: String, colorBasis: Double) -> some View {
         VStack(alignment: .leading, spacing: 1.5) {
             Text(label)
                 .font(.system(size: 9))
                 .foregroundStyle(.tertiary)
-            Text("\(PriceFormatter.signedMoney(value, currencyCode: currencyCode)) · \(PriceFormatter.percent(percent))")
+            Text(value)
                 .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
-                .foregroundStyle(appState.palette.color(for: value))
+                .foregroundStyle(appState.palette.color(for: colorBasis))
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
                 .allowsTightening(true)
@@ -266,6 +325,7 @@ struct DetailView: View {
                 IntradayChartView(
                     candles: candles,
                     previousClose: quote?.previousClose ?? candles.first?.open ?? 0,
+                    market: symbol.market,
                     palette: appState.palette
                 )
             } else {

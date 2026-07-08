@@ -111,13 +111,50 @@ final class AppState {
         engine.activeInterval = interval
     }
 
-    /// Minimum quote delay (in seconds) for a market: the best value among all enabled providers that support quotes for that market.
-    /// Used to show "delayed ~X min" in the UI so users don't mistake the data for real-time quotes.
+    /// Minimum quote delay (in seconds) for a market: fallback only when the active quote source is unknown.
     func quoteDelay(for market: Market) -> TimeInterval {
         let delays = provider.registeredDescriptors
             .filter { !settings.disabledProviderIDs.contains($0.id) && $0.supports(.quotes, in: market) }
             .compactMap { $0.delay[market] }
         return delays.min() ?? 0
+    }
+
+    func quoteDelay(for quote: Quote) -> TimeInterval {
+        quote.sourceDelay ?? quoteDelay(for: quote.symbol.market)
+    }
+
+    func quoteTimingText(for quote: Quote) -> String {
+        var parts = ["行情 \(formatMarketTime(quote.timestamp, market: quote.symbol.market))"]
+        if let sourceName = quote.sourceName {
+            parts.append(sourceName)
+        }
+        let delay = quoteDelay(for: quote)
+        if delay > 0 {
+            parts.append("延时约\(Int(delay / 60))分钟")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    func quoteMarketTimeText(for quote: Quote) -> String {
+        formatMarketTime(quote.timestamp, market: quote.symbol.market)
+    }
+
+    func quoteDelayText(for quote: Quote) -> String? {
+        let delay = quoteDelay(for: quote)
+        guard delay > 0 else { return nil }
+        return "延时约\(Int(delay / 60))分钟"
+    }
+
+    func refreshTimingText() -> String? {
+        guard let refreshed = market.lastRefresh else { return nil }
+        return "更新于 \(refreshed.formatted(date: .omitted, time: .standard))"
+    }
+
+    private func formatMarketTime(_ date: Date, market: Market) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        formatter.timeZone = market.timeZone
+        return formatter.string(from: date)
     }
 
     // MARK: - Search

@@ -10,6 +10,8 @@ public struct CandlestickChartView: View {
     let palette: ChangePalette
     let period: CandlePeriod
 
+    @State private var hoveredIndex: Int?
+
     public init(candles: [Candle], palette: ChangePalette, period: CandlePeriod = .day) {
         self.candles = candles
         self.palette = palette
@@ -39,6 +41,11 @@ public struct CandlestickChartView: View {
                     }
                 }
             }
+            .chartOverlay { proxy in
+                GeometryReader { geo in
+                    priceCrosshair(proxy: proxy, geo: geo)
+                }
+            }
 
             Chart {
                 volumeMarks
@@ -47,6 +54,131 @@ public struct CandlestickChartView: View {
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
             .frame(height: 36)
+            .chartOverlay { proxy in
+                GeometryReader { geo in
+                    volumeCrosshair(proxy: proxy, geo: geo)
+                }
+            }
+        }
+        .onChange(of: candles) { _, _ in hoveredIndex = nil }
+    }
+
+    // MARK: - Crosshair
+
+    @ViewBuilder
+    private func priceCrosshair(proxy: ChartProxy, geo: GeometryProxy) -> some View {
+        let plot = proxy.plotFrame.map { geo[$0] } ?? .zero
+        ZStack(alignment: .topLeading) {
+            hoverCatcher(plot: plot)
+            if let index = hoveredIndex, let candle = candles[safe: index],
+               let xPos = proxy.position(forX: index),
+               let yPos = proxy.position(forY: candle.close) {
+                let px = plot.origin.x + xPos
+                let py = plot.origin.y + min(max(yPos, 0), plot.height)
+                ChartCrosshair.lines(px: px, py: py, in: plot)
+                priceTag(for: candle, py: py, geo: geo)
+                readout(for: candle, previous: candles[safe: index - 1])
+                    .padding(4)
+                    .frame(width: plot.width, height: plot.height,
+                           alignment: px > plot.midX ? .topLeading : .topTrailing)
+                    .offset(x: plot.origin.x, y: plot.origin.y)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func volumeCrosshair(proxy: ChartProxy, geo: GeometryProxy) -> some View {
+        let plot = proxy.plotFrame.map { geo[$0] } ?? .zero
+        ZStack(alignment: .topLeading) {
+            hoverCatcher(plot: plot)
+            if let index = hoveredIndex, let xPos = proxy.position(forX: index) {
+                ChartCrosshair.lines(px: plot.origin.x + xPos, py: nil, in: plot)
+            }
+        }
+    }
+
+    /// Transparent layer that tracks the cursor; both panes update the shared index,
+    /// so the vertical line stays continuous across price and volume.
+    private func hoverCatcher(plot: CGRect) -> some View {
+        Rectangle()
+            .fill(Color.clear)
+            .contentShape(Rectangle())
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let point):
+                    hoveredIndex = index(at: point, plot: plot)
+                case .ended:
+                    hoveredIndex = nil
+                }
+            }
+    }
+
+    /// Invert the linear index scale by hand: `proxy.value(atX:)` on an Int scale truncates,
+    /// which would make the snap lag half a candle behind the cursor.
+    private func index(at point: CGPoint, plot: CGRect) -> Int? {
+        guard !candles.isEmpty, plot.width > 0,
+              plot.insetBy(dx: -2, dy: -4).contains(point) else { return nil }
+        let rel = (point.x - plot.origin.x) / plot.width
+        let raw = Double(xDomain.lowerBound) + rel * Double(xDomain.upperBound - xDomain.lowerBound)
+        return min(max(Int(raw.rounded()), 0), candles.count - 1)
+    }
+
+    private func priceTag(for candle: Candle, py: CGFloat, geo: GeometryProxy) -> some View {
+        let text = PriceFormatter.price(candle.close)
+        return CrosshairTag(text: text)
+            .position(x: geo.size.width - ChartCrosshair.tagWidth(text) / 2, y: py)
+    }
+
+    /// OHLC + volume readout, docked to the top corner away from the cursor.
+    private func readout(for candle: Candle, previous: Candle?) -> some View {
+        let base = previous?.close ?? candle.open
+        let changePercent = base == 0 ? 0 : (candle.close - base) / base * 100
+        return VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text(readoutDateLabel(for: candle))
+                    .foregroundStyle(.secondary)
+                Text(PriceFormatter.percent(changePercent))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(palette.color(for: changePercent))
+            }
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 2) {
+                GridRow {
+                    readoutValue("开", PriceFormatter.price(candle.open))
+                    readoutValue("高", PriceFormatter.price(candle.high))
+                }
+                GridRow {
+                    readoutValue("低", PriceFormatter.price(candle.low))
+                    readoutValue("收", PriceFormatter.price(candle.close))
+                }
+                if let volume = candle.volume {
+                    GridRow {
+                        readoutValue("量", PriceFormatter.compact(volume))
+                    }
+                }
+            }
+        }
+        .font(.system(size: 9).monospacedDigit())
+        .padding(.horizontal, 6)
+        .padding(.vertical, 5)
+        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(.thickMaterial))
+        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(.separator.opacity(0.5), lineWidth: 0.5))
+        .fixedSize()
+    }
+
+    private func readoutValue(_ label: String, _ value: String) -> some View {
+        HStack(spacing: 3) {
+            Text(label).foregroundStyle(.tertiary)
+            Text(value).foregroundStyle(.primary)
+        }
+    }
+
+    private func readoutDateLabel(for candle: Candle) -> String {
+        switch period {
+        case .month:
+            candle.time.formatted(.dateTime.year().month(.twoDigits))
+        default:
+            candle.time.formatted(.dateTime.year().month(.twoDigits).day(.twoDigits))
         }
     }
 

@@ -13,13 +13,17 @@ struct DetailView: View {
 
     private static let periods: [CandlePeriod] = [.minute1, .day, .week, .month]
 
+    // Page flow: price hero → trend chart → market stats → position.
+    // Source/time/delay metadata sits at the hero's top-right corner, annotating the price.
     var body: some View {
         VStack(spacing: 0) {
-            marketSection
-            sectionSeparator
-            positionSection
+            heroSection
             sectionSeparator
             chartSection
+            sectionSeparator
+            statsSection
+            sectionSeparator
+            positionSection
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .scrollEdgeEffectStyle(.soft, for: .all)
@@ -37,41 +41,11 @@ struct DetailView: View {
     private var quote: Quote? { appState.market.quote(for: symbol) }
     private var item: WatchItem? { appState.watchlist.item(for: symbol) }
 
-    private var marketSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            quoteSummary
-            statsGrid
-        }
-        .padding(.top, 4)
+    private var currencyCode: String? {
+        quote?.currencyCode ?? symbol.market.currencyCode
     }
 
-    private var chartSection: some View {
-        VStack(spacing: 7) {
-            HStack(alignment: .center) {
-                sectionHeaderText("趋势")
-                Spacer()
-                picker
-            }
-            .padding(.horizontal, 12)
-            chart
-                .padding(.horizontal, 8)
-                .padding(.bottom, 8)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var sectionSeparator: some View {
-        Divider()
-            .opacity(0.45)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-    }
-
-    private func sectionHeaderText(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(.secondary)
-    }
+    // MARK: - Chrome
 
     private var header: some View {
         HStack(spacing: 8) {
@@ -101,46 +75,75 @@ struct DetailView: View {
         .padding(.vertical, 7)
     }
 
-    private var quoteSummary: some View {
+    // MARK: - Hero
+
+    private var heroSection: some View {
         HStack(alignment: .top, spacing: 12) {
-            if let quote {
-                let color = appState.palette.color(for: quote.change)
-                VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 3) {
+                if let quote {
+                    let color = appState.palette.color(for: quote.change)
                     Text(quotePriceLabel(for: quote))
                         .font(.system(size: 9, weight: .medium))
                         .foregroundStyle(.tertiary)
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
                         Text(PriceFormatter.price(quote.price))
-                            .font(.system(size: 26, weight: .semibold).monospacedDigit())
+                            .font(.system(size: 28, weight: .semibold).monospacedDigit())
                             .foregroundStyle(color)
                             .contentTransition(.numericText())
                             .lineLimit(1)
                             .minimumScaleFactor(0.82)
                         if let currency = quote.currencyCode {
                             Text(currency)
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(.tertiary)
                         }
                     }
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(PriceFormatter.change(quote.change))
                             .font(.system(size: 12, weight: .medium).monospacedDigit())
-                            .foregroundStyle(color)
                         Text(PriceFormatter.percent(quote.changePercent))
-                            .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                            .foregroundStyle(color)
+                            .font(.system(size: 12, weight: .semibold).monospacedDigit())
                     }
+                    .foregroundStyle(color)
+                } else {
+                    Text("现价")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                    Text("—")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(.secondary)
                 }
-                .layoutPriority(1)
-                Spacer()
+            }
+            .layoutPriority(1)
+            Spacer(minLength: 8)
+            if let quote {
                 quoteMeta(for: quote)
-            } else {
-                Text("—").font(.title2)
-                Spacer()
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 3)
+        .padding(.top, 8)
+    }
+
+    /// Quote provenance at the hero's top-right: source · market time, then freshness.
+    /// The first line top-aligns with the price label on the left.
+    private func quoteMeta(for quote: Quote) -> some View {
+        let delayText = appState.quoteDelayText(for: quote)
+        return VStack(alignment: .trailing, spacing: 4) {
+            Text([quote.sourceName, appState.quoteMarketTimeText(for: quote)]
+                .compactMap { $0 }
+                .joined(separator: " · "))
+                .foregroundStyle(.tertiary)
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(delayText == nil ? Color.green.opacity(0.8) : .orange)
+                    .frame(width: 5, height: 5)
+                Text(delayText ?? "实时")
+                    .foregroundStyle(delayText == nil ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.orange.opacity(0.85)))
+            }
+        }
+        .font(.system(size: 9, weight: .medium))
+        .lineLimit(1)
+        .fixedSize()
     }
 
     private func quotePriceLabel(for quote: Quote) -> String {
@@ -156,144 +159,23 @@ struct DetailView: View {
         }
     }
 
-    private func quoteMeta(for quote: Quote) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            if let sourceName = quote.sourceName {
-                quoteMetaRow("来源", sourceName)
-            }
-            quoteMetaRow("时间", appState.quoteMarketTimeText(for: quote))
-            quoteMetaRow("状态", appState.quoteDelayText(for: quote) ?? "实时", isWarning: appState.quoteDelayText(for: quote) != nil)
-        }
-        .font(.system(size: 9, weight: .medium))
-        .foregroundStyle(.tertiary)
-        .lineLimit(1)
-        .minimumScaleFactor(0.78)
-        .allowsTightening(true)
-        .frame(width: 128, alignment: .leading)
-    }
+    // MARK: - Chart
 
-    private func quoteMetaRow(_ label: String, _ value: String, isWarning: Bool = false) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(label)
-                .frame(width: 24, alignment: .leading)
-                .foregroundStyle(.quaternary)
-            if isWarning {
-                Text(value)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .foregroundStyle(Color.orange.opacity(0.85))
-            } else {
-                Text(value)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-    }
-
-    private var statsGrid: some View {
-        HStack(spacing: 0) {
-            stat("今开", quote?.open.map(PriceFormatter.price))
-            stat("最高", quote?.high.map(PriceFormatter.price))
-            stat("最低", quote?.low.map(PriceFormatter.price))
-            stat("成交量", quote?.volume.map(PriceFormatter.compact))
-            stat("成交额", quote?.turnover.map(PriceFormatter.compact))
-        }
-        .padding(.horizontal, 12)
-    }
-
-    @ViewBuilder
-    private var positionSection: some View {
+    private var chartSection: some View {
         VStack(spacing: 7) {
-            HStack {
-                sectionHeaderText("持仓")
+            HStack(alignment: .center) {
+                sectionHeaderText("趋势")
                 Spacer()
+                picker
             }
-            if let item, item.hasPosition,
-               let quote, let metrics = PositionMetrics(item: item, quote: quote) {
-                HStack(spacing: 0) {
-                    positionStat("数量", PriceFormatter.quantity(metrics.quantity))
-                    positionStat("成本", PriceFormatter.price(metrics.averageCost))
-                    positionStat("市值", PriceFormatter.money(metrics.marketValue, currencyCode: currencyCode))
-                }
-                HStack(spacing: 10) {
-                    pnlStat(
-                        "今日金额",
-                        PriceFormatter.signedMoney(metrics.todayPnL, currencyCode: currencyCode),
-                        colorBasis: metrics.todayPnL
-                    )
-                    pnlStat(
-                        "今日涨幅",
-                        PriceFormatter.percent(metrics.todayReturnPercent),
-                        colorBasis: metrics.todayReturnPercent
-                    )
-                    pnlStat(
-                        "持仓金额",
-                        PriceFormatter.signedMoney(metrics.totalPnL, currencyCode: currencyCode),
-                        colorBasis: metrics.totalPnL
-                    )
-                    pnlStat(
-                        "持仓涨幅",
-                        PriceFormatter.percent(metrics.totalReturnPercent),
-                        colorBasis: metrics.totalReturnPercent
-                    )
-                }
-            } else {
-                Text("未录入持仓")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 1)
-            }
+            .padding(.horizontal, 12)
+            // Leading 10 + the intraday plot's own 2pt inset lands the plot edge on the 12pt text grid;
+            // trailing 12 aligns the y-axis labels with it directly.
+            chart
+                .padding(.leading, 10)
+                .padding(.trailing, 12)
         }
-        .padding(.horizontal, 12)
-    }
-
-    private var currencyCode: String? {
-        quote?.currencyCode ?? symbol.market.currencyCode
-    }
-
-    private func positionStat(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 1.5) {
-            Text(label)
-                .font(.system(size: 9))
-                .foregroundStyle(.tertiary)
-            Text(value)
-                .font(.system(size: 10.5, weight: .medium).monospacedDigit())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-                .allowsTightening(true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func pnlStat(_ label: String, _ value: String, colorBasis: Double) -> some View {
-        VStack(alignment: .leading, spacing: 1.5) {
-            Text(label)
-                .font(.system(size: 9))
-                .foregroundStyle(.tertiary)
-            Text(value)
-                .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
-                .foregroundStyle(appState.palette.color(for: colorBasis))
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-                .allowsTightening(true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func stat(_ label: String, _ value: String?) -> some View {
-        VStack(alignment: .leading, spacing: 1.5) {
-            Text(label)
-                .font(.system(size: 9))
-                .foregroundStyle(.tertiary)
-            Text(value ?? "—")
-                .font(.system(size: 10.5, weight: .medium).monospacedDigit())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-                .allowsTightening(true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var picker: some View {
@@ -333,5 +215,118 @@ struct DetailView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Market stats
+
+    private var statsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeaderText("行情")
+            HStack(spacing: 8) {
+                stat("今开", quote?.open.map(PriceFormatter.price))
+                stat("最高", quote?.high.map(PriceFormatter.price))
+                stat("最低", quote?.low.map(PriceFormatter.price))
+            }
+            HStack(spacing: 8) {
+                stat("昨收", quote.map { PriceFormatter.price($0.previousClose) })
+                stat("成交量", quote?.volume.map(PriceFormatter.compact))
+                stat("成交额", quote?.turnover.map(PriceFormatter.compact))
+            }
+        }
+        .padding(.horizontal, 12)
+    }
+
+    // MARK: - Position
+
+    @ViewBuilder
+    private var positionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeaderText("持仓")
+            if let item, item.hasPosition {
+                if let quote, let metrics = PositionMetrics(item: item, quote: quote) {
+                    HStack(spacing: 8) {
+                        pnlCell("今日盈亏", amount: metrics.todayPnL, percent: metrics.todayReturnPercent)
+                        pnlCell("持仓盈亏", amount: metrics.totalPnL, percent: metrics.totalReturnPercent)
+                    }
+                    HStack(spacing: 8) {
+                        stat("数量", PriceFormatter.quantity(metrics.quantity))
+                        stat("成本", PriceFormatter.price(metrics.averageCost))
+                        stat("市值", PriceFormatter.money(metrics.marketValue, currencyCode: currencyCode))
+                    }
+                } else {
+                    Text("等待行情数据…")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.tertiary)
+                }
+            } else {
+                HStack {
+                    Text("未录入持仓")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                    if let item {
+                        Button("录入持仓") {
+                            route = .position(item.symbol, .detail(symbol))
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.tint)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
+    }
+
+    /// P&L cell: signed amount with its percent on a shared baseline, tinted by direction.
+    private func pnlCell(_ label: String, amount: Double, percent: Double) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundStyle(.tertiary)
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Text(PriceFormatter.signedMoney(amount, currencyCode: currencyCode))
+                    .font(.system(size: 12.5, weight: .semibold).monospacedDigit())
+                Text(PriceFormatter.percent(percent))
+                    .font(.system(size: 10, weight: .medium).monospacedDigit())
+                    .opacity(0.9)
+            }
+            .foregroundStyle(appState.palette.color(for: amount))
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+            .allowsTightening(true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Shared pieces
+
+    private var sectionSeparator: some View {
+        Divider()
+            .opacity(0.45)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+    }
+
+    private func sectionHeaderText(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(.secondary)
+    }
+
+    private func stat(_ label: String, _ value: String?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundStyle(.tertiary)
+            Text(value ?? "—")
+                .font(.system(size: 10.5, weight: .medium).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .allowsTightening(true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

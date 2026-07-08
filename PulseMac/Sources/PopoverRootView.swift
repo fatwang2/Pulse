@@ -76,7 +76,7 @@ struct PopoverRootView: View {
             let minimum = appState.watchlist.items.isEmpty ? Self.minHeight : Self.minListHeight
             return min(max(content, minimum), Self.maxHeight)
         case .detail:
-            return 540
+            return 560
         case .position:
             return 360
         case .settings:

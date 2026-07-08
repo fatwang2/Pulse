@@ -10,6 +10,7 @@ public final class WatchlistStore {
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let storageKey = "pulse.watchlist.v1"
+    @ObservationIgnored private let manualOrderKey = "pulse.watchlist.manualOrder.v1"
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -46,6 +47,29 @@ public final class WatchlistStore {
         items.removeAll { item in moving.contains { $0.id == item.id } }
         items.insert(contentsOf: moving, at: min(adjusted, items.count))
         save()
+    }
+
+    public func reorder(_ orderedSymbols: [SymbolID]) {
+        let bySymbol = Dictionary(uniqueKeysWithValues: items.map { ($0.symbol, $0) })
+        let ordered = orderedSymbols.compactMap { bySymbol[$0] }
+        let orderedSet = Set(orderedSymbols)
+        let remaining = items.filter { !orderedSet.contains($0.symbol) }
+        items = ordered + remaining
+        save()
+    }
+
+    public func rememberManualOrder() {
+        guard let data = try? JSONEncoder().encode(symbols) else { return }
+        defaults.set(data, forKey: manualOrderKey)
+    }
+
+    @discardableResult
+    public func restoreManualOrder() -> Bool {
+        guard let data = defaults.data(forKey: manualOrderKey),
+              let orderedSymbols = try? JSONDecoder().decode([SymbolID].self, from: data),
+              !orderedSymbols.isEmpty else { return false }
+        reorder(orderedSymbols)
+        return true
     }
 
     public func updateDisplayName(_ symbol: SymbolID, name: String) {

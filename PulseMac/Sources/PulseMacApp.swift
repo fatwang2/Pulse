@@ -7,6 +7,7 @@ struct PulseMacApp: App {
 
     init() {
         SelfTest.runIfRequested()
+        SoftwareUpdateController.shared.start()
     }
 
     var body: some Scene {

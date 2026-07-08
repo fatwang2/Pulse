@@ -10,6 +10,9 @@ packages:
     path: Packages/PulseCore
   PulseUI:
     path: Packages/PulseUI
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.9.4"
 
 targets:
   PulseMac:
@@ -20,16 +23,22 @@ targets:
     dependencies:
       - package: PulseCore
       - package: PulseUI
+      - package: Sparkle
+        product: Sparkle
     info:
       path: PulseMac/Info.plist
       properties:
         CFBundleName: Pulse
         CFBundleDisplayName: Pulse
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
         LSMinimumSystemVersion: "26.0"
         NSHumanReadableCopyright: "© 2026 Pulse"
+        SUEnableAutomaticChecks: true
+        SUFeedURL: $(SPARKLE_FEED_URL)
+        SUPublicEDKey: $(SPARKLE_PUBLIC_ED_KEY)
+        SUScheduledCheckInterval: 86400
     entitlements:
       path: PulseMac/Pulse.entitlements
       properties:
@@ -39,8 +48,12 @@ targets:
       base:
         PRODUCT_NAME: Pulse
         PRODUCT_BUNDLE_IDENTIFIER: app.pulse.mac
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
         ENABLE_HARDENED_RUNTIME: false
+        SPARKLE_FEED_URL: ""
+        SPARKLE_PUBLIC_ED_KEY: ""
         SWIFT_STRICT_CONCURRENCY: complete

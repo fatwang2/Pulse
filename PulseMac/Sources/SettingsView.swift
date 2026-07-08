@@ -37,6 +37,7 @@ struct ProviderRow: View {
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @Binding var route: PopoverRoute
+    @StateObject private var softwareUpdate = SoftwareUpdateController.shared
 
     var body: some View {
         @Bindable var settings = appState.settings
@@ -106,6 +107,25 @@ struct SettingsView: View {
 
             Section("通用") {
                 Toggle("开机自启", isOn: $settings.launchAtLogin)
+            }
+
+            Section {
+                LabeledContent("当前版本", value: "\(softwareUpdate.currentVersion) (\(softwareUpdate.currentBuild))")
+                if let feedURL = softwareUpdate.feedURL {
+                    LabeledContent("更新通道", value: feedURL)
+                }
+                Button("检查更新") {
+                    softwareUpdate.checkForUpdates()
+                }
+                .disabled(!softwareUpdate.isConfigured)
+            } header: {
+                Text("版本与更新")
+            } footer: {
+                if softwareUpdate.isConfigured {
+                    Text("Pulse 会自动检查 GitHub Release 更新；也可以在这里手动检查。")
+                } else {
+                    Text("当前构建未配置 Sparkle 更新通道，发布版会启用自动更新。")
+                }
             }
         }
         .formStyle(.grouped)

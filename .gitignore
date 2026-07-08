@@ -1,4 +1,9 @@
 .DS_Store
+.env
+.env.*
+!.env.example
+!.env.release.example
+*.p8
 .build/
 build/
 DerivedData/

@@ -65,6 +65,7 @@ Design documents live in [docs/](docs/):
 - [docs/RESEARCH.md](docs/RESEARCH.md) — competitive analysis and data source research
 - [docs/PLAN.md](docs/PLAN.md) — MVP scope, technology choices, architecture, milestones
 - [docs/PROVIDERS.md](docs/PROVIDERS.md) — provider architecture and the four-tier user-extensible plugin system
+- [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) — Developer ID, notarization, GitHub Releases, and Sparkle updates
 
 ## License
 

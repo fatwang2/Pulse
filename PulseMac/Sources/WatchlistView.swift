@@ -85,7 +85,7 @@ struct WatchlistView: View {
                     Button {
                         route = .settings
                     } label: {
-                        Text("设置…")
+                        Text("设置")
                     }
                     Divider()
                     Button {

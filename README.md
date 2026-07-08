@@ -4,6 +4,8 @@
 
 Pulse is a lightweight market-watching app, not a trading terminal. It solves exactly one problem: seeing how the symbols you care about are doing — and whether your positions are up or down — in the shortest possible time, without leaving what you're working on.
 
+![Pulse menu bar watchlist](assets/readme/pulse-menu-bar.png)
+
 ## Features
 
 - **Menu bar ticker**: icon-only by default (discreet); optionally show quotes as a pinned single symbol (`NVDA 188.3 +2.1%`) or a carousel rotating through your watchlist

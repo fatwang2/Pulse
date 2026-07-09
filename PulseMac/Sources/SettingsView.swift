@@ -25,11 +25,21 @@ struct ProviderRow: View {
             .map(\.displayName)
             .joined(separator: "/")
         var capabilities: [String] = []
-        if descriptor.capabilities.contains(.quotes) { capabilities.append("报价") }
-        if descriptor.capabilities.contains(.candles) { capabilities.append("K线") }
-        if descriptor.capabilities.contains(.search) { capabilities.append("搜索") }
-        if descriptor.capabilities.contains(.streaming) { capabilities.append("推送") }
-        let realtime = descriptor.delay.contains { $0.value == 0 } ? "部分实时" : "延时"
+        if descriptor.capabilities.contains(.quotes) {
+            capabilities.append(PulseLocalization.localizedString("provider.capability.quotes"))
+        }
+        if descriptor.capabilities.contains(.candles) {
+            capabilities.append(PulseLocalization.localizedString("provider.capability.candles"))
+        }
+        if descriptor.capabilities.contains(.search) {
+            capabilities.append(PulseLocalization.localizedString("provider.capability.search"))
+        }
+        if descriptor.capabilities.contains(.streaming) {
+            capabilities.append(PulseLocalization.localizedString("provider.capability.streaming"))
+        }
+        let realtime = descriptor.delay.contains { $0.value == 0 }
+            ? PulseLocalization.localizedString("provider.delay.realtime")
+            : PulseLocalization.localizedString("provider.delay.delayed")
         return "\(markets) · \(capabilities.joined(separator: "/")) · \(realtime)"
     }
 }
@@ -44,49 +54,49 @@ struct SettingsView: View {
 
         Form {
             Section {
-                Toggle("在菜单栏显示行情", isOn: $settings.showPriceInMenuBar)
+                Toggle(PulseLocalization.localizedString("settings.menuBar.showQuote"), isOn: $settings.showPriceInMenuBar)
                 if settings.showPriceInMenuBar {
-                    Picker("显示模式", selection: $settings.menuBarMode) {
+                    Picker(PulseLocalization.localizedString("settings.menuBar.displayMode"), selection: $settings.menuBarMode) {
                         Text(MenuBarMode.single.displayName).tag(MenuBarMode.single)
                         Text(MenuBarMode.rotate.displayName).tag(MenuBarMode.rotate)
                     }
                     if settings.menuBarMode == .single {
-                        Picker("固定标的", selection: $settings.primarySymbol) {
-                            Text("自选第一个").tag(SymbolID?.none)
+                        Picker(PulseLocalization.localizedString("settings.menuBar.fixedSymbol"), selection: $settings.primarySymbol) {
+                            Text(PulseLocalization.localizedString("settings.menuBar.firstWatchlistItem")).tag(SymbolID?.none)
                             ForEach(appState.watchlist.items) { item in
                                 Text(item.displayName).tag(SymbolID?.some(item.symbol))
                             }
                         }
                     }
                     if settings.menuBarMode == .rotate {
-                        Picker("轮播间隔", selection: $settings.rotateInterval) {
-                            Text("3 秒").tag(TimeInterval(3))
-                            Text("6 秒").tag(TimeInterval(6))
-                            Text("10 秒").tag(TimeInterval(10))
+                        Picker(PulseLocalization.localizedString("settings.menuBar.rotateInterval"), selection: $settings.rotateInterval) {
+                            Text(PulseLocalization.localizedString("duration.seconds", 3)).tag(TimeInterval(3))
+                            Text(PulseLocalization.localizedString("duration.seconds", 6)).tag(TimeInterval(6))
+                            Text(PulseLocalization.localizedString("duration.seconds", 10)).tag(TimeInterval(10))
                         }
                     }
                 }
             } header: {
-                Text("菜单栏")
+                Text(PulseLocalization.localizedString("settings.section.menuBar"))
             } footer: {
                 if !settings.showPriceInMenuBar {
-                    Text("关闭时菜单栏只显示图标，更低调")
+                    Text(PulseLocalization.localizedString("settings.menuBar.iconOnlyHelp"))
                 }
             }
 
-            Section("行情") {
-                Picker("盘中刷新频率", selection: Binding(
+            Section(PulseLocalization.localizedString("settings.section.market")) {
+                Picker(PulseLocalization.localizedString("settings.market.refreshInterval"), selection: Binding(
                     get: { settings.refreshInterval },
                     set: { appState.applyRefreshInterval($0) }
                 )) {
-                    Text("5 秒").tag(TimeInterval(5))
-                    Text("15 秒").tag(TimeInterval(15))
-                    Text("30 秒").tag(TimeInterval(30))
-                    Text("60 秒").tag(TimeInterval(60))
+                    Text(PulseLocalization.localizedString("duration.seconds", 5)).tag(TimeInterval(5))
+                    Text(PulseLocalization.localizedString("duration.seconds", 15)).tag(TimeInterval(15))
+                    Text(PulseLocalization.localizedString("duration.seconds", 30)).tag(TimeInterval(30))
+                    Text(PulseLocalization.localizedString("duration.seconds", 60)).tag(TimeInterval(60))
                 }
-                Picker("涨跌颜色", selection: $settings.redUp) {
-                    Text("红涨绿跌").tag(true)
-                    Text("绿涨红跌").tag(false)
+                Picker(PulseLocalization.localizedString("settings.market.colorRule"), selection: $settings.redUp) {
+                    Text(PulseLocalization.localizedString("settings.market.redUp")).tag(true)
+                    Text(PulseLocalization.localizedString("settings.market.greenUp")).tag(false)
                 }
             }
 
@@ -95,28 +105,36 @@ struct SettingsView: View {
                     ProviderRow(descriptor: descriptor)
                 }
             } header: {
-                Text("数据源")
+                Text(PulseLocalization.localizedString("settings.section.providers"))
             } footer: {
                 if appState.providerDescriptors.allSatisfy({ !appState.isProviderEnabled($0.id) }) {
-                    Text("⚠️ 所有数据源均已关闭，行情和搜索将不可用")
+                    Text(PulseLocalization.localizedString("settings.providers.allDisabled"))
                         .foregroundStyle(.orange)
                 } else {
-                    Text("多数据源自动路由：按能力与市场选择，故障时自动降级。未来支持添加自定义数据源。")
+                    Text(PulseLocalization.localizedString("settings.providers.help"))
                 }
             }
 
-            Section("通用") {
-                Toggle("开机自启", isOn: $settings.launchAtLogin)
+            Section(PulseLocalization.localizedString("settings.section.general")) {
+                Picker(PulseLocalization.localizedString("settings.general.language"), selection: $settings.languagePreference) {
+                    ForEach(PulseLanguagePreference.allCases, id: \.self) { preference in
+                        Text(preference.localizedDisplayName).tag(preference)
+                    }
+                }
+                Toggle(PulseLocalization.localizedString("settings.general.launchAtLogin"), isOn: $settings.launchAtLogin)
             }
 
             Section {
-                LabeledContent("当前版本", value: "\(softwareUpdate.currentVersion) (\(softwareUpdate.currentBuild))")
-                Button("检查更新") {
+                LabeledContent(
+                    PulseLocalization.localizedString("settings.updates.currentVersion"),
+                    value: "\(softwareUpdate.currentVersion) (\(softwareUpdate.currentBuild))"
+                )
+                Button(PulseLocalization.localizedString("settings.updates.check")) {
                     softwareUpdate.checkForUpdates()
                 }
                 .disabled(!softwareUpdate.isConfigured)
             } header: {
-                Text("版本与更新")
+                Text(PulseLocalization.localizedString("settings.section.updates"))
             }
         }
         .formStyle(.grouped)
@@ -128,10 +146,10 @@ struct SettingsView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            IconButton(systemName: "chevron.left", help: "返回") {
+            IconButton(systemName: "chevron.left", help: PulseLocalization.localizedString("action.back")) {
                 route = .list
             }
-            Text("设置")
+            Text(PulseLocalization.localizedString("settings.title"))
                 .font(.system(size: 13, weight: .semibold))
             Spacer()
         }

@@ -1,7 +1,7 @@
 import SwiftUI
 import PulseCore
 
-/// Market badge: small US/HK/SH/SZ tag
+/// Market badge: small US/HK/SH/SZ/crypto tag
 public struct MarketBadge: View {
     let market: Market
 
@@ -15,6 +15,7 @@ public struct MarketBadge: View {
         case .hk: .indigo
         case .sh: .orange
         case .sz: .teal
+        case .crypto: .purple
         }
     }
 

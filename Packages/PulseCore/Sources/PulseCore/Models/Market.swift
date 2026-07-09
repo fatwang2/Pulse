@@ -6,13 +6,15 @@ public enum Market: String, Codable, Sendable, CaseIterable, Hashable {
     case hk
     case sh
     case sz
+    case crypto
 
     public var displayName: String {
         switch self {
-        case .us: "美股"
-        case .hk: "港股"
-        case .sh: "沪"
-        case .sz: "深"
+        case .us: PulseLocalization.localizedString("market.us")
+        case .hk: PulseLocalization.localizedString("market.hk")
+        case .sh: PulseLocalization.localizedString("market.sh")
+        case .sz: PulseLocalization.localizedString("market.sz")
+        case .crypto: PulseLocalization.localizedString("market.crypto")
         }
     }
 
@@ -21,6 +23,7 @@ public enum Market: String, Codable, Sendable, CaseIterable, Hashable {
         case .us: "USD"
         case .hk: "HKD"
         case .sh, .sz: "CNY"
+        case .crypto: "USD"
         }
     }
 
@@ -29,6 +32,16 @@ public enum Market: String, Codable, Sendable, CaseIterable, Hashable {
         case .us: TimeZone(identifier: "America/New_York")!
         case .hk: TimeZone(identifier: "Asia/Hong_Kong")!
         case .sh, .sz: TimeZone(identifier: "Asia/Shanghai")!
+        case .crypto: TimeZone(identifier: "UTC")!
+        }
+    }
+
+    public var timeZoneDisplayName: String {
+        switch self {
+        case .us: PulseLocalization.localizedString("market.timeZone.us")
+        case .hk: PulseLocalization.localizedString("market.timeZone.hk")
+        case .sh, .sz: PulseLocalization.localizedString("market.timeZone.cn")
+        case .crypto: PulseLocalization.localizedString("market.timeZone.utc")
         }
     }
 

@@ -144,16 +144,16 @@ public struct CandlestickChartView: View {
             }
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 2) {
                 GridRow {
-                    readoutValue("开", PriceFormatter.price(candle.open))
-                    readoutValue("高", PriceFormatter.price(candle.high))
+                    readoutValue(PulseLocalization.localizedString("chart.open"), PriceFormatter.price(candle.open))
+                    readoutValue(PulseLocalization.localizedString("chart.high"), PriceFormatter.price(candle.high))
                 }
                 GridRow {
-                    readoutValue("低", PriceFormatter.price(candle.low))
-                    readoutValue("收", PriceFormatter.price(candle.close))
+                    readoutValue(PulseLocalization.localizedString("chart.low"), PriceFormatter.price(candle.low))
+                    readoutValue(PulseLocalization.localizedString("chart.close"), PriceFormatter.price(candle.close))
                 }
                 if let volume = candle.volume {
                     GridRow {
-                        readoutValue("量", PriceFormatter.compact(volume))
+                        readoutValue(PulseLocalization.localizedString("chart.volume"), PriceFormatter.compact(volume))
                     }
                 }
             }

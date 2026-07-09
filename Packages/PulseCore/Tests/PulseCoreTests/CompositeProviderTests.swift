@@ -13,7 +13,7 @@ struct MockProvider: QuoteProvider {
     var delay: [Market: TimeInterval] = [:]
 
     var descriptor: ProviderDescriptor {
-        ProviderDescriptor(id: id, name: id, markets: [.us, .hk, .sh, .sz],
+        ProviderDescriptor(id: id, name: id, markets: Set(Market.allCases),
                            capabilities: [.search, .quotes, .candles],
                            delay: delay)
     }

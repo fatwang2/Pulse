@@ -124,30 +124,37 @@ final class AppState {
     }
 
     func quoteTimingText(for quote: Quote) -> String {
-        var parts = ["行情 \(formatMarketTime(quote.timestamp, market: quote.symbol.market))"]
+        var parts = [PulseLocalization.localizedString(
+            "quote.timing.market",
+            quoteMarketTimeText(for: quote)
+        )]
         if let sourceName = quote.sourceName {
             parts.append(sourceName)
         }
         let delay = quoteDelay(for: quote)
         if delay > 0 {
-            parts.append("延时约\(Int(delay / 60))分钟")
+            parts.append(PulseLocalization.localizedString("quote.delay.minutes", Int(delay / 60)))
         }
         return parts.joined(separator: " · ")
     }
 
     func quoteMarketTimeText(for quote: Quote) -> String {
-        formatMarketTime(quote.timestamp, market: quote.symbol.market)
+        let market = quote.symbol.market
+        return "\(formatMarketTime(quote.timestamp, market: market)) \(market.timeZoneDisplayName)"
     }
 
     func quoteDelayText(for quote: Quote) -> String? {
         let delay = quoteDelay(for: quote)
         guard delay > 0 else { return nil }
-        return "延时约\(Int(delay / 60))分钟"
+        return PulseLocalization.localizedString("quote.delay.minutes", Int(delay / 60))
     }
 
     func refreshTimingText() -> String? {
         guard let refreshed = market.lastRefresh else { return nil }
-        return "更新于 \(refreshed.formatted(date: .omitted, time: .standard))"
+        return PulseLocalization.localizedString(
+            "refresh.updatedAt",
+            refreshed.formatted(date: .omitted, time: .standard)
+        )
     }
 
     private func formatMarketTime(_ date: Date, market: Market) -> String {

@@ -13,7 +13,7 @@ public struct TencentProvider: QuoteProvider {
     public var descriptor: ProviderDescriptor {
         ProviderDescriptor(
             id: "tencent",
-            name: "腾讯行情",
+            name: PulseLocalization.localizedString("provider.tencent"),
             markets: [.us, .hk, .sh, .sz],
             capabilities: [.quotes, .search],
             delay: [.us: 0, .hk: 900, .sh: 0, .sz: 0],
@@ -29,6 +29,7 @@ public struct TencentProvider: QuoteProvider {
         case .hk: "hk" + id.paddedCode(width: 5)
         case .sh: "sh" + id.code
         case .sz: "sz" + id.code
+        case .crypto: id.code
         }
     }
 

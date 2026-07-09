@@ -8,6 +8,7 @@ public enum SessionState: String, Sendable {
 /// TODO: holiday calendar (Chinese New Year / National Day / Thanksgiving, etc.); the MVP uses a simple Monday-to-Friday rule.
 public enum TradingCalendar {
     public static func state(of market: Market, at date: Date = .now) -> SessionState {
+        if market == .crypto { return .regular }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = market.timeZone
         let comps = calendar.dateComponents([.weekday, .hour, .minute], from: date)
@@ -31,6 +32,8 @@ public enum TradingCalendar {
             if (9 * 60 + 30)..<(16 * 60) ~= m { return .regular }
             if (16 * 60)..<(20 * 60) ~= m { return .postMarket }
             return .closed
+        case .crypto:
+            return .regular
         }
     }
 

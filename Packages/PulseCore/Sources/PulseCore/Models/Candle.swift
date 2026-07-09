@@ -29,11 +29,11 @@ public enum CandlePeriod: String, Codable, Sendable, CaseIterable, Hashable {
 
     public var displayName: String {
         switch self {
-        case .minute1: "分时"
-        case .minute5: "5分"
-        case .day: "日K"
-        case .week: "周K"
-        case .month: "月K"
+        case .minute1: PulseLocalization.localizedString("period.minute1")
+        case .minute5: PulseLocalization.localizedString("period.minute5")
+        case .day: PulseLocalization.localizedString("period.day")
+        case .week: PulseLocalization.localizedString("period.week")
+        case .month: PulseLocalization.localizedString("period.month")
         }
     }
 

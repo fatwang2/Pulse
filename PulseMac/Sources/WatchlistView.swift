@@ -8,6 +8,8 @@ struct WatchlistView: View {
 
     @State private var searchText = ""
     @State private var searchResults: [SymbolInfo] = []
+    @State private var searchCache: [String: [SymbolInfo]] = [:]
+    @State private var completedSearchQuery: String?
     @State private var isSearching = false
     @State private var searchError: String?
     @State private var refreshHovering = false
@@ -18,14 +20,13 @@ struct WatchlistView: View {
     var body: some View {
         // The correct Liquid Glass structure: put the chrome in safeAreaInset so the system treats it as a floating bar —
         // content scrolls underneath it and fades at the edge via scrollEdgeEffect, without clashing with the chrome text
-        Group {
-            if !searchText.isEmpty {
-                searchList
-            } else if appState.watchlist.isEmpty {
-                emptyState
-            } else {
-                watchList
-            }
+        ZStack {
+            baseContent
+                .opacity(searchText.isEmpty ? 1 : 0)
+                .allowsHitTesting(searchText.isEmpty)
+            searchList
+                .opacity(searchText.isEmpty ? 0 : 1)
+                .allowsHitTesting(!searchText.isEmpty)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .scrollEdgeEffectStyle(.soft, for: .all)
@@ -38,7 +39,7 @@ struct WatchlistView: View {
                     Button {
                         withAnimation(.snappy(duration: 0.25)) { isReordering = false }
                     } label: {
-                        Label("完成", systemImage: "checkmark")
+                        Label(PulseLocalization.localizedString("action.done"), systemImage: "checkmark")
                             .font(.system(size: 11, weight: .semibold))
                     }
                     .buttonStyle(.glassProminent)
@@ -47,6 +48,17 @@ struct WatchlistView: View {
                     .padding(.bottom, 4)
                 }
             }
+            .opacity(searchText.isEmpty ? 1 : 0)
+            .allowsHitTesting(searchText.isEmpty)
+        }
+    }
+
+    @ViewBuilder
+    private var baseContent: some View {
+        if appState.watchlist.isEmpty {
+            emptyState
+        } else {
+            watchList
         }
     }
 
@@ -61,17 +73,22 @@ struct WatchlistView: View {
                 Text("Pulse")
                     .font(.system(size: 12.5, weight: .semibold))
                 Spacer()
-                ClusterMenu(systemName: "ellipsis.circle", help: "更多") {
+                ClusterMenu(systemName: "ellipsis.circle", help: PulseLocalization.localizedString("action.more")) {
                     Menu {
                         ForEach(WatchRowMetricMode.allCases, id: \.self) { mode in
                             Toggle(mode.displayName, isOn: metricModeBinding(mode))
                         }
                     } label: {
-                        Text("列表显示")
+                        Text(PulseLocalization.localizedString("watchlist.menu.display"))
                     }
                     Divider()
                     Menu {
-                        Toggle(isReordering ? "正在手动排序" : "手动排序", isOn: orderModeBinding(.manual))
+                        Toggle(
+                            isReordering
+                                ? PulseLocalization.localizedString("watchlist.sort.manualActive")
+                                : PulseLocalization.localizedString("watchlist.sort.manual"),
+                            isOn: orderModeBinding(.manual)
+                        )
 
                         Divider()
 
@@ -79,19 +96,19 @@ struct WatchlistView: View {
                             Toggle(option.title, isOn: sortOptionBinding(option))
                         }
                     } label: {
-                        Text("列表排序")
+                        Text(PulseLocalization.localizedString("watchlist.menu.sort"))
                     }
                     Divider()
                     Button {
                         route = .settings
                     } label: {
-                        Text("设置")
+                        Text(PulseLocalization.localizedString("settings.title"))
                     }
                     Divider()
                     Button {
                         NSApplication.shared.terminate(nil)
                     } label: {
-                        Text("退出 Pulse")
+                        Text(PulseLocalization.localizedString("action.quitPulse"))
                     }
                 }
                 .frame(height: 26)
@@ -110,8 +127,8 @@ struct WatchlistView: View {
     private var portfolioSummary: some View {
         if let summary = portfolioSummaryData {
             HStack(spacing: 12) {
-                summaryItem("今日", value: summary.todayPnL, currencyCode: summary.currencyCode)
-                summaryItem("持仓", value: summary.totalPnL, currencyCode: summary.currencyCode)
+                summaryItem(PulseLocalization.localizedString("summary.today"), value: summary.todayPnL, currencyCode: summary.currencyCode)
+                summaryItem(PulseLocalization.localizedString("summary.position"), value: summary.totalPnL, currencyCode: summary.currencyCode)
                 Spacer(minLength: 0)
             }
             .padding(.top, 1)
@@ -179,13 +196,13 @@ struct WatchlistView: View {
                 .frame(width: 6, height: 6)
             Group {
                 if isReordering {
-                    Text("拖动任意行调整顺序")
+                    Text(PulseLocalization.localizedString("status.reorderHint"))
                 } else if appState.market.lastError != nil {
-                    Text("数据源异常，自动降级中")
+                    Text(PulseLocalization.localizedString("status.providerFallback"))
                 } else if let timing = appState.refreshTimingText() {
                     Text(timing)
                 } else {
-                    Text("加载中…")
+                    Text(PulseLocalization.localizedString("status.loading"))
                 }
             }
             .font(.caption2)
@@ -204,7 +221,7 @@ struct WatchlistView: View {
             }
             .buttonStyle(.plain)
             .onHover { refreshHovering = $0 }
-            .help("立即刷新")
+            .help(PulseLocalization.localizedString("action.refreshNow"))
         }
         .frame(height: 22)
         .padding(.leading, 12)
@@ -218,7 +235,7 @@ struct WatchlistView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-            TextField("代码 / 名称 / 拼音，如 AAPL、腾讯、600519", text: $searchText)
+            TextField(PulseLocalization.localizedString("search.placeholder"), text: $searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
             if isSearching {
@@ -244,21 +261,36 @@ struct WatchlistView: View {
         .disabled(isReordering)
         .opacity(isReordering ? 0.45 : 1)
         .task(id: searchText) {
-            guard !searchText.isEmpty else {
+            let query = normalizedSearchQuery(searchText)
+            guard shouldRunSearch(for: query) else {
                 searchResults = []
                 searchError = nil
+                completedSearchQuery = nil
+                return
+            }
+            if let cached = searchCache[query] {
+                searchResults = cached
+                searchError = nil
+                completedSearchQuery = query
                 return
             }
             isSearching = true
+            searchResults = []
+            searchError = nil
+            completedSearchQuery = nil
             defer { isSearching = false }
-            try? await Task.sleep(for: .milliseconds(300))  // debounce
+            try? await Task.sleep(for: .milliseconds(800))  // debounce
             guard !Task.isCancelled else { return }
             do {
-                searchResults = try await appState.search(searchText)
+                let results = try await appState.search(query)
+                searchCache[query] = results
+                searchResults = results
                 searchError = nil
+                completedSearchQuery = query
             } catch {
                 searchResults = []
                 searchError = shortErrorText(error)
+                completedSearchQuery = query
             }
         }
     }
@@ -278,12 +310,14 @@ struct WatchlistView: View {
             .padding(.vertical, 4)
         }
         .overlay {
-            if let searchError {
+            let query = normalizedSearchQuery(searchText)
+            let completedCurrentSearch = completedSearchQuery == query
+            if let searchError, completedCurrentSearch {
                 VStack(spacing: 6) {
                     Image(systemName: "wifi.exclamationmark")
                         .font(.system(size: 22))
                         .foregroundStyle(.orange)
-                    Text("搜索失败").font(.callout)
+                    Text(PulseLocalization.localizedString("search.failed")).font(.callout)
                     Text(searchError)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -291,23 +325,31 @@ struct WatchlistView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                 }
-            } else if searchResults.isEmpty && !isSearching {
-                Text("没有找到匹配的标的")
+            } else if searchResults.isEmpty && completedCurrentSearch && shouldRunSearch(for: query) {
+                Text(PulseLocalization.localizedString("search.noResults"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
     }
 
+    private func normalizedSearchQuery(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func shouldRunSearch(for query: String) -> Bool {
+        query.count >= 2
+    }
+
     private func shortErrorText(_ error: any Error) -> String {
         if let providerError = error as? ProviderError {
             return switch providerError {
-            case .network(let detail): "网络不可达：\(detail)"
-            case .rateLimited: "数据源暂时受限，约 1 分钟内自动恢复"
-            case .clientError(_, let detail): "数据源不支持该查询：\(detail)"
+            case .network(let detail): PulseLocalization.localizedString("error.network", detail)
+            case .rateLimited: PulseLocalization.localizedString("error.rateLimited")
+            case .clientError(_, let detail): PulseLocalization.localizedString("error.client", detail)
             case .badResponse(let detail): detail
-            case .unsupported: "所有数据源都已被禁用，请在设置中开启"
-            case .symbolNotFound: "标的不存在"
+            case .unsupported: PulseLocalization.localizedString("error.unsupported")
+            case .symbolNotFound: PulseLocalization.localizedString("error.symbolNotFound")
             }
         }
         return error.localizedDescription
@@ -321,7 +363,7 @@ struct WatchlistView: View {
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.system(size: 34))
                 .foregroundStyle(.quaternary)
-            Text("搜索添加你的第一只自选")
+            Text(PulseLocalization.localizedString("empty.watchlist"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
             Spacer()
@@ -342,16 +384,16 @@ struct WatchlistView: View {
                 .moveDisabled(!isReordering)
                 .contextMenu {
                     if !isReordering {
-                        Button("设为菜单栏显示") {
+                        Button(PulseLocalization.localizedString("action.pinToMenuBar")) {
                             appState.settings.primarySymbol = item.symbol
                             appState.settings.menuBarMode = .single
                             appState.settings.showPriceInMenuBar = true
                         }
-                        Button("编辑持仓") {
+                        Button(PulseLocalization.localizedString("action.editPosition")) {
                             route = .position(item.symbol, .list)
                         }
                         Divider()
-                        Button("删除", role: .destructive) {
+                        Button(PulseLocalization.localizedString("action.delete"), role: .destructive) {
                             appState.watchlist.remove(item.symbol)
                         }
                     }
@@ -481,10 +523,10 @@ private enum WatchlistSortOption: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .changePercent: "按涨跌幅"
-        case .todayPnL: "按今日盈亏"
-        case .totalPnL: "按持仓盈亏"
-        case .marketValue: "按持仓市值"
+        case .changePercent: PulseLocalization.localizedString("sort.changePercent")
+        case .todayPnL: PulseLocalization.localizedString("sort.todayPnL")
+        case .totalPnL: PulseLocalization.localizedString("sort.totalPnL")
+        case .marketValue: PulseLocalization.localizedString("sort.marketValue")
         }
     }
 }
@@ -590,8 +632,8 @@ struct SearchResultRow: View {
                     Text(info.symbol.code)
                         .font(.system(size: 10).monospaced())
                         .foregroundStyle(.secondary)
-                    if info.type != .equity {
-                        Text(info.type == .etf ? "ETF" : (info.type == .index ? "指数" : "基金"))
+                    if let typeLabel {
+                        Text(typeLabel)
                             .font(.system(size: 9))
                             .foregroundStyle(.tertiary)
                     }
@@ -617,6 +659,21 @@ struct SearchResultRow: View {
                 .fill(hovering ? Color.primary.opacity(0.05) : .clear)
         )
         .onHover { hovering = $0 }
+    }
+
+    private var typeLabel: String? {
+        switch info.type {
+        case .equity, .crypto:
+            nil
+        case .etf:
+            "ETF"
+        case .index:
+            PulseLocalization.localizedString("assetType.index")
+        case .fund:
+            PulseLocalization.localizedString("assetType.fund")
+        case .other:
+            nil
+        }
     }
 }
 
@@ -695,7 +752,7 @@ struct WatchRow: View {
             .gesture(TapGesture().onEnded {
                 appState.settings.watchRowMetricMode = appState.settings.watchRowMetricMode.next
             }, isEnabled: !isReordering)
-            .help("点击切换：涨跌幅 / 今日盈亏 / 持仓盈亏")
+            .help(PulseLocalization.localizedString("watchRow.metricHelp"))
 
             if isReordering {
                 Image(systemName: "line.3.horizontal")
@@ -703,7 +760,7 @@ struct WatchRow: View {
                     .foregroundStyle(.tertiary)
                     .frame(width: 24)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
-                    .help("按住拖动调整顺序")
+                    .help(PulseLocalization.localizedString("watchRow.dragHelp"))
             }
         }
         .padding(.horizontal, 8)

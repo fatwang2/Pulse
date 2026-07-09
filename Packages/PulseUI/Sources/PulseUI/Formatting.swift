@@ -42,10 +42,41 @@ public enum PriceFormatter {
 
     /// Compact volume/turnover display using CJK scale units: wan (10^4) / yi (10^8)
     public static func compact(_ value: Double) -> String {
+        if PulseLocalization.currentLanguageIdentifier == "en" {
+            switch value {
+            case 1e9...:
+                return PulseLocalization.localizedString(
+                    "number.compact.billion",
+                    (value / 1e9).formatted(.number.precision(.fractionLength(2)))
+                )
+            case 1e6...:
+                return PulseLocalization.localizedString(
+                    "number.compact.million",
+                    (value / 1e6).formatted(.number.precision(.fractionLength(1)))
+                )
+            case 1e3...:
+                return PulseLocalization.localizedString(
+                    "number.compact.thousand",
+                    (value / 1e3).formatted(.number.precision(.fractionLength(0)))
+                )
+            default:
+                return value.formatted(.number.precision(.fractionLength(0)))
+            }
+        }
+
         switch value {
-        case 1e8...: (value / 1e8).formatted(.number.precision(.fractionLength(2))) + "亿"
-        case 1e4...: (value / 1e4).formatted(.number.precision(.fractionLength(1))) + "万"
-        default: value.formatted(.number.precision(.fractionLength(0)))
+        case 1e8...:
+            return PulseLocalization.localizedString(
+                "number.compact.hundredMillion",
+                (value / 1e8).formatted(.number.precision(.fractionLength(2)))
+            )
+        case 1e4...:
+            return PulseLocalization.localizedString(
+                "number.compact.tenThousand",
+                (value / 1e4).formatted(.number.precision(.fractionLength(1)))
+            )
+        default:
+            return value.formatted(.number.precision(.fractionLength(0)))
         }
     }
 

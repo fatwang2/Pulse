@@ -110,6 +110,8 @@ public struct IntradayChartView: View {
             TradingSession(open: at(9, 30), morningEnd: at(12, 0), afternoonStart: at(13, 0), close: at(16, 0))
         case .us:
             TradingSession(open: at(9, 30), morningEnd: nil, afternoonStart: nil, close: at(16, 0))
+        case .crypto:
+            TradingSession(open: at(0, 0), morningEnd: nil, afternoonStart: nil, close: at(23, 59))
         }
     }
 
@@ -119,6 +121,7 @@ public struct IntradayChartView: View {
         switch market {
         case .sh, .sz, .hk: [0, session.morningMinutes, session.totalMinutes]
         case .us: [0, 150, session.totalMinutes]  // 150 trading minutes past 9:30 = 12:00
+        case .crypto: [0, 720, session.totalMinutes]
         }
     }
 

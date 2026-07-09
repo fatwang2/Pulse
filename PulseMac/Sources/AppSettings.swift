@@ -8,9 +8,9 @@ enum MenuBarMode: String, Codable, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
-        case .single: "单标的"
-        case .rotate: "轮播"
-        case .compact: "紧凑（仅图标）"
+        case .single: PulseLocalization.localizedString("menuBarMode.single")
+        case .rotate: PulseLocalization.localizedString("menuBarMode.rotate")
+        case .compact: PulseLocalization.localizedString("menuBarMode.compact")
         }
     }
 }
@@ -27,10 +27,10 @@ enum WatchRowMetricMode: String, Codable, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
-        case .changePercent: "涨跌幅"
-        case .todayPnL: "今日盈亏"
-        case .totalPnL: "持仓盈亏"
-        case .summary: "持仓盈亏"
+        case .changePercent: PulseLocalization.localizedString("metric.changePercent")
+        case .todayPnL: PulseLocalization.localizedString("metric.todayPnL")
+        case .totalPnL: PulseLocalization.localizedString("metric.totalPnL")
+        case .summary: PulseLocalization.localizedString("metric.totalPnL")
         }
     }
 
@@ -61,9 +61,9 @@ extension MarketState {
     var extendedSessionLabel: String? {
         switch self {
         case .preMarket:
-            "盘前"
+            PulseLocalization.localizedString("marketState.preMarket")
         case .postMarket:
-            "盘后"
+            PulseLocalization.localizedString("marketState.postMarket")
         case .regular, .closed:
             nil
         }
@@ -84,9 +84,19 @@ final class AppSettings {
     var watchRowMetricMode: WatchRowMetricMode = .totalPnL { didSet { save() } }
     /// Red-up/green-down (A-share convention); false means green-up/red-down
     var redUp: Bool = true { didSet { save() } }
+    var languagePreference: PulseLanguagePreference = .system {
+        didSet {
+            UserDefaults.standard.set(languagePreference.rawValue, forKey: PulseLocalization.languagePreferenceKey)
+            save()
+        }
+    }
 
     /// Provider ids disabled by the user (all enabled by default)
     var disabledProviderIDs: Set<String> = [] { didSet { save() } }
+
+    var locale: Locale {
+        PulseLocalization.currentLocale
+    }
 
     var launchAtLogin: Bool = false {
         didSet {
@@ -108,6 +118,7 @@ final class AppSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        languagePreference = PulseLocalization.currentPreference
         if let data = defaults.data(forKey: storageKey),
            let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data) {
             // Assignments in a class's init don't trigger didSet, so no redundant saves
@@ -126,6 +137,8 @@ final class AppSettings {
             redUp = snapshot.redUp
             disabledProviderIDs = snapshot.disabledProviderIDs ?? []
             showPriceInMenuBar = snapshot.showPriceInMenuBar ?? false
+            languagePreference = snapshot.languagePreference ?? .system
+            UserDefaults.standard.set(languagePreference.rawValue, forKey: PulseLocalization.languagePreferenceKey)
         }
         launchAtLogin = SMAppService.mainApp.status == .enabled
     }
@@ -139,6 +152,7 @@ final class AppSettings {
         var redUp: Bool
         var disabledProviderIDs: Set<String>?
         var showPriceInMenuBar: Bool?
+        var languagePreference: PulseLanguagePreference?
     }
 
     private func save() {
@@ -146,7 +160,8 @@ final class AppSettings {
                                 rotateInterval: rotateInterval, refreshInterval: refreshInterval,
                                 watchRowMetricMode: watchRowMetricMode, redUp: redUp,
                                 disabledProviderIDs: disabledProviderIDs,
-                                showPriceInMenuBar: showPriceInMenuBar)
+                                showPriceInMenuBar: showPriceInMenuBar,
+                                languagePreference: languagePreference)
         if let data = try? JSONEncoder().encode(snapshot) {
             defaults.set(data, forKey: storageKey)
         }

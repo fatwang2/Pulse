@@ -73,13 +73,16 @@ public final class RefreshEngine {
         let symbols = watchlist.symbols
         guard !symbols.isEmpty else { return }
 
+        let quoteSymbols = symbolsWorthRefreshing(symbols)
         do {
-            let quotes = try await provider.quotes(for: symbols)
-            store.apply(quotes: quotes)
-            // Write the latest name from quotes back to the watchlist (the search-result name captured at add time can be rough)
-            for quote in quotes {
-                if let name = quote.name {
-                    watchlist.updateDisplayName(quote.symbol, name: name)
+            if !quoteSymbols.isEmpty {
+                let quotes = try await provider.quotes(for: quoteSymbols)
+                store.apply(quotes: quotes)
+                // Write the latest name from quotes back to the watchlist (the search-result name captured at add time can be rough)
+                for quote in quotes {
+                    if let name = quote.name {
+                        watchlist.updateDisplayName(quote.symbol, name: name)
+                    }
                 }
             }
         } catch {
@@ -87,6 +90,15 @@ public final class RefreshEngine {
         }
 
         await refreshSparklinesIfDue(symbols: symbols)
+    }
+
+    private func symbolsWorthRefreshing(_ symbols: [SymbolID]) -> [SymbolID] {
+        let now = Date.now
+        return symbols.filter { symbol in
+            if store.quote(for: symbol) == nil { return true }
+            if TradingCalendar.isActive(symbol.market, at: now) { return true }
+            return TradingCalendar.isActive(symbol.market, at: now.addingTimeInterval(-35 * 60))
+        }
     }
 
     private func refreshSparklinesIfDue(symbols: [SymbolID]) async {

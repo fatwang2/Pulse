@@ -1,0 +1,155 @@
+"action.addPosition" = "录入持仓";
+"action.back" = "返回";
+"action.cancel" = "取消";
+"action.clearPosition" = "清除持仓";
+"action.delete" = "删除";
+"action.done" = "完成";
+"action.editPosition" = "编辑持仓";
+"action.more" = "更多";
+"action.pinToMenuBar" = "设为菜单栏显示";
+"action.quitPulse" = "退出 Pulse";
+"action.refreshNow" = "立即刷新";
+"action.save" = "保存";
+
+"assetType.fund" = "基金";
+"assetType.index" = "指数";
+"assetType.crypto" = "加密";
+
+"chart.close" = "收";
+"chart.high" = "高";
+"chart.low" = "低";
+"chart.noData" = "暂无数据";
+"chart.noPeriodData" = "当前数据源没有该标的的%@数据";
+"chart.open" = "开";
+"chart.volume" = "量";
+
+"detail.period" = "周期";
+"detail.section.market" = "行情";
+"detail.section.position" = "持仓";
+"detail.section.trend" = "趋势";
+
+"duration.seconds" = "%d 秒";
+
+"empty.watchlist" = "搜索添加你的第一只自选";
+
+"error.client" = "数据源不支持该查询：%@";
+"error.network" = "网络不可达：%@";
+"error.rateLimited" = "数据源暂时受限，约 1 分钟内自动恢复";
+"error.symbolNotFound" = "标的不存在";
+"error.unsupported" = "所有数据源都已被禁用，请在设置中开启";
+
+"language.system" = "跟随系统";
+
+"market.hk" = "港股";
+"market.crypto" = "加密";
+"market.sh" = "沪";
+"market.sz" = "深";
+"market.timeZone.cn" = "上海时间";
+"market.timeZone.hk" = "香港时间";
+"market.timeZone.us" = "纽约时间";
+"market.timeZone.utc" = "UTC 时间";
+"market.us" = "美股";
+
+"marketState.postMarket" = "盘后";
+"marketState.preMarket" = "盘前";
+
+"menuBarMode.compact" = "紧凑（仅图标）";
+"menuBarMode.rotate" = "轮播";
+"menuBarMode.single" = "单标的";
+
+"metric.changePercent" = "涨跌幅";
+"metric.todayPnL" = "今日盈亏";
+"metric.totalPnL" = "持仓盈亏";
+
+"number.compact.hundredMillion" = "%@亿";
+"number.compact.billion" = "%@B";
+"number.compact.million" = "%@M";
+"number.compact.thousand" = "%@K";
+"number.compact.tenThousand" = "%@万";
+
+"period.day" = "日K";
+"period.minute1" = "分时";
+"period.minute5" = "5分";
+"period.month" = "月K";
+"period.week" = "周K";
+
+"position.cost" = "成本";
+"position.costPrice" = "成本价";
+"position.editTitle" = "编辑持仓";
+"position.marketValue" = "市值";
+"position.notSet" = "未录入持仓";
+"position.quantity" = "数量";
+"position.waitingQuote" = "等待行情数据…";
+
+"provider.capability.candles" = "K线";
+"provider.capability.quotes" = "报价";
+"provider.capability.search" = "搜索";
+"provider.capability.streaming" = "推送";
+"provider.composite" = "Pulse 聚合";
+"provider.delay.delayed" = "延时";
+"provider.delay.realtime" = "部分实时";
+"provider.tencent" = "腾讯行情";
+
+"quote.delay.minutes" = "延时约%d分钟";
+"quote.price.close" = "收盘价";
+"quote.price.current" = "现价";
+"quote.price.postMarket" = "盘后价";
+"quote.price.preMarket" = "盘前价";
+"quote.realtime" = "实时";
+"quote.timing.market" = "行情 %@";
+
+"refresh.updatedAt" = "更新于 %@";
+
+"search.failed" = "搜索失败";
+"search.noResults" = "没有找到匹配的标的";
+"search.placeholder" = "代码 / 名称 / 拼音，如 AAPL、腾讯、600519";
+
+"settings.general.language" = "语言";
+"settings.general.launchAtLogin" = "开机自启";
+"settings.market.colorRule" = "涨跌颜色";
+"settings.market.greenUp" = "绿涨红跌";
+"settings.market.redUp" = "红涨绿跌";
+"settings.market.refreshInterval" = "盘中刷新频率";
+"settings.menuBar.displayMode" = "显示模式";
+"settings.menuBar.firstWatchlistItem" = "自选第一个";
+"settings.menuBar.fixedSymbol" = "固定标的";
+"settings.menuBar.iconOnlyHelp" = "关闭时菜单栏只显示图标，更低调";
+"settings.menuBar.rotateInterval" = "轮播间隔";
+"settings.menuBar.showQuote" = "在菜单栏显示行情";
+"settings.providers.allDisabled" = "所有数据源均已关闭，行情和搜索将不可用";
+"settings.providers.help" = "多数据源自动路由：按能力与市场选择，故障时自动降级。未来支持添加自定义数据源。";
+"settings.section.general" = "通用";
+"settings.section.market" = "行情";
+"settings.section.menuBar" = "菜单栏";
+"settings.section.providers" = "数据源";
+"settings.section.updates" = "版本与更新";
+"settings.title" = "设置";
+"settings.updates.check" = "检查更新";
+"settings.updates.currentVersion" = "当前版本";
+
+"sort.changePercent" = "按涨跌幅";
+"sort.marketValue" = "按持仓市值";
+"sort.todayPnL" = "按今日盈亏";
+"sort.totalPnL" = "按持仓盈亏";
+
+"stat.high" = "最高";
+"stat.low" = "最低";
+"stat.open" = "今开";
+"stat.previousClose" = "昨收";
+"stat.turnover" = "成交额";
+"stat.volume" = "成交量";
+
+"status.loading" = "加载中…";
+"status.providerFallback" = "数据源异常，自动降级中";
+"status.reorderHint" = "拖动任意行调整顺序";
+
+"summary.position" = "持仓";
+"summary.today" = "今日";
+
+"watchlist.menu.display" = "列表显示";
+"watchlist.menu.sort" = "列表排序";
+"watchlist.sort.manual" = "手动排序";
+"watchlist.sort.manualActive" = "正在手动排序";
+
+"watchRow.dragHelp" = "按住拖动调整顺序";
+"watchRow.metricHelp" = "点击切换：涨跌幅 / 今日盈亏 / 持仓盈亏";

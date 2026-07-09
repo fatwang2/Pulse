@@ -1,7 +1,7 @@
 import Foundation
 
 /// Yahoo Finance v8 chart / v1 search (unofficial API).
-/// Capabilities: search + quotes + candles across US/HK/SH/SZ; A-shares and HK are delayed by about 15 minutes.
+/// Capabilities: search + quotes + candles across US/HK/SH/SZ/crypto; A-shares and HK are delayed by about 15 minutes.
 public struct YahooProvider: QuoteProvider {
     let http: HTTPClient
 
@@ -13,10 +13,10 @@ public struct YahooProvider: QuoteProvider {
         ProviderDescriptor(
             id: "yahoo",
             name: "Yahoo Finance",
-            markets: [.us, .hk, .sh, .sz],
+            markets: [.us, .hk, .sh, .sz, .crypto],
             capabilities: [.search, .quotes, .candles],
-            delay: [.us: 0, .hk: 900, .sh: 900, .sz: 900],
-            rateLimit: RateLimitPolicy(minInterval: 5, batchSize: 1)
+            delay: [.us: 0, .hk: 900, .sh: 900, .sz: 900, .crypto: 0],
+            rateLimit: RateLimitPolicy(minInterval: 1, batchSize: 1)
         )
     }
 
@@ -28,6 +28,7 @@ public struct YahooProvider: QuoteProvider {
         case .hk: id.paddedCode(width: 4) + ".HK"
         case .sh: id.code + ".SS"
         case .sz: id.code + ".SZ"
+        case .crypto: id.code
         }
     }
 
@@ -36,9 +37,20 @@ public struct YahooProvider: QuoteProvider {
         if upper.hasSuffix(".HK") { return SymbolID(market: .hk, code: String(upper.dropLast(3))) }
         if upper.hasSuffix(".SS") { return SymbolID(market: .sh, code: String(upper.dropLast(3))) }
         if upper.hasSuffix(".SZ") { return SymbolID(market: .sz, code: String(upper.dropLast(3))) }
+        if looksLikeCryptoPair(upper) { return SymbolID(market: .crypto, code: upper) }
         // Other exchange suffixes / FX symbols are not supported yet; no suffix means US (including indices like ^GSPC, tickers like BRK-B)
         if upper.contains(".") || upper.contains("=") { return nil }
         return SymbolID(market: .us, code: upper)
+    }
+
+    private static func looksLikeCryptoPair(_ raw: String) -> Bool {
+        let parts = raw.split(separator: "-")
+        guard parts.count == 2 else { return false }
+        let quote = String(parts[1])
+        let knownQuoteCurrencies: Set<String> = [
+            "USD", "USDT", "USDC", "BTC", "ETH", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF"
+        ]
+        return knownQuoteCurrencies.contains(quote)
     }
 
     // MARK: - QuoteProvider
@@ -61,15 +73,23 @@ public struct YahooProvider: QuoteProvider {
         }
         let decoded = try Self.decode(SearchResponse.self, from: data)
         return (decoded.quotes ?? []).compactMap { item -> SymbolInfo? in
-            guard let raw = item.symbol, let id = Self.symbolID(fromYahoo: raw) else { return nil }
             let type: InstrumentType = switch item.quoteType?.uppercased() {
             case "EQUITY": .equity
             case "ETF": .etf
             case "INDEX": .index
             case "MUTUALFUND": .fund
+            case "CRYPTOCURRENCY": .crypto
             default: .other
             }
             guard type != .other else { return nil }
+            guard let raw = item.symbol else { return nil }
+            let id: SymbolID?
+            if type == .crypto {
+                id = SymbolID(market: .crypto, code: raw)
+            } else {
+                id = Self.symbolID(fromYahoo: raw)
+            }
+            guard let id else { return nil }
             let name = item.longname ?? item.shortname ?? raw
             return SymbolInfo(symbol: id, name: name, exchangeName: item.exchDisp, type: type)
         }
@@ -77,34 +97,26 @@ public struct YahooProvider: QuoteProvider {
 
     public func quotes(for symbols: [SymbolID]) async throws -> [Quote] {
         guard !symbols.isEmpty else { return [] }
-        return try await withThrowingTaskGroup(of: Result<Quote, any Error>.self) { group in
-            for symbol in symbols {
-                group.addTask {
-                    do {
-                        return .success(try await self.quote(for: symbol))
-                    } catch {
-                        return .failure(error)
-                    }
-                }
+        var quotes: [Quote] = []
+        var sawRateLimit = false
+        var lastError: (any Error)?
+        for (index, symbol) in symbols.enumerated() {
+            if index > 0 {
+                try? await Task.sleep(for: .seconds(descriptor.rateLimit?.minInterval ?? 1))
             }
-            var quotes: [Quote] = []
-            var sawRateLimit = false
-            var lastError: (any Error)?
-            for try await outcome in group {
-                switch outcome {
-                case .success(let quote): quotes.append(quote)
-                case .failure(let error):
-                    if case ProviderError.rateLimited = error { sawRateLimit = true }
-                    lastError = error
-                }
+            do {
+                quotes.append(try await quote(for: symbol))
+            } catch {
+                if case ProviderError.rateLimited = error { sawRateLimit = true }
+                lastError = error
             }
-            guard !quotes.isEmpty else {
-                // When everything failed, report rate limiting truthfully (triggers a short cooldown); otherwise pass through the real error
-                if sawRateLimit { throw ProviderError.rateLimited }
-                throw lastError ?? ProviderError.badResponse("yahoo: all quote requests failed")
-            }
-            return quotes
         }
+        guard !quotes.isEmpty else {
+            // When everything failed, report rate limiting truthfully (triggers a short cooldown); otherwise pass through the real error
+            if sawRateLimit { throw ProviderError.rateLimited }
+            throw lastError ?? ProviderError.badResponse("yahoo: all quote requests failed")
+        }
+        return quotes
     }
 
     func quote(for symbol: SymbolID) async throws -> Quote {

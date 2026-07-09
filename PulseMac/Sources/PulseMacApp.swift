@@ -14,6 +14,7 @@ struct PulseMacApp: App {
         MenuBarExtra {
             PopoverRootView()
                 .environment(appState)
+                .environment(\.locale, appState.settings.locale)
         } label: {
             MenuBarLabel(appState: appState)
         }

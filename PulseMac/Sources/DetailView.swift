@@ -33,7 +33,7 @@ struct DetailView: View {
             defer { isLoading = false }
             candles = await appState.engine.loadCandles(
                 for: symbol, period: period,
-                count: period.isIntraday ? 400 : 90
+                count: candleCount(for: period)
             )
         }
     }
@@ -45,11 +45,19 @@ struct DetailView: View {
         quote?.currencyCode ?? symbol.market.currencyCode
     }
 
+    private func candleCount(for period: CandlePeriod) -> Int {
+        guard period.isIntraday else { return 90 }
+        if symbol.market == .crypto {
+            return period == .minute1 ? 24 * 60 : 24 * 12
+        }
+        return 400
+    }
+
     // MARK: - Chrome
 
     private var header: some View {
         HStack(spacing: 8) {
-            IconButton(systemName: "chevron.left", help: "返回") {
+            IconButton(systemName: "chevron.left", help: PulseLocalization.localizedString("action.back")) {
                 route = .list
             }
             HStack(spacing: 6) {
@@ -65,7 +73,9 @@ struct DetailView: View {
             if let item {
                 ClusterIcon(
                     systemName: item.hasPosition ? "briefcase.fill" : "briefcase",
-                    help: item.hasPosition ? "编辑持仓" : "录入持仓"
+                    help: item.hasPosition
+                        ? PulseLocalization.localizedString("action.editPosition")
+                        : PulseLocalization.localizedString("action.addPosition")
                 ) {
                     route = .position(item.symbol, .detail(symbol))
                 }
@@ -78,7 +88,7 @@ struct DetailView: View {
     // MARK: - Hero
 
     private var heroSection: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .bottom, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 if let quote {
                     let color = appState.palette.color(for: quote.change)
@@ -106,7 +116,7 @@ struct DetailView: View {
                     }
                     .foregroundStyle(color)
                 } else {
-                    Text("现价")
+                    Text(PulseLocalization.localizedString("quote.price.current"))
                         .font(.system(size: 9, weight: .medium))
                         .foregroundStyle(.tertiary)
                     Text("—")
@@ -124,38 +134,40 @@ struct DetailView: View {
         .padding(.top, 8)
     }
 
-    /// Quote provenance at the hero's top-right: source · market time, then freshness.
-    /// The first line top-aligns with the price label on the left.
+    /// Quote provenance at the hero's top-right: freshness, source, then market-time basis.
+    /// Bottom-aligns with the price block so the metadata reads as an annotation to the quote.
     private func quoteMeta(for quote: Quote) -> some View {
         let delayText = appState.quoteDelayText(for: quote)
         return VStack(alignment: .trailing, spacing: 4) {
-            Text([quote.sourceName, appState.quoteMarketTimeText(for: quote)]
-                .compactMap { $0 }
-                .joined(separator: " · "))
-                .foregroundStyle(.tertiary)
             HStack(spacing: 4) {
                 Circle()
                     .fill(delayText == nil ? Color.green.opacity(0.8) : .orange)
                     .frame(width: 5, height: 5)
-                Text(delayText ?? "实时")
+                Text(delayText ?? PulseLocalization.localizedString("quote.realtime"))
                     .foregroundStyle(delayText == nil ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.orange.opacity(0.85)))
             }
+            if let sourceName = quote.sourceName {
+                Text(sourceName)
+                    .foregroundStyle(.tertiary)
+            }
+            Text(appState.quoteMarketTimeText(for: quote))
+                .foregroundStyle(.tertiary)
         }
         .font(.system(size: 9, weight: .medium))
-        .lineLimit(1)
+        .multilineTextAlignment(.trailing)
         .fixedSize()
     }
 
     private func quotePriceLabel(for quote: Quote) -> String {
         switch quote.marketState {
         case .preMarket:
-            "盘前价"
+            PulseLocalization.localizedString("quote.price.preMarket")
         case .postMarket:
-            "盘后价"
+            PulseLocalization.localizedString("quote.price.postMarket")
         case .closed:
-            "收盘价"
+            PulseLocalization.localizedString("quote.price.close")
         case .regular, .none:
-            "现价"
+            PulseLocalization.localizedString("quote.price.current")
         }
     }
 
@@ -164,7 +176,7 @@ struct DetailView: View {
     private var chartSection: some View {
         VStack(spacing: 7) {
             HStack(alignment: .center) {
-                sectionHeaderText("趋势")
+                sectionHeaderText(PulseLocalization.localizedString("detail.section.trend"))
                 Spacer()
                 picker
             }
@@ -179,7 +191,7 @@ struct DetailView: View {
     }
 
     private var picker: some View {
-        Picker("周期", selection: $period) {
+        Picker(PulseLocalization.localizedString("detail.period"), selection: $period) {
             ForEach(Self.periods, id: \.self) { p in
                 Text(p.displayName).tag(p)
             }
@@ -198,9 +210,9 @@ struct DetailView: View {
                     ProgressView().controlSize(.small)
                 } else {
                     ContentUnavailableView {
-                        Label("暂无数据", systemImage: "chart.xyaxis.line")
+                        Label(PulseLocalization.localizedString("chart.noData"), systemImage: "chart.xyaxis.line")
                     } description: {
-                        Text("当前数据源没有该标的的\(period.displayName)数据")
+                        Text(PulseLocalization.localizedString("chart.noPeriodData", period.displayName))
                     }
                 }
             } else if period.isIntraday {
@@ -221,16 +233,16 @@ struct DetailView: View {
 
     private var statsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeaderText("行情")
+            sectionHeaderText(PulseLocalization.localizedString("detail.section.market"))
             HStack(spacing: 8) {
-                stat("今开", quote?.open.map(PriceFormatter.price))
-                stat("最高", quote?.high.map(PriceFormatter.price))
-                stat("最低", quote?.low.map(PriceFormatter.price))
+                stat(PulseLocalization.localizedString("stat.open"), quote?.open.map(PriceFormatter.price))
+                stat(PulseLocalization.localizedString("stat.high"), quote?.high.map(PriceFormatter.price))
+                stat(PulseLocalization.localizedString("stat.low"), quote?.low.map(PriceFormatter.price))
             }
             HStack(spacing: 8) {
-                stat("昨收", quote.map { PriceFormatter.price($0.previousClose) })
-                stat("成交量", quote?.volume.map(PriceFormatter.compact))
-                stat("成交额", quote?.turnover.map(PriceFormatter.compact))
+                stat(PulseLocalization.localizedString("stat.previousClose"), quote.map { PriceFormatter.price($0.previousClose) })
+                stat(PulseLocalization.localizedString("stat.volume"), quote?.volume.map(PriceFormatter.compact))
+                stat(PulseLocalization.localizedString("stat.turnover"), quote?.turnover.map(PriceFormatter.compact))
             }
         }
         .padding(.horizontal, 12)
@@ -241,31 +253,31 @@ struct DetailView: View {
     @ViewBuilder
     private var positionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeaderText("持仓")
+            sectionHeaderText(PulseLocalization.localizedString("detail.section.position"))
             if let item, item.hasPosition {
                 if let quote, let metrics = PositionMetrics(item: item, quote: quote) {
                     HStack(spacing: 8) {
-                        pnlCell("今日盈亏", amount: metrics.todayPnL, percent: metrics.todayReturnPercent)
-                        pnlCell("持仓盈亏", amount: metrics.totalPnL, percent: metrics.totalReturnPercent)
+                        pnlCell(PulseLocalization.localizedString("metric.todayPnL"), amount: metrics.todayPnL, percent: metrics.todayReturnPercent)
+                        pnlCell(PulseLocalization.localizedString("metric.totalPnL"), amount: metrics.totalPnL, percent: metrics.totalReturnPercent)
                     }
                     HStack(spacing: 8) {
-                        stat("数量", PriceFormatter.quantity(metrics.quantity))
-                        stat("成本", PriceFormatter.price(metrics.averageCost))
-                        stat("市值", PriceFormatter.money(metrics.marketValue, currencyCode: currencyCode))
+                        stat(PulseLocalization.localizedString("position.quantity"), PriceFormatter.quantity(metrics.quantity))
+                        stat(PulseLocalization.localizedString("position.cost"), PriceFormatter.price(metrics.averageCost))
+                        stat(PulseLocalization.localizedString("position.marketValue"), PriceFormatter.money(metrics.marketValue, currencyCode: currencyCode))
                     }
                 } else {
-                    Text("等待行情数据…")
+                    Text(PulseLocalization.localizedString("position.waitingQuote"))
                         .font(.system(size: 10.5))
                         .foregroundStyle(.tertiary)
                 }
             } else {
                 HStack {
-                    Text("未录入持仓")
+                    Text(PulseLocalization.localizedString("position.notSet"))
                         .font(.system(size: 10.5))
                         .foregroundStyle(.tertiary)
                     Spacer()
                     if let item {
-                        Button("录入持仓") {
+                        Button(PulseLocalization.localizedString("action.addPosition")) {
                             route = .position(item.symbol, .detail(symbol))
                         }
                         .buttonStyle(.plain)

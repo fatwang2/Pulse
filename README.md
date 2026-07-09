@@ -9,12 +9,13 @@ Pulse is a lightweight market-watching app, not a trading terminal. It solves ex
 ## Features
 
 - **Menu bar ticker**: icon-only by default (discreet); optionally show quotes as a pinned single symbol (`NVDA 188.3 +2.1%`) or a carousel rotating through your watchlist
-- **Watchlist** supporting US stocks, Hong Kong stocks, and China A-shares, plus indices and ETFs — add by ticker, name, or pinyin search
+- **Watchlist** supporting US stocks, Hong Kong stocks, China A-shares, cryptocurrencies, indices, and ETFs — add by ticker, name, or pinyin search
 - **Position tracking**: quantity, cost basis, market value, daily P&L, and total P&L, with a compact one-currency portfolio summary in the watchlist
-- **Quote detail view**: price, change, OHLC, volume, turnover, quote source, market timestamp, and realtime / delayed status in a dense menu-bar layout
+- **Quote detail view**: price, change, OHLC, volume, turnover, realtime / delayed status, quote source, and market-specific timestamp in a dense menu-bar layout
 - **Charts**: market-aware intraday line chart plus daily / weekly / monthly candlesticks with OHLC and volume
-- **Multi-provider data layer**: providers are routed per market and fail over automatically when one is rate-limited or down
+- **Multi-provider data layer**: providers are routed per market, cached to reduce duplicate requests, and fail over automatically when one is rate-limited or down
 - **Trading-session-aware refresh**: polls only while each market is open, following its trading calendar — saving power and avoiding rate limits
+- **Language control**: follows the system language when possible, with manual switching between English and Simplified Chinese
 
 ## Installation
 
@@ -46,9 +47,9 @@ PULSE_LIVE_TESTS=1 swift test --filter ProviderContractTests
 - **`Packages/PulseUI`** — shared SwiftUI components: candlestick chart, intraday chart, sparkline, gain/loss colors.
 - **`PulseMac`** — the macOS menu bar app (`MenuBarExtra`, `LSUIElement=true`).
 
-All market data flows through the `QuoteProvider` protocol abstraction. A `CompositeProvider` routes requests per market, breaks the circuit on unhealthy providers, and composes data from multiple sources (e.g. realtime A-share prices from Tencent, candles from Yahoo).
+All market data flows through the `QuoteProvider` protocol abstraction. A `CompositeProvider` routes requests per market, caches recent responses, breaks the circuit on unhealthy providers, and composes data from multiple sources (e.g. realtime A-share prices from Tencent, candles and cryptocurrency coverage from Yahoo).
 
-Quotes carry their active source and source-specific delay metadata through the app. The watchlist footer shows the app refresh time, while each symbol detail view shows that symbol's market timestamp and whether the active source is realtime or delayed.
+Quotes carry their active source and source-specific delay metadata through the app. The watchlist footer shows the app refresh time, while each symbol detail view shows that symbol's realtime / delayed status, active source, and market timestamp with the relevant time basis.
 
 ## Data Sources & Disclaimer
 

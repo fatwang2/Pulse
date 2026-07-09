@@ -5,13 +5,28 @@ import Foundation
 public actor CompositeProvider: QuoteProvider {
     private let providers: [any QuoteProvider]
     private var unhealthyUntil: [String: Date] = [:]
+    private var nextProviderRequestAt: [String: Date] = [:]
+    private var searchCache: [String: CacheEntry<[SymbolInfo]>] = [:]
+    private var quoteCache: [SymbolID: CacheEntry<Quote>] = [:]
+    private var candleCache: [ProviderCandleCacheKey: CacheEntry<[Candle]>] = [:]
     private var disabledIDs: Set<String>
     private let cooldown: TimeInterval
+    private let searchCacheTTL: TimeInterval
+    private let quoteCacheTTL: TimeInterval
+    private let candleCacheTTL: TimeInterval
 
-    public init(providers: [any QuoteProvider], disabledIDs: Set<String> = [], cooldown: TimeInterval = 120) {
+    public init(providers: [any QuoteProvider],
+                disabledIDs: Set<String> = [],
+                cooldown: TimeInterval = 120,
+                searchCacheTTL: TimeInterval = 300,
+                quoteCacheTTL: TimeInterval = 12,
+                candleCacheTTL: TimeInterval = 60) {
         self.providers = providers
         self.disabledIDs = disabledIDs
         self.cooldown = cooldown
+        self.searchCacheTTL = searchCacheTTL
+        self.quoteCacheTTL = quoteCacheTTL
+        self.candleCacheTTL = candleCacheTTL
     }
 
     /// Descriptors of all registered providers (including disabled ones), for display on the settings page
@@ -27,7 +42,7 @@ public actor CompositeProvider: QuoteProvider {
     public nonisolated var descriptor: ProviderDescriptor {
         ProviderDescriptor(
             id: "composite",
-            name: "Pulse 聚合",
+            name: PulseLocalization.localizedString("provider.composite"),
             markets: Set(providers.flatMap { $0.descriptor.markets }),
             capabilities: Set(providers.flatMap { $0.descriptor.capabilities })
         )
@@ -54,6 +69,28 @@ public actor CompositeProvider: QuoteProvider {
 
     private func markUnhealthy(_ id: String, cooldown: TimeInterval) {
         unhealthyUntil[id] = Date.now.addingTimeInterval(cooldown)
+    }
+
+    private func waitForProviderBudget(_ provider: any QuoteProvider) async {
+        guard let minInterval = provider.descriptor.rateLimit?.minInterval, minInterval > 0 else { return }
+        let id = provider.descriptor.id
+        let now = Date.now
+        let scheduledAt = max(now, nextProviderRequestAt[id] ?? .distantPast)
+        nextProviderRequestAt[id] = scheduledAt.addingTimeInterval(minInterval)
+        let delay = scheduledAt.timeIntervalSince(now)
+        if delay > 0 {
+            try? await Task.sleep(for: .seconds(delay))
+        }
+    }
+
+    private func cachedQuote(for symbol: SymbolID, maxAge: TimeInterval) -> Quote? {
+        guard let entry = quoteCache[symbol], entry.isFresh(maxAge: maxAge) else { return nil }
+        return entry.value
+    }
+
+    private func cachedCandles(for key: ProviderCandleCacheKey, maxAge: TimeInterval) -> [Candle]? {
+        guard let entry = candleCache[key], entry.isFresh(maxAge: maxAge) else { return nil }
+        return entry.value
     }
 
     private func preferredQuoteProvider(for market: Market, among providers: [any QuoteProvider]) -> (any QuoteProvider)? {
@@ -95,11 +132,23 @@ public actor CompositeProvider: QuoteProvider {
 
     public func quotes(for symbols: [SymbolID]) async throws -> [Quote] {
         guard !symbols.isEmpty else { return [] }
+        var quotesBySymbol: [SymbolID: Quote] = [:]
+        var missing: [SymbolID] = []
+        for symbol in symbols {
+            if let cached = cachedQuote(for: symbol, maxAge: quoteCacheTTL) {
+                quotesBySymbol[symbol] = cached
+            } else {
+                missing.append(symbol)
+            }
+        }
+        guard !missing.isEmpty else {
+            return symbols.compactMap { quotesBySymbol[$0] }
+        }
 
         // Group symbols by their preferred provider to merge batch requests as much as possible
         var groups: [String: [SymbolID]] = [:]
         var providerByID: [String: any QuoteProvider] = [:]
-        for symbol in symbols {
+        for symbol in missing {
             guard let primary = preferredQuoteProvider(
                 for: symbol.market,
                 among: candidates(.quotes, market: symbol.market)
@@ -114,7 +163,13 @@ public actor CompositeProvider: QuoteProvider {
         for (id, group) in groups {
             do {
                 let provider = providerByID[id]!
-                result += try await provider.quotes(for: group).map { $0.sourced(by: provider.descriptor) }
+                await waitForProviderBudget(provider)
+                let quotes = try await provider.quotes(for: group).map { $0.sourced(by: provider.descriptor) }
+                for quote in quotes {
+                    quoteCache[quote.symbol] = CacheEntry(value: quote)
+                    quotesBySymbol[quote.symbol] = quote
+                }
+                result += quotes
             } catch {
                 noteFailure(id, error)
                 lastError = error
@@ -122,24 +177,43 @@ public actor CompositeProvider: QuoteProvider {
                 for (market, marketSymbols) in Dictionary(grouping: group, by: \.market) {
                     guard let fallback = candidates(.quotes, market: market)
                         .first(where: { $0.descriptor.id != id }) else { continue }
-                    if let recovered = try? await fallback.quotes(for: marketSymbols) {
-                        result += recovered.map { $0.sourced(by: fallback.descriptor) }
+                    await waitForProviderBudget(fallback)
+                    if let recovered = try? await fallback.quotes(for: marketSymbols).map({ $0.sourced(by: fallback.descriptor) }) {
+                        for quote in recovered {
+                            quoteCache[quote.symbol] = CacheEntry(value: quote)
+                            quotesBySymbol[quote.symbol] = quote
+                        }
+                        result += recovered
                     }
                 }
             }
         }
-        if result.isEmpty, let lastError { throw lastError }
-        return result
+        for symbol in missing where quotesBySymbol[symbol] == nil {
+            quotesBySymbol[symbol] = quoteCache[symbol]?.value
+        }
+        let ordered = symbols.compactMap { quotesBySymbol[$0] }
+        if ordered.isEmpty, let lastError { throw lastError }
+        return ordered
     }
 
     public func candles(for symbol: SymbolID, period: CandlePeriod, count: Int) async throws -> [Candle] {
-        try await failover(.candles, market: symbol.market) { provider in
+        let key = ProviderCandleCacheKey(symbol: symbol, period: period, count: count)
+        if let cached = cachedCandles(for: key, maxAge: candleCacheTTL) {
+            return cached
+        }
+        let candles = try await failover(.candles, market: symbol.market) { provider in
             try await provider.candles(for: symbol, period: period, count: count)
         }
+        candleCache[key] = CacheEntry(value: candles)
+        return candles
     }
 
     public func search(_ query: String) async throws -> [SymbolInfo] {
-        // Search is market-agnostic: query all search-capable providers concurrently, then merge and dedupe in registration order.
+        let cacheKey = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if let entry = searchCache[cacheKey], entry.isFresh(maxAge: searchCacheTTL) {
+            return entry.value
+        }
+        // Search is market-agnostic: query search-capable providers in registration order, then merge and dedupe.
         // (Tencent excels at Chinese / pinyin / A-share codes, Yahoo at English names / global symbols — merging gives the widest coverage.)
         let enabled = providers.filter {
             $0.descriptor.capabilities.contains(.search) && !disabledIDs.contains($0.descriptor.id)
@@ -149,19 +223,14 @@ public actor CompositeProvider: QuoteProvider {
         // Sources exist but are all in circuit-breaker cooldown — that's not the same as disabled: report rate limiting, which recovers automatically
         guard !capable.isEmpty else { throw ProviderError.rateLimited }
 
-        let outcomes = await withTaskGroup(of: (Int, Result<[SymbolInfo], any Error>).self) { group in
-            for (index, provider) in capable.enumerated() {
-                group.addTask {
-                    do {
-                        return (index, .success(try await provider.search(query)))
-                    } catch {
-                        return (index, .failure(error))
-                    }
-                }
+        var outcomes: [(Int, Result<[SymbolInfo], any Error>)] = []
+        for (index, provider) in capable.enumerated() {
+            await waitForProviderBudget(provider)
+            do {
+                outcomes.append((index, .success(try await provider.search(query))))
+            } catch {
+                outcomes.append((index, .failure(error)))
             }
-            var collected: [(Int, Result<[SymbolInfo], any Error>)] = []
-            for await outcome in group { collected.append(outcome) }
-            return collected.sorted { $0.0 < $1.0 }
         }
 
         var merged: [SymbolInfo] = []
@@ -182,6 +251,7 @@ public actor CompositeProvider: QuoteProvider {
         if merged.isEmpty, let lastError, outcomes.allSatisfy({ if case .failure = $0.1 { true } else { false } }) {
             throw lastError
         }
+        searchCache[cacheKey] = CacheEntry(value: merged)
         return merged
     }
 
@@ -197,6 +267,7 @@ public actor CompositeProvider: QuoteProvider {
         var lastError: (any Error) = ProviderError.unsupported(capability)
         for provider in healthy {
             do {
+                await waitForProviderBudget(provider)
                 return try await operation(provider)
             } catch {
                 noteFailure(provider.descriptor.id, error)
@@ -205,4 +276,19 @@ public actor CompositeProvider: QuoteProvider {
         }
         throw lastError
     }
+}
+
+private struct CacheEntry<Value> {
+    var value: Value
+    var storedAt: Date = .now
+
+    func isFresh(maxAge: TimeInterval) -> Bool {
+        Date.now.timeIntervalSince(storedAt) <= maxAge
+    }
+}
+
+private struct ProviderCandleCacheKey: Hashable {
+    var symbol: SymbolID
+    var period: CandlePeriod
+    var count: Int
 }

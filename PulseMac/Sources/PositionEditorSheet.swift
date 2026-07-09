@@ -31,17 +31,17 @@ struct PositionEditorView: View {
             header
 
             Form {
-                TextField("数量", text: $quantityText)
-                TextField("成本价", text: $costText)
+                TextField(PulseLocalization.localizedString("position.quantity"), text: $quantityText)
+                TextField(PulseLocalization.localizedString("position.costPrice"), text: $costText)
             }
             .formStyle(.grouped)
 
             if let metrics {
                 VStack(spacing: 6) {
-                    previewRow("市值", PriceFormatter.money(metrics.marketValue, currencyCode: currencyCode))
-                    previewRow("今日盈亏", PriceFormatter.signedMoney(metrics.todayPnL, currencyCode: currencyCode),
+                    previewRow(PulseLocalization.localizedString("position.marketValue"), PriceFormatter.money(metrics.marketValue, currencyCode: currencyCode))
+                    previewRow(PulseLocalization.localizedString("metric.todayPnL"), PriceFormatter.signedMoney(metrics.todayPnL, currencyCode: currencyCode),
                                color: metrics.todayPnL)
-                    previewRow("持仓盈亏", "\(PriceFormatter.signedMoney(metrics.totalPnL, currencyCode: currencyCode)) · \(PriceFormatter.percent(metrics.totalReturnPercent))",
+                    previewRow(PulseLocalization.localizedString("metric.totalPnL"), "\(PriceFormatter.signedMoney(metrics.totalPnL, currencyCode: currencyCode)) · \(PriceFormatter.percent(metrics.totalReturnPercent))",
                                color: metrics.totalPnL)
                 }
                 .padding(.top, 2)
@@ -49,15 +49,15 @@ struct PositionEditorView: View {
 
             HStack {
                 if item.hasPosition {
-                    Button("清除持仓", role: .destructive) {
+                    Button(PulseLocalization.localizedString("action.clearPosition"), role: .destructive) {
                         onClear()
                     }
                 }
                 Spacer()
-                Button("取消") {
+                Button(PulseLocalization.localizedString("action.cancel")) {
                     onCancel()
                 }
-                Button("保存") {
+                Button(PulseLocalization.localizedString("action.save")) {
                     save()
                 }
                 .buttonStyle(.borderedProminent)
@@ -71,7 +71,7 @@ struct PositionEditorView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("编辑持仓")
+            Text(PulseLocalization.localizedString("position.editTitle"))
                 .font(.headline)
             HStack(spacing: 5) {
                 Text(quote?.name ?? item.displayName)

@@ -1,7 +1,7 @@
 import Foundation
 
 public enum InstrumentType: String, Codable, Sendable {
-    case equity, etf, index, fund, other
+    case equity, etf, index, fund, crypto, other
 }
 
 /// A search result entry

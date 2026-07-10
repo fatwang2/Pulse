@@ -2,6 +2,7 @@
 "action.back" = "Back";
 "action.cancel" = "Cancel";
 "action.clearPosition" = "Clear Position";
+"action.copyShareSnapshot" = "Copy Share Image";
 "action.delete" = "Delete";
 "action.done" = "Done";
 "action.editPosition" = "Edit Position";
@@ -104,6 +105,13 @@
 "search.noResults" = "No matching symbols";
 "search.placeholder" = "Symbol / name / pinyin, e.g. AAPL, Tencent, 600519";
 
+"share.copyFailed" = "Couldn’t copy share image";
+"share.copySuccess" = "Share image copied";
+"share.disclaimer" = "For reference only";
+"share.updateUnavailable" = "Waiting for quote data";
+"share.watchlist.more.many" = "%d more symbols";
+"share.watchlist.more.one" = "%d more symbol";
+
 "settings.general.language" = "Language";
 "settings.general.launchAtLogin" = "Launch at Login";
 "settings.market.colorRule" = "Change Colors";
@@ -142,9 +150,6 @@
 "status.loading" = "Loading...";
 "status.providerFallback" = "Data source issue, falling back";
 "status.reorderHint" = "Drag any row to reorder";
-
-"summary.position" = "Position";
-"summary.today" = "Today";
 
 "watchlist.menu.display" = "List Display";
 "watchlist.menu.sort" = "List Sorting";

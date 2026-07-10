@@ -201,7 +201,11 @@ public actor CompositeProvider: QuoteProvider {
         if let cached = cachedCandles(for: key, maxAge: candleCacheTTL) {
             return cached
         }
-        let candles = try await failover(.candles, market: symbol.market) { provider in
+        let candles = try await failover(
+            .candles,
+            market: symbol.market,
+            eligible: { $0.descriptor.supports(candles: period, in: symbol.market) }
+        ) { provider in
             try await provider.candles(for: symbol, period: period, count: count)
         }
         candleCache[key] = CacheEntry(value: candles)
@@ -256,9 +260,12 @@ public actor CompositeProvider: QuoteProvider {
     }
 
     private func failover<T>(_ capability: Capability, market: Market,
+                             eligible: (any QuoteProvider) -> Bool = { _ in true },
                              _ operation: (any QuoteProvider) async throws -> T) async throws -> T {
         let enabled = providers.filter {
-            $0.descriptor.supports(capability, in: market) && !disabledIDs.contains($0.descriptor.id)
+            $0.descriptor.supports(capability, in: market)
+                && eligible($0)
+                && !disabledIDs.contains($0.descriptor.id)
         }
         guard !enabled.isEmpty else { throw ProviderError.unsupported(capability) }
         let healthy = enabled.filter { isHealthy($0.descriptor.id) }

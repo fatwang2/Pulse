@@ -41,6 +41,15 @@ struct ProviderContractTests {
         for quote in quotes { Self.assertQuoteContract(quote) }
     }
 
+    @Test("Tencent: A-share intraday")
+    func tencentIntraday() async throws {
+        let candles = try await TencentProvider().candles(
+            for: SymbolID(market: .sh, code: "600519"), period: .minute1, count: 60
+        )
+        Self.assertCandleContract(candles)
+        #expect(candles.count <= 60)
+    }
+
     @Test("Yahoo: quotes")
     func yahooQuotes() async throws {
         let quotes = try await YahooProvider().quotes(for: [SymbolID(market: .hk, code: "700")])

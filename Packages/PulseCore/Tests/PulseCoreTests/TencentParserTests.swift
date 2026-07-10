@@ -50,6 +50,60 @@ struct TencentParserTests {
         #expect(TencentProvider.parseTimestamp("2026-07-02 16:00:01", timeZone: Market.us.timeZone) != nil)
     }
 
+    @Test("A-share minute series parses and aggregates into five-minute bars")
+    func minuteCandles() throws {
+        let rows = [
+            "0930 10.00 10 1000.00",
+            "0931 11.00 13 1300.00",
+            "0934 9.00 20 2000.00",
+            "bad row",
+            "0935 12.00 25 2500.00",
+        ]
+
+        let oneMinute = TencentProvider.parseMinuteCandles(
+            date: "20260710", rows: rows, market: .sh, period: .minute1
+        )
+        #expect(oneMinute.count == 4)
+        #expect(oneMinute.map(\.close) == [10, 11, 9, 12])
+        #expect(oneMinute.compactMap(\.volume) == [1000, 300, 700, 500])
+
+        let fiveMinute = TencentProvider.parseMinuteCandles(
+            date: "20260710", rows: rows, market: .sh, period: .minute5
+        )
+        #expect(fiveMinute.count == 2)
+        let first = try #require(fiveMinute.first)
+        #expect(first.open == 10)
+        #expect(first.high == 11)
+        #expect(first.low == 9)
+        #expect(first.close == 9)
+        #expect(first.volume == 2000)
+        #expect(fiveMinute.last?.close == 12)
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = Market.sh.timeZone
+        #expect(calendar.component(.hour, from: first.time) == 9)
+        #expect(calendar.component(.minute, from: first.time) == 30)
+
+        let now = try #require(TencentProvider.parseTimestamp("20260710104324", timeZone: Market.sh.timeZone))
+        let provisional = TencentProvider.parseMinuteCandles(
+            date: "20260710",
+            rows: ["1044 12.50 30 3000.00"],
+            market: .sh,
+            period: .minute1,
+            now: now
+        )
+        #expect(provisional.first?.time == now)
+    }
+
+    @Test("Tencent candle coverage is limited to A-share intraday periods")
+    func candleCoverage() {
+        let descriptor = TencentProvider().descriptor
+        #expect(descriptor.supports(candles: .minute1, in: .sh))
+        #expect(descriptor.supports(candles: .minute5, in: .sz))
+        #expect(!descriptor.supports(candles: .day, in: .sh))
+        #expect(!descriptor.supports(candles: .minute1, in: .hk))
+    }
+
     /// Excerpt from a real smartbox response (query: Tencent's Chinese name); the real API returns names in \uXXXX escaped form
     static let smartboxFixture = #"v_hint="sh~000847~腾讯济安~txja~ZS^hk~00700~腾讯控股~txkg~GP^us~tcehy.ps~腾讯控股(adr)~txkgadr~GP^us~tme.n~腾讯音乐~txyl~GP^bk~123456~板块~bk~BK""#
 

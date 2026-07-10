@@ -31,7 +31,6 @@ struct PopoverRootView: View {
     private static let maxHeight: CGFloat = 600
     private static let listChromeHeight: CGFloat = 112
     private static let listRowHeight: CGFloat = 48
-    private static let portfolioSummaryHeight: CGFloat = 18
 
     var body: some View {
         Group {
@@ -71,8 +70,7 @@ struct PopoverRootView: View {
     private var height: CGFloat {
         switch route {
         case .list:
-            let portfolioSummary = appState.watchlist.items.contains { $0.hasPosition } ? Self.portfolioSummaryHeight : 0
-            let content = Self.listChromeHeight + portfolioSummary + CGFloat(appState.watchlist.items.count) * Self.listRowHeight
+            let content = Self.listChromeHeight + CGFloat(appState.watchlist.items.count) * Self.listRowHeight
             let minimum = appState.watchlist.items.isEmpty ? Self.minHeight : Self.minListHeight
             return min(max(content, minimum), Self.maxHeight)
         case .detail:

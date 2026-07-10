@@ -1,7 +1,7 @@
 import Foundation
 
 /// Tencent quote snapshots (qt.gtimg.cn, unofficial API).
-/// Capabilities: batch quotes (up to a few dozen symbols per request); real-time for China A-shares, making it the preferred source for intraday prices.
+/// Capabilities: batch quotes plus real-time A-share minute series; other markets and historical K-line periods fall back to the next provider.
 /// The response is GBK-encoded text of the form `v_sh600519="1~<name>~600519~<price>~<prevClose>~<open>~...";`.
 public struct TencentProvider: QuoteProvider {
     let http: HTTPClient
@@ -15,7 +15,9 @@ public struct TencentProvider: QuoteProvider {
             id: "tencent",
             name: PulseLocalization.localizedString("provider.tencent"),
             markets: [.us, .hk, .sh, .sz],
-            capabilities: [.quotes, .search],
+            capabilities: [.quotes, .search, .candles],
+            candleMarkets: [.sh, .sz],
+            candlePeriods: [.minute1, .minute5],
             delay: [.us: 0, .hk: 900, .sh: 0, .sz: 0],
             rateLimit: RateLimitPolicy(minInterval: 2, batchSize: 60)
         )
@@ -100,7 +102,34 @@ public struct TencentProvider: QuoteProvider {
     }
 
     public func candles(for symbol: SymbolID, period: CandlePeriod, count: Int) async throws -> [Candle] {
-        throw ProviderError.unsupported(.candles)
+        guard symbol.market.isChinaA, period.isIntraday else {
+            throw ProviderError.unsupported(.candles)
+        }
+
+        let tencentSymbol = Self.tencentSymbol(for: symbol)
+        var components = URLComponents(string: "https://web.ifzq.gtimg.cn/appstock/app/minute/query")!
+        components.queryItems = [.init(name: "code", value: tencentSymbol)]
+        let data = try await http.get(components.url!, headers: ["Referer": "https://gu.qq.com/"])
+        let response: MinuteResponse
+        do {
+            response = try JSONDecoder().decode(MinuteResponse.self, from: data)
+        } catch {
+            throw ProviderError.badResponse("tencent minute: \(error.localizedDescription)")
+        }
+        guard response.code == 0,
+              let minuteData = response.data?[tencentSymbol]?.data else {
+            throw ProviderError.symbolNotFound(symbol)
+        }
+        let candles = Self.parseMinuteCandles(
+            date: minuteData.date,
+            rows: minuteData.data,
+            market: symbol.market,
+            period: period
+        )
+        guard !candles.isEmpty else {
+            throw ProviderError.badResponse("tencent minute: no rows parsed")
+        }
+        return Array(candles.suffix(count))
     }
 
     public func quotes(for symbols: [SymbolID]) async throws -> [Quote] {
@@ -172,6 +201,80 @@ public struct TencentProvider: QuoteProvider {
             if let date = formatter.date(from: trimmed) { return date }
         }
         return nil
+    }
+
+    static func parseMinuteCandles(
+        date: String,
+        rows: [String],
+        market: Market,
+        period: CandlePeriod,
+        now: Date = .now
+    ) -> [Candle] {
+        guard period.isIntraday else { return [] }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = market.timeZone
+        formatter.dateFormat = "yyyyMMdd HHmm"
+
+        var minutes: [Candle] = []
+        var previousCumulativeVolume = 0.0
+        for row in rows {
+            let fields = row.split(whereSeparator: \.isWhitespace).map(String.init)
+            guard fields.count >= 3,
+                  let parsedTime = formatter.date(from: "\(date) \(fields[0])"),
+                  let price = Double(fields[1]), price > 0,
+                  let cumulativeVolume = Double(fields[2]) else { continue }
+            // Tencent labels the in-progress point with the minute bucket's end (e.g. 10:44 at 10:43:24).
+            // Keep its freshest price, but display that provisional point at the actual fetch time.
+            let lead = parsedTime.timeIntervalSince(now)
+            let time = lead > 0 && lead <= 60 ? now : parsedTime
+            let incrementalLots = max(cumulativeVolume - previousCumulativeVolume, 0)
+            previousCumulativeVolume = cumulativeVolume
+            minutes.append(Candle(
+                time: time,
+                open: price,
+                high: price,
+                low: price,
+                close: price,
+                volume: incrementalLots * 100
+            ))
+        }
+
+        guard period == .minute5 else { return minutes }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = market.timeZone
+        let grouped = Dictionary(grouping: minutes) { candle in
+            let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: candle.time)
+            let minute = (components.minute ?? 0) / 5 * 5
+            return "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)-\(components.hour ?? 0)-\(minute)"
+        }
+        return grouped.values.compactMap { group -> Candle? in
+            let sorted = group.sorted { $0.time < $1.time }
+            guard let first = sorted.first, let last = sorted.last else { return nil }
+            return Candle(
+                time: first.time,
+                open: first.open,
+                high: sorted.map(\.high).max() ?? first.high,
+                low: sorted.map(\.low).min() ?? first.low,
+                close: last.close,
+                volume: sorted.compactMap(\.volume).reduce(0, +)
+            )
+        }
+        .sorted { $0.time < $1.time }
+    }
+}
+
+private struct MinuteResponse: Decodable {
+    let code: Int
+    let data: [String: SymbolPayload]?
+
+    struct SymbolPayload: Decodable {
+        let data: MinuteData
+    }
+
+    struct MinuteData: Decodable {
+        let date: String
+        let data: [String]
     }
 }
 

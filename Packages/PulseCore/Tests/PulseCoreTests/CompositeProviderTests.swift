@@ -9,12 +9,16 @@ struct MockProvider: QuoteProvider {
     var quoteError: ProviderError?
     var searchResults: [SymbolInfo] = []
     var candleResult: [Candle] = [Candle(time: .now, open: 1, high: 2, low: 0.5, close: 1.5)]
+    var candleMarkets: Set<Market>?
+    var candlePeriods: Set<CandlePeriod>?
     var quotePrice: Double = 100
     var delay: [Market: TimeInterval] = [:]
 
     var descriptor: ProviderDescriptor {
         ProviderDescriptor(id: id, name: id, markets: Set(Market.allCases),
                            capabilities: [.search, .quotes, .candles],
+                           candleMarkets: candleMarkets,
+                           candlePeriods: candlePeriods,
                            delay: delay)
     }
 
@@ -126,5 +130,26 @@ struct CompositeProviderTests {
         #expect(quote.sourceID == "yahoo")
         #expect(quote.sourceName == "yahoo")
         #expect(quote.sourceDelay == 900)
+    }
+
+    @Test("A-share intraday uses the specialized source while daily and other markets use the broad source")
+    func periodAwareCandleRouting() async throws {
+        let intraday = MockProvider(
+            id: "tencent",
+            candleResult: [Candle(time: .now, open: 1, high: 1, low: 1, close: 1)],
+            candleMarkets: [.sh, .sz],
+            candlePeriods: [.minute1, .minute5]
+        )
+        let historical = MockProvider(
+            id: "yahoo",
+            candleResult: [Candle(time: .now, open: 2, high: 2, low: 2, close: 2)]
+        )
+        let composite = CompositeProvider(providers: [intraday, historical])
+
+        let shanghai = SymbolID(market: .sh, code: "600519")
+        let hongKong = SymbolID(market: .hk, code: "700")
+        #expect(try await composite.candles(for: shanghai, period: .minute1, count: 10).first?.close == 1)
+        #expect(try await composite.candles(for: shanghai, period: .day, count: 10).first?.close == 2)
+        #expect(try await composite.candles(for: hongKong, period: .minute1, count: 10).first?.close == 2)
     }
 }

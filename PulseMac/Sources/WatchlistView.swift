@@ -4,6 +4,7 @@ import PulseUI
 
 struct WatchlistView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var route: PopoverRoute
 
     @State private var searchText = ""
@@ -14,6 +15,7 @@ struct WatchlistView: View {
     @State private var searchError: String?
     @State private var refreshHovering = false
     @State private var isReordering = false
+    @State private var shareFeedback: ShareFeedback?
     @AppStorage("pulse.watchlist.orderMode.v1") private var listOrderMode = WatchlistOrderMode.manual.rawValue
     @AppStorage("pulse.watchlist.sortOption.v1") private var listSortOption = WatchlistSortOption.changePercent.rawValue
 
@@ -74,6 +76,16 @@ struct WatchlistView: View {
                     .font(.system(size: 12.5, weight: .semibold))
                 Spacer()
                 ClusterMenu(systemName: "ellipsis.circle", help: PulseLocalization.localizedString("action.more")) {
+                    Button {
+                        copyShareSnapshot()
+                    } label: {
+                        Label(
+                            PulseLocalization.localizedString("action.copyShareSnapshot"),
+                            systemImage: "doc.on.doc"
+                        )
+                    }
+                    .disabled(appState.watchlist.isEmpty)
+                    Divider()
                     Menu {
                         ForEach(WatchRowMetricMode.allCases, id: \.self) { mode in
                             Toggle(mode.displayName, isOn: metricModeBinding(mode))
@@ -113,48 +125,19 @@ struct WatchlistView: View {
                 }
                 .frame(height: 26)
             }
-            searchField
-            if searchText.isEmpty && !isReordering {
-                portfolioSummary
+            .overlay(alignment: .trailing) {
+                if let shareFeedback {
+                    shareFeedbackHUD(shareFeedback)
+                        .padding(.trailing, 34)
+                        .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .trailing)))
+                        .allowsHitTesting(false)
+                }
             }
+            searchField
         }
         .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 7)
-    }
-
-    @ViewBuilder
-    private var portfolioSummary: some View {
-        if let summary = portfolioSummaryData {
-            HStack(spacing: 12) {
-                summaryItem(PulseLocalization.localizedString("summary.today"), value: summary.todayPnL, currencyCode: summary.currencyCode)
-                summaryItem(PulseLocalization.localizedString("summary.position"), value: summary.totalPnL, currencyCode: summary.currencyCode)
-                Spacer(minLength: 0)
-            }
-            .padding(.top, 1)
-        }
-    }
-
-    private func summaryItem(_ label: String, value: Double, currencyCode: String?) -> some View {
-        HStack(spacing: 4) {
-            Text(label)
-                .font(.system(size: 10))
-                .foregroundStyle(.tertiary)
-            Text(PriceFormatter.moneyMagnitude(value, currencyCode: currencyCode))
-                .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                .foregroundStyle(appState.palette.color(for: value))
-        }
-    }
-
-    private var portfolioSummaryData: (todayPnL: Double, totalPnL: Double, currencyCode: String?)? {
-        let rows = positionRows
-        let currencyCodes = Set(rows.map(\.currencyCode))
-        guard !rows.isEmpty, currencyCodes.count == 1 else { return nil }
-        return (
-            rows.reduce(0) { $0 + $1.metrics.todayPnL },
-            rows.reduce(0) { $0 + $1.metrics.totalPnL },
-            currencyCodes.first
-        )
     }
 
     private var watchRowMetricColumnWidth: CGFloat {
@@ -171,21 +154,26 @@ struct WatchlistView: View {
             )
             let priceText = quote.map { PriceFormatter.price($0.price) } ?? "—"
             let sessionLabel = quote?.marketState?.extendedSessionLabel
-            return WatchRow.metricColumnWidth(
+            return WatchRowColumnLayout.metricWidth(
                 priceText: priceText,
                 metricText: display.text,
-                sessionLabel: sessionLabel
+                sessionLabel: sessionLabel,
+                presentation: .popover
             )
         }
         return widths.max() ?? 52
     }
 
-    private var positionRows: [(metrics: PositionMetrics, currencyCode: String)] {
-        appState.watchlist.items.compactMap { item -> (PositionMetrics, String)? in
-            guard let quote = appState.market.quote(for: item.symbol) else { return nil }
-            guard let metrics = PositionMetrics(item: item, quote: quote) else { return nil }
-            return (metrics, quote.currencyCode ?? item.symbol.market.currencyCode)
+    private var watchRowTitleColumnWidth: CGFloat {
+        let widths = appState.watchlist.items.map { item in
+            WatchRowColumnLayout.titleWidth(
+                name: appState.market.quote(for: item.symbol)?.name ?? item.displayName,
+                symbolCode: item.symbol.code,
+                marketName: item.symbol.market.displayName,
+                presentation: .popover
+            )
         }
+        return widths.max() ?? 48
     }
 
     /// Status line with the manual-refresh button beside it: freshness info and the action to renew it live together.
@@ -205,8 +193,6 @@ struct WatchlistView: View {
                     Text(PulseLocalization.localizedString("status.loading"))
                 }
             }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
             Button {
                 appState.engine.poke()
             } label: {
@@ -223,9 +209,74 @@ struct WatchlistView: View {
             .onHover { refreshHovering = $0 }
             .help(PulseLocalization.localizedString("action.refreshNow"))
         }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
         .frame(height: 22)
         .padding(.leading, 12)
         .padding(.bottom, 4)
+    }
+
+    private func shareFeedbackHUD(_ feedback: ShareFeedback) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: feedback.isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(feedback.isSuccess ? .green : .orange)
+            Text(PulseLocalization.localizedString(
+                feedback.isSuccess ? "share.copySuccess" : "share.copyFailed"
+            ))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+        }
+        .font(.system(size: 10.5, weight: .medium))
+        .padding(.horizontal, 8)
+        .frame(height: 22)
+        .fixedSize(horizontal: true, vertical: false)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(.separator.opacity(0.35), lineWidth: 0.5)
+        }
+        .accessibilityLabel(PulseLocalization.localizedString(
+            feedback.isSuccess ? "share.copySuccess" : "share.copyFailed"
+        ))
+    }
+
+    @MainActor
+    private func copyShareSnapshot() {
+        do {
+            let snapshot = WatchlistShareSnapshot(appState: appState)
+            let card = PulseShareCard(
+                metadata: PulseShareCardMetadata(updatedAtText: snapshot.updatedAtText)
+            ) {
+                WatchlistShareContent(snapshot: snapshot)
+            }
+            let artifact = try ShareImageRenderer.render(
+                card,
+                configuration: .socialPortrait(
+                    height: snapshot.preferredImageHeight,
+                    colorScheme: colorScheme,
+                    locale: appState.settings.locale
+                )
+            )
+            try ClipboardImageExporter.write(artifact)
+            showShareFeedback(isSuccess: true)
+        } catch {
+            showShareFeedback(isSuccess: false)
+        }
+    }
+
+    @MainActor
+    private func showShareFeedback(isSuccess: Bool) {
+        let feedback = ShareFeedback(isSuccess: isSuccess)
+        withAnimation(.snappy(duration: 0.2)) {
+            shareFeedback = feedback
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(isSuccess ? 1.5 : 3))
+            guard shareFeedback?.id == feedback.id else { return }
+            withAnimation(.snappy(duration: 0.2)) {
+                shareFeedback = nil
+            }
+        }
     }
 
     // MARK: - Search
@@ -372,10 +423,16 @@ struct WatchlistView: View {
     }
 
     private var watchList: some View {
+        let titleColumnWidth = watchRowTitleColumnWidth
         let metricColumnWidth = watchRowMetricColumnWidth
         return List {
             ForEach(appState.watchlist.items) { item in
-                WatchRow(item: item, metricColumnWidth: metricColumnWidth, isReordering: isReordering) {
+                WatchRow(
+                    item: item,
+                    titleColumnWidth: titleColumnWidth,
+                    metricColumnWidth: metricColumnWidth,
+                    isReordering: isReordering
+                ) {
                     route = .detail(item.symbol)
                 }
                 // Inset 4 + the row's internal 8pt padding puts row content on the same 12pt grid as the chrome
@@ -504,6 +561,11 @@ struct WatchlistView: View {
             return metrics?.marketValue
         }
     }
+}
+
+private struct ShareFeedback: Equatable {
+    let id = UUID()
+    let isSuccess: Bool
 }
 
 // MARK: - Components
@@ -680,6 +742,7 @@ struct SearchResultRow: View {
 struct WatchRow: View {
     @Environment(AppState.self) private var appState
     let item: WatchItem
+    let titleColumnWidth: CGFloat
     let metricColumnWidth: CGFloat
     var isReordering: Bool = false
     let onOpen: () -> Void
@@ -704,7 +767,7 @@ struct WatchRow: View {
         // In manual sort mode, row tap gestures are fully detached so List's reorder drag can own mousedown.
         HStack(spacing: 8) {
             HStack(spacing: 8) {
-                // The name column sizes to its content; all remaining space goes to the sparkline (removes the blank band in the middle)
+                // The list's widest required title establishes one shared column; the aligned remainder goes to every sparkline.
                 VStack(alignment: .leading, spacing: 2.5) {
                     Text(quote?.name ?? item.displayName)
                         .font(.system(size: 12.5, weight: .medium))
@@ -716,7 +779,7 @@ struct WatchRow: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .layoutPriority(1)
+                .frame(width: titleColumnWidth, alignment: .leading)
 
                 SparklineView(
                     values: appState.market.sparklines[item.symbol] ?? [],
@@ -805,35 +868,16 @@ struct WatchRow: View {
         item: WatchItem,
         palette: ChangePalette
     ) -> (text: String, color: Color) {
-        guard let quote else { return ("…", .secondary) }
-        let currencyCode = quote.currencyCode ?? item.symbol.market.currencyCode
-        switch mode {
-        case .changePercent:
-            return (PriceFormatter.percent(quote.changePercent), palette.color(for: quote.change))
-        case .todayPnL:
-            guard let metrics else {
-                return (PriceFormatter.percent(quote.changePercent), palette.color(for: quote.change))
-            }
-            return (PriceFormatter.signedMoney(metrics.todayPnL, currencyCode: currencyCode),
-                    palette.color(for: metrics.todayPnL))
-        case .totalPnL:
-            guard let metrics else {
-                return (PriceFormatter.percent(quote.changePercent), palette.color(for: quote.change))
-            }
-            return (PriceFormatter.signedMoney(metrics.totalPnL, currencyCode: currencyCode),
-                    palette.color(for: metrics.totalPnL))
-        case .summary:
-            guard let metrics else {
-                return (PriceFormatter.percent(quote.changePercent), palette.color(for: quote.change))
-            }
-            return (PriceFormatter.signedMoney(metrics.totalPnL, currencyCode: currencyCode),
-                    palette.color(for: metrics.totalPnL))
-        }
+        let display = WatchRowMetricDisplay.resolve(
+            quote: quote,
+            metrics: metrics,
+            mode: mode,
+            item: item
+        )
+        return (
+            display.text,
+            display.colorValue.map(palette.color(for:)) ?? .secondary
+        )
     }
 
-    static func metricColumnWidth(priceText: String, metricText: String, sessionLabel: String?) -> CGFloat {
-        let priceWidth = CGFloat(priceText.count) * 7.2 + (sessionLabel == nil ? 0 : 21)
-        let metricWidth = CGFloat(metricText.count) * 6.6
-        return min(max(max(priceWidth, metricWidth), 48), 104)
-    }
 }

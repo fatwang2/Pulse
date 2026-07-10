@@ -10,9 +10,10 @@ Pulse is a lightweight market-watching app, not a trading terminal. It solves ex
 
 - **Menu bar ticker**: icon-only by default (discreet); optionally show quotes as a pinned single symbol (`NVDA 188.3 +2.1%`) or a carousel rotating through your watchlist
 - **Watchlist** supporting US stocks, Hong Kong stocks, China A-shares, cryptocurrencies, indices, and ETFs — add by ticker, name, or pinyin search
-- **Position tracking**: quantity, cost basis, market value, daily P&L, and total P&L, with a compact one-currency portfolio summary in the watchlist
+- **Position tracking**: quantity, cost basis, market value, daily P&L, and total P&L
 - **Quote detail view**: price, change, OHLC, volume, turnover, realtime / delayed status, quote source, and market-specific timestamp in a dense menu-bar layout
-- **Charts**: market-aware intraday line chart plus daily / weekly / monthly candlesticks with OHLC and volume
+- **Charts**: realtime Tencent intraday lines for China A-shares, plus Yahoo-backed daily / weekly / monthly candlesticks with OHLC and volume
+- **Share images**: copy a branded, mobile-friendly watchlist image that follows the current metric selection and adapts to list length
 - **Multi-provider data layer**: providers are routed per market, cached to reduce duplicate requests, and fail over automatically when one is rate-limited or down
 - **Trading-session-aware refresh**: polls only while each market is open, following its trading calendar — saving power and avoiding rate limits
 - **Language control**: follows the system language when possible, with manual switching between English and Simplified Chinese
@@ -37,8 +38,8 @@ Tests live in the `PulseCore` package:
 # Unit tests (includes Tencent/Yahoo parsing via recorded fixtures)
 cd Packages/PulseCore && swift test
 
-# Provider contract tests against the live endpoints
-PULSE_LIVE_TESTS=1 swift test --filter ProviderContractTests
+# Unit tests plus provider contracts against the live endpoints
+PULSE_LIVE_TESTS=1 swift test
 ```
 
 ## Architecture
@@ -47,7 +48,7 @@ PULSE_LIVE_TESTS=1 swift test --filter ProviderContractTests
 - **`Packages/PulseUI`** — shared SwiftUI components: candlestick chart, intraday chart, sparkline, gain/loss colors.
 - **`PulseMac`** — the macOS menu bar app (`MenuBarExtra`, `LSUIElement=true`).
 
-All market data flows through the `QuoteProvider` protocol abstraction. A `CompositeProvider` routes requests per market, caches recent responses, breaks the circuit on unhealthy providers, and composes data from multiple sources (e.g. realtime A-share prices from Tencent, candles and cryptocurrency coverage from Yahoo).
+All market data flows through the `QuoteProvider` protocol abstraction. A `CompositeProvider` routes requests per market and candle period, caches recent responses, breaks the circuit on unhealthy providers, and composes data from multiple sources (e.g. realtime A-share quotes and intraday lines from Tencent, historical candles and cryptocurrency coverage from Yahoo).
 
 Quotes carry their active source and source-specific delay metadata through the app. The watchlist footer shows the app refresh time, while each symbol detail view shows that symbol's realtime / delayed status, active source, and market timestamp with the relevant time basis.
 

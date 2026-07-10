@@ -40,24 +40,38 @@ public struct ProviderDescriptor: Codable, Sendable, Hashable {
     public var name: String
     public var markets: Set<Market>
     public var capabilities: Set<Capability>
+    /// Optional candle-specific coverage. Nil means every declared market / period.
+    public var candleMarkets: Set<Market>?
+    public var candlePeriods: Set<CandlePeriod>?
     /// Data delay per market (seconds), 0 = real time
     public var delay: [Market: TimeInterval]
     public var rateLimit: RateLimitPolicy?
     public var credentials: [CredentialField]
 
     public init(id: String, name: String, markets: Set<Market>, capabilities: Set<Capability>,
+                candleMarkets: Set<Market>? = nil, candlePeriods: Set<CandlePeriod>? = nil,
                 delay: [Market: TimeInterval] = [:], rateLimit: RateLimitPolicy? = nil,
                 credentials: [CredentialField] = []) {
         self.id = id
         self.name = name
         self.markets = markets
         self.capabilities = capabilities
+        self.candleMarkets = candleMarkets
+        self.candlePeriods = candlePeriods
         self.delay = delay
         self.rateLimit = rateLimit
         self.credentials = credentials
     }
 
     public func supports(_ capability: Capability, in market: Market) -> Bool {
-        capabilities.contains(capability) && markets.contains(market)
+        guard capabilities.contains(capability), markets.contains(market) else { return false }
+        if capability == .candles, let candleMarkets {
+            return candleMarkets.contains(market)
+        }
+        return true
+    }
+
+    public func supports(candles period: CandlePeriod, in market: Market) -> Bool {
+        supports(.candles, in: market) && (candlePeriods?.contains(period) ?? true)
     }
 }

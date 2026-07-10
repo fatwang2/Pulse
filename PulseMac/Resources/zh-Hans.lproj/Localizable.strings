@@ -2,6 +2,7 @@
 "action.back" = "返回";
 "action.cancel" = "取消";
 "action.clearPosition" = "清除持仓";
+"action.copyShareSnapshot" = "复制分享图";
 "action.delete" = "删除";
 "action.done" = "完成";
 "action.editPosition" = "编辑持仓";
@@ -104,6 +105,13 @@
 "search.noResults" = "没有找到匹配的标的";
 "search.placeholder" = "代码 / 名称 / 拼音，如 AAPL、腾讯、600519";
 
+"share.copyFailed" = "无法复制分享图";
+"share.copySuccess" = "分享图已复制";
+"share.disclaimer" = "数据仅供参考";
+"share.updateUnavailable" = "等待行情数据";
+"share.watchlist.more.many" = "另有 %d 个标的";
+"share.watchlist.more.one" = "另有 %d 个标的";
+
 "settings.general.language" = "语言";
 "settings.general.launchAtLogin" = "开机自启";
 "settings.market.colorRule" = "涨跌颜色";
@@ -142,9 +150,6 @@
 "status.loading" = "加载中…";
 "status.providerFallback" = "数据源异常，自动降级中";
 "status.reorderHint" = "拖动任意行调整顺序";
-
-"summary.position" = "持仓";
-"summary.today" = "今日";
 
 "watchlist.menu.display" = "列表显示";
 "watchlist.menu.sort" = "列表排序";

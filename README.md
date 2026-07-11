@@ -13,7 +13,7 @@ Pulse is a lightweight market-watching app, not a trading terminal. It solves ex
 - **Menu bar ticker**: icon-only by default (discreet); optionally show quotes as a pinned single symbol (`NVDA 188.3 +2.1%`) or a carousel rotating through your watchlist
 - **Watchlist** supporting US stocks, Hong Kong stocks, China A-shares, cryptocurrencies, indices, and ETFs — add by ticker, name, or pinyin search
 - **Position tracking**: quantity, cost basis, market value, daily P&L, and total P&L
-- **Quote detail view**: price, change, OHLC, volume, turnover, realtime / delayed status, quote source, and market-specific timestamp in a dense menu-bar layout
+- **Quote detail view**: price, change, OHLC, volume, amplitude, realtime / delayed status, quote source, and market-specific timestamp in a dense menu-bar layout
 - **Charts**: realtime Tencent intraday lines for China A-shares, plus Yahoo-backed daily / weekly / monthly candlesticks with OHLC and volume
 - **Share images**: copy a branded, mobile-friendly watchlist image that follows the current metric selection and adapts to list length
 - **Multi-provider data layer**: providers are routed per market, cached to reduce duplicate requests, and fail over automatically when one is rate-limited or down

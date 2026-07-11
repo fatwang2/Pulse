@@ -5,6 +5,7 @@ import PulseUI
 struct WatchlistView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var route: PopoverRoute
 
     @State private var searchText = ""
@@ -30,6 +31,9 @@ struct WatchlistView: View {
                 .opacity(searchText.isEmpty ? 0 : 1)
                 .allowsHitTesting(!searchText.isEmpty)
         }
+        // Crossfade the watchlist ↔ search swap; it only fires at the empty ↔
+        // non-empty boundary, so typing stays instant after the first character.
+        .animation(.easeOut(duration: 0.15), value: searchText.isEmpty)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .scrollEdgeEffectStyle(.soft, for: .all)
         .safeAreaInset(edge: .top, spacing: 0) { chrome }
@@ -205,7 +209,7 @@ struct WatchlistView: View {
                             .fill(refreshHovering ? Color.primary.opacity(0.08) : .clear)
                     )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .onHover { refreshHovering = $0 }
             .help(PulseLocalization.localizedString("action.refreshNow"))
         }
@@ -299,7 +303,7 @@ struct WatchlistView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
         .padding(.horizontal, 9)
@@ -408,18 +412,30 @@ struct WatchlistView: View {
 
     // MARK: - Watchlist
 
+    @State private var emptyStateShown = false
+
+    /// First-run is the one rare moment that earns an entrance: icon and text
+    /// fade up with a short stagger. Reduced motion drops the offset, keeps the fade.
     private var emptyState: some View {
         VStack(spacing: 10) {
             Spacer()
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.system(size: 34))
                 .foregroundStyle(.quaternary)
+                .opacity(emptyStateShown ? 1 : 0)
+                .offset(y: emptyStateShown || reduceMotion ? 0 : 6)
+                .animation(.snappy(duration: 0.35), value: emptyStateShown)
             Text(PulseLocalization.localizedString("empty.watchlist"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
+                .opacity(emptyStateShown ? 1 : 0)
+                .offset(y: emptyStateShown || reduceMotion ? 0 : 6)
+                .animation(.snappy(duration: 0.35).delay(0.06), value: emptyStateShown)
             Spacer()
         }
         .frame(maxWidth: .infinity)
+        .onAppear { emptyStateShown = true }
+        .onDisappear { emptyStateShown = false }
     }
 
     private var watchList: some View {
@@ -451,7 +467,9 @@ struct WatchlistView: View {
                         }
                         Divider()
                         Button(PulseLocalization.localizedString("action.delete"), role: .destructive) {
-                            appState.watchlist.remove(item.symbol)
+                            withAnimation(.snappy(duration: 0.22)) {
+                                appState.watchlist.remove(item.symbol)
+                            }
                         }
                     }
                 }
@@ -611,7 +629,7 @@ struct IconButton: View {
                         .fill(hovering ? Color.primary.opacity(0.08) : .clear)
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .onHover { hovering = $0 }
         .help(help)
     }
@@ -671,7 +689,7 @@ struct ClusterIcon: View {
                               : (hovering ? Color.primary.opacity(0.08) : .clear))
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .onHover { hovering = $0 }
         .help(help)
     }
@@ -711,7 +729,7 @@ struct SearchResultRow: View {
                         .font(.system(size: 15))
                         .foregroundStyle(.tint)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
         .padding(.horizontal, 8)
@@ -741,6 +759,7 @@ struct SearchResultRow: View {
 
 struct WatchRow: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let item: WatchItem
     let titleColumnWidth: CGFloat
     let metricColumnWidth: CGFloat
@@ -803,7 +822,10 @@ struct WatchRow: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                         .allowsTightening(true)
-                        .contentTransition(.numericText())
+                        // numericText(value:) rolls digits up on an uptick and down on a downtick;
+                        // the scoped .animation supplies the transaction that quote refreshes lack.
+                        .contentTransition(reduceMotion ? .opacity : .numericText(value: quote?.price ?? 0))
+                        .animation(.snappy(duration: 0.25), value: priceText)
                 }
                 rowMetricView(display: metricDisplay)
             }
@@ -857,8 +879,8 @@ struct WatchRow: View {
             .lineLimit(1)
             .minimumScaleFactor(0.65)
             .allowsTightening(true)
-            .contentTransition(.numericText())
-        .lineLimit(1)
+            .contentTransition(reduceMotion ? .opacity : .numericText())
+            .animation(.snappy(duration: 0.25), value: display.text)
     }
 
     static func rowMetricDisplay(

@@ -4,12 +4,14 @@ import PulseUI
 
 struct DetailView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let symbol: SymbolID
     @Binding var route: PopoverRoute
 
     @State private var period: CandlePeriod = .minute1
     @State private var candles: [Candle] = []
     @State private var isLoading = false
+    @State private var isFirstLoad = true
 
     private static let periods: [CandlePeriod] = [.minute1, .day, .week, .month]
 
@@ -29,12 +31,37 @@ struct DetailView: View {
         .scrollEdgeEffectStyle(.soft, for: .all)
         .safeAreaInset(edge: .top, spacing: 0) { header }
         .task(id: period) {
-            isLoading = true
-            defer { isLoading = false }
-            candles = await appState.engine.loadCandles(
+            let taskStart = ContinuousClock.now
+            // Show the spinner only when loading is actually slow: a sub-150ms load
+            // (cache hit) swaps silently instead of flashing a progress indicator.
+            let spinnerDelay = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(150))
+                guard !Task.isCancelled else { return }
+                isLoading = true
+            }
+            defer {
+                spinnerDelay.cancel()
+                isLoading = false
+            }
+            let loaded = await appState.engine.loadCandles(
                 for: symbol, period: period,
                 count: candleCount(for: period)
             )
+            if isFirstLoad {
+                // The first load starts while the push transition is still running,
+                // and Swift Charts' first render is expensive (up to 1440 intraday
+                // points) — hold a fast (cached) result until the slide has settled.
+                let clearance: Duration = .milliseconds(350)
+                let elapsed = taskStart.duration(to: .now)
+                if elapsed < clearance {
+                    try? await Task.sleep(for: clearance - elapsed)
+                }
+                isFirstLoad = false
+            }
+            guard !Task.isCancelled else { return }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+                candles = loaded
+            }
         }
     }
 
@@ -104,7 +131,8 @@ struct DetailView: View {
                         Text(PriceFormatter.price(quote.price))
                             .font(.system(size: 28, weight: .semibold).monospacedDigit())
                             .foregroundStyle(color)
-                            .contentTransition(.numericText())
+                            .contentTransition(reduceMotion ? .opacity : .numericText(value: quote.price))
+                            .animation(.snappy(duration: 0.25), value: quote.price)
                             .lineLimit(1)
                             .minimumScaleFactor(0.82)
                         if let currency = quote.currencyCode {
@@ -230,12 +258,14 @@ struct DetailView: View {
             if candles.isEmpty {
                 if isLoading {
                     ProgressView().controlSize(.small)
+                        .transition(.opacity)
                 } else {
                     ContentUnavailableView {
                         Label(PulseLocalization.localizedString("chart.noData"), systemImage: "chart.xyaxis.line")
                     } description: {
                         Text(PulseLocalization.localizedString("chart.noPeriodData", period.displayName))
                     }
+                    .transition(.opacity)
                 }
             } else if period.isIntraday {
                 IntradayChartView(
@@ -244,10 +274,13 @@ struct DetailView: View {
                     market: symbol.market,
                     palette: appState.palette
                 )
+                .transition(.opacity)
             } else {
                 CandlestickChartView(candles: candles, palette: appState.palette, period: period)
+                    .transition(.opacity)
             }
         }
+        .animation(.easeOut(duration: 0.18), value: candles.isEmpty)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -302,7 +335,7 @@ struct DetailView: View {
                         Button(PulseLocalization.localizedString("action.addPosition")) {
                             route = .position(item.symbol, .detail(symbol))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                         .font(.system(size: 10.5, weight: .medium))
                         .foregroundStyle(.tint)
                     }

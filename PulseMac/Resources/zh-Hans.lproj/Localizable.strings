@@ -90,6 +90,9 @@
 "provider.delay.delayed" = "延时";
 "provider.delay.realtime" = "部分实时";
 "provider.tencent" = "腾讯行情";
+"provider.tencent.summary" = "A 股实时报价与分时图";
+"provider.yahoo" = "Yahoo Finance";
+"provider.yahoo.summary" = "全球报价与历史 K 线";
 
 "quote.delay.minutes" = "延时约%d分钟";
 "quote.price.close" = "收盘价";
@@ -144,7 +147,7 @@
 "stat.low" = "最低";
 "stat.open" = "今开";
 "stat.previousClose" = "昨收";
-"stat.turnover" = "成交额";
+"stat.amplitude" = "振幅";
 "stat.volume" = "成交量";
 
 "status.loading" = "加载中…";

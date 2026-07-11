@@ -60,4 +60,11 @@ public struct Quote: Codable, Sendable, Hashable {
         guard previousClose != 0 else { return 0 }
         return change / previousClose * 100
     }
+
+    /// Today's high-low range as a percentage of the previous close.
+    /// This is provider-independent because both quote sources expose high, low, and previous close.
+    public var amplitudePercent: Double? {
+        guard let high, let low, previousClose > 0, high >= low else { return nil }
+        return (high - low) / previousClose * 100
+    }
 }

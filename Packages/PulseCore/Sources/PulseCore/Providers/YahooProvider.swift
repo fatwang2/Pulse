@@ -12,7 +12,7 @@ public struct YahooProvider: QuoteProvider {
     public var descriptor: ProviderDescriptor {
         ProviderDescriptor(
             id: "yahoo",
-            name: "Yahoo Finance",
+            name: PulseLocalization.localizedString("provider.yahoo"),
             markets: [.us, .hk, .sh, .sz, .crypto],
             capabilities: [.search, .quotes, .candles],
             delay: [.us: 0, .hk: 900, .sh: 900, .sz: 900, .crypto: 0],

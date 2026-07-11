@@ -20,10 +20,16 @@ struct ProviderRow: View {
     }
 
     private var summary: String {
+        let summaryKey = "provider.\(descriptor.id).summary"
+        let localizedSummary = PulseLocalization.localizedString(summaryKey)
+        if localizedSummary != summaryKey {
+            return localizedSummary
+        }
+
         let markets = Market.allCases
             .filter { descriptor.markets.contains($0) }
             .map(\.displayName)
-            .joined(separator: "/")
+            .joined(separator: ", ")
         var capabilities: [String] = []
         if descriptor.capabilities.contains(.quotes) {
             capabilities.append(PulseLocalization.localizedString("provider.capability.quotes"))
@@ -40,7 +46,7 @@ struct ProviderRow: View {
         let realtime = descriptor.delay.contains { $0.value == 0 }
             ? PulseLocalization.localizedString("provider.delay.realtime")
             : PulseLocalization.localizedString("provider.delay.delayed")
-        return "\(markets) · \(capabilities.joined(separator: "/")) · \(realtime)"
+        return "\(markets) · \(capabilities.joined(separator: ", ")) · \(realtime)"
     }
 }
 

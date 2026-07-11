@@ -64,11 +64,16 @@ struct DetailView: View {
                 Text(quote?.name ?? symbol.code)
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(1)
                 MarketBadge(market: symbol.market)
+                    .fixedSize()
                 Text(symbol.code)
                     .font(.system(size: 10).monospaced())
                     .foregroundStyle(.secondary)
+                    .fixedSize()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             Spacer()
             if let item {
                 ClusterIcon(
@@ -155,7 +160,10 @@ struct DetailView: View {
         }
         .font(.system(size: 9, weight: .medium))
         .multilineTextAlignment(.trailing)
-        .fixedSize()
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .allowsTightening(true)
+        .frame(maxWidth: 132, alignment: .trailing)
     }
 
     private func quotePriceLabel(for quote: Quote) -> String {
@@ -175,11 +183,7 @@ struct DetailView: View {
 
     private var chartSection: some View {
         VStack(spacing: 7) {
-            HStack(alignment: .center) {
-                sectionHeaderText(PulseLocalization.localizedString("detail.section.trend"))
-                Spacer()
-                picker
-            }
+            chartHeader
             .padding(.horizontal, 12)
             // Leading 10 + the intraday plot's own 2pt inset lands the plot edge on the 12pt text grid;
             // trailing 12 aligns the y-axis labels with it directly.
@@ -188,6 +192,24 @@ struct DetailView: View {
                 .padding(.trailing, 12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Keeps the period control compact when its labels fit, then gives it a full row for
+    /// longer localizations instead of clipping or shrinking the text beyond readability.
+    private var chartHeader: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                sectionHeaderText(PulseLocalization.localizedString("detail.section.trend"))
+                Spacer(minLength: 0)
+                picker
+                    .frame(width: 260)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                sectionHeaderText(PulseLocalization.localizedString("detail.section.trend"))
+                picker
+            }
+        }
     }
 
     private var picker: some View {
@@ -199,7 +221,7 @@ struct DetailView: View {
         .pickerStyle(.segmented)
         .controlSize(.small)
         .labelsHidden()
-        .frame(width: 148)
+        .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder
@@ -242,7 +264,7 @@ struct DetailView: View {
             HStack(spacing: 8) {
                 stat(PulseLocalization.localizedString("stat.previousClose"), quote.map { PriceFormatter.price($0.previousClose) })
                 stat(PulseLocalization.localizedString("stat.volume"), quote?.volume.map(PriceFormatter.compact))
-                stat(PulseLocalization.localizedString("stat.turnover"), quote?.turnover.map(PriceFormatter.compact))
+                stat(PulseLocalization.localizedString("stat.amplitude"), quote?.amplitudePercent.map(PriceFormatter.percentMagnitude))
             }
         }
         .padding(.horizontal, 12)
@@ -297,6 +319,9 @@ struct DetailView: View {
             Text(label)
                 .font(.system(size: 9))
                 .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .allowsTightening(true)
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(PriceFormatter.signedMoney(amount, currencyCode: currencyCode))
                     .font(.system(size: 12.5, weight: .semibold).monospacedDigit())
@@ -325,6 +350,8 @@ struct DetailView: View {
         Text(title)
             .font(.system(size: 10, weight: .medium))
             .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
     }
 
     private func stat(_ label: String, _ value: String?) -> some View {
@@ -332,6 +359,9 @@ struct DetailView: View {
             Text(label)
                 .font(.system(size: 9))
                 .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .allowsTightening(true)
             Text(value ?? "—")
                 .font(.system(size: 10.5, weight: .medium).monospacedDigit())
                 .foregroundStyle(.secondary)

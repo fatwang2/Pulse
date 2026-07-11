@@ -1,7 +1,7 @@
 "action.addPosition" = "Add Position";
 "action.back" = "Back";
 "action.cancel" = "Cancel";
-"action.clearPosition" = "Clear Position";
+"action.clearPosition" = "Remove Position";
 "action.copyShareSnapshot" = "Copy Share Image";
 "action.delete" = "Delete";
 "action.done" = "Done";
@@ -9,7 +9,7 @@
 "action.more" = "More";
 "action.pinToMenuBar" = "Show in Menu Bar";
 "action.quitPulse" = "Quit Pulse";
-"action.refreshNow" = "Refresh Now";
+"action.refreshNow" = "Refresh";
 "action.save" = "Save";
 
 "assetType.fund" = "Fund";
@@ -19,48 +19,48 @@
 "chart.close" = "Close";
 "chart.high" = "High";
 "chart.low" = "Low";
-"chart.noData" = "No Data";
-"chart.noPeriodData" = "The current data source has no %@ data for this symbol.";
+"chart.noData" = "No data";
+"chart.noPeriodData" = "No %@ data is available for this symbol.";
 "chart.open" = "Open";
-"chart.volume" = "Vol";
+"chart.volume" = "Volume";
 
 "detail.period" = "Period";
-"detail.section.market" = "Market";
+"detail.section.market" = "Market Data";
 "detail.section.position" = "Position";
-"detail.section.trend" = "Trend";
+"detail.section.trend" = "Chart";
 
 "duration.seconds" = "%d sec";
 
-"empty.watchlist" = "Search to add your first watchlist item";
+"empty.watchlist" = "Search for a symbol to get started";
 
-"error.client" = "The data source does not support this query: %@";
-"error.network" = "Network unavailable: %@";
-"error.rateLimited" = "The data source is temporarily limited and should recover in about 1 minute.";
+"error.client" = "This data source couldn’t complete the request: %@";
+"error.network" = "Can’t connect to the data source: %@";
+"error.rateLimited" = "Too many requests. Try again in about a minute.";
 "error.symbolNotFound" = "Symbol not found";
-"error.unsupported" = "All data sources are disabled. Enable one in Settings.";
+"error.unsupported" = "No enabled data source supports this request.";
 
-"language.system" = "Follow System";
+"language.system" = "System Default";
 
 "market.hk" = "HK";
 "market.crypto" = "Crypto";
 "market.sh" = "SH";
 "market.sz" = "SZ";
-"market.timeZone.cn" = "Shanghai Time";
-"market.timeZone.hk" = "Hong Kong Time";
-"market.timeZone.us" = "New York Time";
-"market.timeZone.utc" = "UTC Time";
+"market.timeZone.cn" = "Shanghai";
+"market.timeZone.hk" = "Hong Kong";
+"market.timeZone.us" = "New York";
+"market.timeZone.utc" = "UTC";
 "market.us" = "US";
 
 "marketState.postMarket" = "Post";
 "marketState.preMarket" = "Pre";
 
 "menuBarMode.compact" = "Compact (Icon Only)";
-"menuBarMode.rotate" = "Rotate";
+"menuBarMode.rotate" = "Cycle Symbols";
 "menuBarMode.single" = "Single Symbol";
 
 "metric.changePercent" = "Change %";
-"metric.todayPnL" = "Today P&L";
-"metric.totalPnL" = "Position P&L";
+"metric.todayPnL" = "Day P&L";
+"metric.totalPnL" = "Total P&L";
 
 "number.compact.hundredMillion" = "%@B";
 "number.compact.billion" = "%@B";
@@ -68,45 +68,48 @@
 "number.compact.thousand" = "%@K";
 "number.compact.tenThousand" = "%@K";
 
-"period.day" = "Day";
+"period.day" = "Daily";
 "period.minute1" = "Intraday";
-"period.minute5" = "5 min";
-"period.month" = "Month";
-"period.week" = "Week";
+"period.minute5" = "5 Min";
+"period.month" = "Monthly";
+"period.week" = "Weekly";
 
-"position.cost" = "Cost";
-"position.costPrice" = "Cost Price";
+"position.cost" = "Avg. Cost";
+"position.costPrice" = "Average Cost";
 "position.editTitle" = "Edit Position";
 "position.marketValue" = "Market Value";
-"position.notSet" = "No position";
+"position.notSet" = "No position added";
 "position.quantity" = "Quantity";
-"position.waitingQuote" = "Waiting for quote data...";
+"position.waitingQuote" = "Waiting for market data…";
 
-"provider.capability.candles" = "Candles";
+"provider.capability.candles" = "Charts";
 "provider.capability.quotes" = "Quotes";
 "provider.capability.search" = "Search";
 "provider.capability.streaming" = "Streaming";
 "provider.composite" = "Pulse Composite";
 "provider.delay.delayed" = "Delayed";
-"provider.delay.realtime" = "Partly real-time";
-"provider.tencent" = "Tencent Quotes";
+"provider.delay.realtime" = "Real-time available";
+"provider.tencent" = "Tencent Finance";
+"provider.tencent.summary" = "Real-time A-share quotes and intraday charts";
+"provider.yahoo" = "Yahoo Finance";
+"provider.yahoo.summary" = "Global quotes and historical charts";
 
-"quote.delay.minutes" = "Delayed about %d min";
+"quote.delay.minutes" = "Delayed ~%d min";
 "quote.price.close" = "Close";
 "quote.price.current" = "Price";
 "quote.price.postMarket" = "Post-market";
 "quote.price.preMarket" = "Pre-market";
 "quote.realtime" = "Real-time";
-"quote.timing.market" = "Quote %@";
+"quote.timing.market" = "%@";
 
 "refresh.updatedAt" = "Updated %@";
 
-"search.failed" = "Search Failed";
-"search.noResults" = "No matching symbols";
-"search.placeholder" = "Symbol / name / pinyin, e.g. AAPL, Tencent, 600519";
+"search.failed" = "Search failed";
+"search.noResults" = "No symbols found";
+"search.placeholder" = "Search symbols or companies";
 
 "share.copyFailed" = "Couldn’t copy share image";
-"share.copySuccess" = "Share image copied";
+"share.copySuccess" = "Copied share image";
 "share.disclaimer" = "For reference only";
 "share.updateUnavailable" = "Waiting for quote data";
 "share.watchlist.more.many" = "%d more symbols";
@@ -114,47 +117,47 @@
 
 "settings.general.language" = "Language";
 "settings.general.launchAtLogin" = "Launch at Login";
-"settings.market.colorRule" = "Change Colors";
-"settings.market.greenUp" = "Green Up, Red Down";
-"settings.market.redUp" = "Red Up, Green Down";
-"settings.market.refreshInterval" = "Trading-hours Refresh";
+"settings.market.colorRule" = "Gain Color";
+"settings.market.greenUp" = "Green for Gains";
+"settings.market.redUp" = "Red for Gains";
+"settings.market.refreshInterval" = "Refresh Interval";
 "settings.menuBar.displayMode" = "Display Mode";
-"settings.menuBar.firstWatchlistItem" = "First Watchlist Item";
-"settings.menuBar.fixedSymbol" = "Fixed Symbol";
-"settings.menuBar.iconOnlyHelp" = "When off, the menu bar shows only the icon.";
-"settings.menuBar.rotateInterval" = "Rotation Interval";
-"settings.menuBar.showQuote" = "Show Quotes in Menu Bar";
+"settings.menuBar.firstWatchlistItem" = "First in Watchlist";
+"settings.menuBar.fixedSymbol" = "Symbol";
+"settings.menuBar.iconOnlyHelp" = "Only the Pulse icon appears in the menu bar.";
+"settings.menuBar.rotateInterval" = "Switch Every";
+"settings.menuBar.showQuote" = "Show Prices in Menu Bar";
 "settings.providers.allDisabled" = "All data sources are disabled. Quotes and search will be unavailable.";
-"settings.providers.help" = "Multiple sources are routed automatically by capability and market, with failover on errors. Custom sources can be added later.";
+"settings.providers.help" = "Pulse automatically chooses the best available source and switches if one fails.";
 "settings.section.general" = "General";
 "settings.section.market" = "Market";
 "settings.section.menuBar" = "Menu Bar";
 "settings.section.providers" = "Data Sources";
-"settings.section.updates" = "Version & Updates";
+"settings.section.updates" = "Software Update";
 "settings.title" = "Settings";
 "settings.updates.check" = "Check for Updates";
 "settings.updates.currentVersion" = "Current Version";
 
-"sort.changePercent" = "By Change %";
-"sort.marketValue" = "By Market Value";
-"sort.todayPnL" = "By Today P&L";
-"sort.totalPnL" = "By Position P&L";
+"sort.changePercent" = "Change %";
+"sort.marketValue" = "Market Value";
+"sort.todayPnL" = "Day P&L";
+"sort.totalPnL" = "Total P&L";
 
 "stat.high" = "High";
 "stat.low" = "Low";
 "stat.open" = "Open";
 "stat.previousClose" = "Prev Close";
-"stat.turnover" = "Turnover";
+"stat.amplitude" = "Range %";
 "stat.volume" = "Volume";
 
-"status.loading" = "Loading...";
-"status.providerFallback" = "Data source issue, falling back";
+"status.loading" = "Loading…";
+"status.providerFallback" = "Switching data source…";
 "status.reorderHint" = "Drag any row to reorder";
 
-"watchlist.menu.display" = "List Display";
-"watchlist.menu.sort" = "List Sorting";
+"watchlist.menu.display" = "Display Metric";
+"watchlist.menu.sort" = "Sort By";
 "watchlist.sort.manual" = "Manual Order";
-"watchlist.sort.manualActive" = "Manual Ordering";
+"watchlist.sort.manualActive" = "Manual Order";
 
-"watchRow.dragHelp" = "Hold and drag to reorder";
-"watchRow.metricHelp" = "Click to switch: Change % / Today P&L / Position P&L";
+"watchRow.dragHelp" = "Drag to reorder";
+"watchRow.metricHelp" = "Click to cycle through Change %, Day P&L, and Total P&L";

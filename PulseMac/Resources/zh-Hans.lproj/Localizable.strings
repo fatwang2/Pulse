@@ -156,8 +156,9 @@
 
 "watchlist.menu.display" = "列表显示";
 "watchlist.menu.sort" = "列表排序";
-"watchlist.sort.manual" = "手动排序";
-"watchlist.sort.manualActive" = "正在手动排序";
+"watchlist.sort.adjust" = "调整顺序";
+"watchlist.sort.adjustActive" = "正在调整顺序";
+"watchlist.sort.manual" = "自定义排序";
 
 "watchRow.dragHelp" = "按住拖动调整顺序";
 "watchRow.metricHelp" = "点击切换：涨跌幅 / 今日盈亏 / 持仓盈亏";

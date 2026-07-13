@@ -99,10 +99,9 @@ struct WatchlistView: View {
                     }
                     Divider()
                     Menu {
+                        // State group: where the current order comes from (checkmark semantics).
                         Toggle(
-                            isReordering
-                                ? PulseLocalization.localizedString("watchlist.sort.manualActive")
-                                : PulseLocalization.localizedString("watchlist.sort.manual"),
+                            PulseLocalization.localizedString("watchlist.sort.manual"),
                             isOn: orderModeBinding(.manual)
                         )
 
@@ -111,6 +110,18 @@ struct WatchlistView: View {
                         ForEach(WatchlistSortOption.allCases) { option in
                             Toggle(option.title, isOn: sortOptionBinding(option))
                         }
+
+                        Divider()
+
+                        // Action: enter the drag-to-reorder state for the arrangement on screen.
+                        Button {
+                            beginAdjustingOrder()
+                        } label: {
+                            Text(PulseLocalization.localizedString(
+                                isReordering ? "watchlist.sort.adjustActive" : "watchlist.sort.adjust"
+                            ))
+                        }
+                        .disabled(isReordering)
                     } label: {
                         Text(PulseLocalization.localizedString("watchlist.menu.sort"))
                     }
@@ -181,37 +192,41 @@ struct WatchlistView: View {
     }
 
     /// Status line with the manual-refresh button beside it: freshness info and the action to renew it live together.
+    /// While reordering it carries the drag hint alone — the status dot and refresh button hide so the
+    /// line reads as instruction, not as data-freshness state.
     private var footer: some View {
         HStack(spacing: 5) {
-            Circle()
-                .fill(appState.market.lastError == nil ? Color.green.opacity(0.8) : .orange)
-                .frame(width: 6, height: 6)
-            Group {
-                if isReordering {
-                    Text(PulseLocalization.localizedString("status.reorderHint"))
-                } else if appState.market.lastError != nil {
-                    Text(PulseLocalization.localizedString("status.providerFallback"))
-                } else if let timing = appState.refreshTimingText() {
-                    Text(timing)
-                } else {
-                    Text(PulseLocalization.localizedString("status.loading"))
+            if isReordering {
+                Text(PulseLocalization.localizedString("status.reorderHint"))
+            } else {
+                Circle()
+                    .fill(appState.market.lastError == nil ? Color.green.opacity(0.8) : .orange)
+                    .frame(width: 6, height: 6)
+                Group {
+                    if appState.market.lastError != nil {
+                        Text(PulseLocalization.localizedString("status.providerFallback"))
+                    } else if let timing = appState.refreshTimingText() {
+                        Text(timing)
+                    } else {
+                        Text(PulseLocalization.localizedString("status.loading"))
+                    }
                 }
+                Button {
+                    appState.engine.poke()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(refreshHovering ? .primary : .secondary)
+                        .frame(width: 16, height: 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(refreshHovering ? Color.primary.opacity(0.08) : .clear)
+                        )
+                }
+                .buttonStyle(.pressable)
+                .onHover { refreshHovering = $0 }
+                .help(PulseLocalization.localizedString("action.refreshNow"))
             }
-            Button {
-                appState.engine.poke()
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(refreshHovering ? .primary : .secondary)
-                    .frame(width: 16, height: 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(refreshHovering ? Color.primary.opacity(0.08) : .clear)
-                    )
-            }
-            .buttonStyle(.pressable)
-            .onHover { refreshHovering = $0 }
-            .help(PulseLocalization.localizedString("action.refreshNow"))
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
@@ -484,12 +499,20 @@ struct WatchlistView: View {
         .scrollContentBackground(.hidden)
     }
 
-    private func enterManualReorderMode() {
+    /// State switch: bring back the remembered custom order. Does not enter the reorder UI.
+    private func selectCustomOrder() {
         searchText = ""
         withAnimation(.snappy(duration: 0.16)) {
             _ = appState.watchlist.restoreManualOrder()
         }
         listOrderMode = WatchlistOrderMode.manual.rawValue
+    }
+
+    /// Action: start adjusting the arrangement currently on screen. Order mode and the remembered
+    /// custom order stay untouched until the first actual drag (onMove commits both), so exiting
+    /// without dragging changes nothing.
+    private func beginAdjustingOrder() {
+        searchText = ""
         withAnimation(.snappy(duration: 0.25)) { isReordering = true }
     }
 
@@ -540,11 +563,12 @@ struct WatchlistView: View {
     private func orderModeBinding(_ mode: WatchlistOrderMode) -> Binding<Bool> {
         Binding(
             get: { listOrderMode == mode.rawValue },
-            set: { isSelected in
-                guard isSelected else { return }
+            // Menu radio semantics: selecting an item always fires, even when already checked
+            // (a checked Toggle sends `false` on click). Restoring is idempotent, so this is safe.
+            set: { _ in
                 switch mode {
                 case .manual:
-                    enterManualReorderMode()
+                    selectCustomOrder()
                 case .automatic:
                     break
                 }

@@ -156,8 +156,9 @@
 
 "watchlist.menu.display" = "Display Metric";
 "watchlist.menu.sort" = "Sort By";
-"watchlist.sort.manual" = "Manual Order";
-"watchlist.sort.manualActive" = "Manual Order";
+"watchlist.sort.adjust" = "Adjust Order";
+"watchlist.sort.adjustActive" = "Adjusting Order";
+"watchlist.sort.manual" = "Custom Order";
 
 "watchRow.dragHelp" = "Drag to reorder";
 "watchRow.metricHelp" = "Click to cycle through Change %, Day P&L, and Total P&L";

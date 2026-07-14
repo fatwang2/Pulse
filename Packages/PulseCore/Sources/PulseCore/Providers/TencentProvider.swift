@@ -19,7 +19,8 @@ public struct TencentProvider: QuoteProvider {
             candleMarkets: [.sh, .sz],
             candlePeriods: [.minute1, .minute5],
             delay: [.us: 0, .hk: 900, .sh: 0, .sz: 0],
-            rateLimit: RateLimitPolicy(minInterval: 2, batchSize: 60)
+            rateLimit: RateLimitPolicy(minInterval: 2, batchSize: 60),
+            suggestedPollInterval: 15
         )
     }
 

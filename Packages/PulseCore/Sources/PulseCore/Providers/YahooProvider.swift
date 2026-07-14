@@ -16,7 +16,9 @@ public struct YahooProvider: QuoteProvider {
             markets: [.us, .hk, .sh, .sz, .crypto],
             capabilities: [.search, .quotes, .candles],
             delay: [.us: 0, .hk: 900, .sh: 900, .sz: 900, .crypto: 0],
-            rateLimit: RateLimitPolicy(minInterval: 1, batchSize: 1)
+            rateLimit: RateLimitPolicy(minInterval: 1, batchSize: 1),
+            // Yahoo rate-limits aggressively per IP; poll politely and let pushes/others carry liveliness
+            suggestedPollInterval: 60
         )
     }
 
@@ -268,7 +270,7 @@ public struct YahooProvider: QuoteProvider {
         chartPreviousClose: Double?
     ) -> Double {
         switch state {
-        case .preMarket, .postMarket:
+        case .preMarket, .postMarket, .overnight:
             return regularPrice
         case .regular, .closed:
             return previousClose ?? chartPreviousClose ?? regularPrice

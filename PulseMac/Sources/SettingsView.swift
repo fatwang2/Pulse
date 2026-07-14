@@ -1,22 +1,46 @@
 import SwiftUI
 import PulseCore
 
+/// One data source in the settings list: a plain navigation row (name, summary, state, ›).
+/// The enable switch and any connection flow live on the source's own detail page, so every
+/// provider — connectable or not — shares one row shape and one behavior.
 struct ProviderRow: View {
     @Environment(AppState.self) private var appState
     let descriptor: ProviderDescriptor
+    let onOpen: () -> Void
 
     var body: some View {
-        Toggle(isOn: Binding(
-            get: { appState.isProviderEnabled(descriptor.id) },
-            set: { appState.setProvider(descriptor.id, enabled: $0) }
-        )) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(descriptor.name)
-                Text(summary)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+        Button(action: onOpen) {
+            HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(descriptor.name)
+                    Text(summary)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(PulseLocalization.localizedString(statusKey))
+                    .font(.caption)
+                    .foregroundStyle(statusIsPositive ? AnyShapeStyle(Color.green) : AnyShapeStyle(.secondary))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.tertiary)
             }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+    }
+
+    private var isConnectable: Bool { !descriptor.credentials.isEmpty }
+
+    private var statusKey: String {
+        guard appState.isProviderEnabled(descriptor.id) else { return "provider.status.off" }
+        guard isConnectable else { return "provider.status.on" }
+        return appState.longbridgeConfigured ? "provider.status.connected" : "provider.status.notConnected"
+    }
+
+    private var statusIsPositive: Bool {
+        isConnectable && appState.isProviderEnabled(descriptor.id) && appState.longbridgeConfigured
     }
 
     private var summary: String {
@@ -43,9 +67,11 @@ struct ProviderRow: View {
         if descriptor.capabilities.contains(.streaming) {
             capabilities.append(PulseLocalization.localizedString("provider.capability.streaming"))
         }
-        let realtime = descriptor.delay.contains { $0.value == 0 }
-            ? PulseLocalization.localizedString("provider.delay.realtime")
-            : PulseLocalization.localizedString("provider.delay.delayed")
+        let realtime = switch descriptor.delayClass {
+        case .realtime: PulseLocalization.localizedString("provider.delay.realtime")
+        case .partiallyRealtime: PulseLocalization.localizedString("provider.delay.partial")
+        case .delayed: PulseLocalization.localizedString("provider.delay.delayed")
+        }
         return "\(markets) · \(capabilities.joined(separator: ", ")) · \(realtime)"
     }
 }
@@ -91,15 +117,8 @@ struct SettingsView: View {
             }
 
             Section(PulseLocalization.localizedString("settings.section.market")) {
-                Picker(PulseLocalization.localizedString("settings.market.refreshInterval"), selection: Binding(
-                    get: { settings.refreshInterval },
-                    set: { appState.applyRefreshInterval($0) }
-                )) {
-                    Text(PulseLocalization.localizedString("duration.seconds", 5)).tag(TimeInterval(5))
-                    Text(PulseLocalization.localizedString("duration.seconds", 15)).tag(TimeInterval(15))
-                    Text(PulseLocalization.localizedString("duration.seconds", 30)).tag(TimeInterval(30))
-                    Text(PulseLocalization.localizedString("duration.seconds", 60)).tag(TimeInterval(60))
-                }
+                // Refresh cadence moved to each data source's detail page — sources have
+                // very different politeness budgets, so a global interval stopped making sense.
                 Picker(PulseLocalization.localizedString("settings.market.colorRule"), selection: $settings.redUp) {
                     Text(PulseLocalization.localizedString("settings.market.redUp")).tag(true)
                     Text(PulseLocalization.localizedString("settings.market.greenUp")).tag(false)
@@ -108,7 +127,9 @@ struct SettingsView: View {
 
             Section {
                 ForEach(appState.providerDescriptors, id: \.id) { descriptor in
-                    ProviderRow(descriptor: descriptor)
+                    ProviderRow(descriptor: descriptor) {
+                        route = .providerDetail(descriptor.id)
+                    }
                 }
             } header: {
                 Text(PulseLocalization.localizedString("settings.section.providers"))

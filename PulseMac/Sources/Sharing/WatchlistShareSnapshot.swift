@@ -85,8 +85,11 @@ struct WatchlistShareSnapshot {
             )
         }
         redUp = appState.settings.redUp
-        updatedAtText = appState.refreshTimingText()
-            ?? PulseLocalization.localizedString("share.updateUnavailable")
+        // The card is rendered from live store data, so its freshness is the capture moment
+        updatedAtText = PulseLocalization.localizedString(
+            "refresh.updatedAt",
+            Date.now.formatted(date: .omitted, time: .standard)
+        )
     }
 }
 

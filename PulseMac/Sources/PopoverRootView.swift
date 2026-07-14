@@ -6,6 +6,7 @@ enum PopoverRoute: Hashable {
     case detail(SymbolID)
     case position(SymbolID, PositionReturnRoute)
     case settings
+    case providerDetail(String)
 }
 
 enum PositionReturnRoute: Hashable {
@@ -98,12 +99,28 @@ struct PopoverRootView: View {
                 SettingsView(route: $route)
                     .frame(height: height(for: route))
                     .transition(pushTransition)
+            case .providerDetail(let id):
+                Group {
+                    if id == LongbridgeProvider.providerID {
+                        LongbridgeSetupView(route: $route)
+                    } else if let descriptor = appState.providerDescriptors.first(where: { $0.id == id }) {
+                        ProviderDetailView(descriptor: descriptor, route: $route)
+                    }
+                }
+                .frame(height: height(for: route))
+                .transition(pushTransition)
             }
         }
         .frame(width: 340, height: height(for: route), alignment: .top)
         .clipped()
         .animation(.snappy(duration: 0.28), value: route)
         .animation(.snappy(duration: 0.28), value: height(for: route))
+        // Live subscriptions run only while the popover is on screen
+        .onAppear { appState.setPopoverVisible(true) }
+        .onDisappear { appState.setPopoverVisible(false) }
+        .onChange(of: appState.watchlist.symbols) { _, _ in
+            appState.watchlistSymbolsChanged()
+        }
     }
 
     /// The list page height adapts to the watchlist size (chrome, row height, bottom bar, and padding),
@@ -120,6 +137,8 @@ struct PopoverRootView: View {
             return 360
         case .settings:
             return 540
+        case .providerDetail(let id):
+            return id == LongbridgeProvider.providerID ? 410 : 320
         }
     }
 }

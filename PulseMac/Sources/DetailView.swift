@@ -30,6 +30,19 @@ struct DetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .scrollEdgeEffectStyle(.soft, for: .all)
         .safeAreaInset(edge: .top, spacing: 0) { header }
+        // Real-time push while the page is on screen: each tick lands in the store, and the
+        // price / market-time views animate through their existing transitions. Closing the
+        // page cancels the task, which unsubscribes upstream; polling remains the fallback.
+        .task(id: symbol) {
+            guard let stream = appState.provider.quoteStream(for: [symbol]) else { return }
+            do {
+                for try await quote in stream {
+                    appState.ingestStreamedQuote(quote)
+                }
+            } catch {
+                // Stream dropped (e.g. socket reconnect) — the 15s polling loop still updates the page.
+            }
+        }
         .task(id: period) {
             let taskStart = ContinuousClock.now
             // Show the spinner only when loading is actually slow: a sub-150ms load
@@ -185,6 +198,10 @@ struct DetailView: View {
             }
             Text(appState.quoteMarketTimeText(for: quote))
                 .foregroundStyle(.tertiary)
+                .monospacedDigit()
+                // Market time ticks with real-time pushes; roll the digits like the price does.
+                .contentTransition(reduceMotion ? .opacity : .numericText())
+                .animation(.snappy(duration: 0.25), value: quote.timestamp)
         }
         .font(.system(size: 9, weight: .medium))
         .multilineTextAlignment(.trailing)
@@ -200,6 +217,8 @@ struct DetailView: View {
             PulseLocalization.localizedString("quote.price.preMarket")
         case .postMarket:
             PulseLocalization.localizedString("quote.price.postMarket")
+        case .overnight:
+            PulseLocalization.localizedString("quote.price.overnight")
         case .closed:
             PulseLocalization.localizedString("quote.price.close")
         case .regular, .none:

@@ -76,7 +76,8 @@ struct WatchlistView: View {
                 Image(systemName: "waveform.path.ecg")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.tint)
-                Text("Pulse")
+                // Bundle display name: "Pulse Dev" in Debug builds, "Pulse" in Release
+                Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Pulse")
                     .font(.system(size: 12.5, weight: .semibold))
                 Spacer()
                 ClusterMenu(systemName: "ellipsis.circle", help: PulseLocalization.localizedString("action.more")) {
@@ -191,9 +192,9 @@ struct WatchlistView: View {
         return widths.max() ?? 48
     }
 
-    /// Status line with the manual-refresh button beside it: freshness info and the action to renew it live together.
-    /// While reordering it carries the drag hint alone — the status dot and refresh button hide so the
-    /// line reads as instruction, not as data-freshness state.
+    /// Health line with the manual-refresh button beside it. With per-provider cadences and
+    /// push updates there is no single "refreshed at" moment anymore, so the line carries
+    /// health only: a status dot, plus the fallback notice when a source is failing.
     private var footer: some View {
         HStack(spacing: 5) {
             if isReordering {
@@ -202,14 +203,12 @@ struct WatchlistView: View {
                 Circle()
                     .fill(appState.market.lastError == nil ? Color.green.opacity(0.8) : .orange)
                     .frame(width: 6, height: 6)
-                Group {
-                    if appState.market.lastError != nil {
-                        Text(PulseLocalization.localizedString("status.providerFallback"))
-                    } else if let timing = appState.refreshTimingText() {
-                        Text(timing)
-                    } else {
-                        Text(PulseLocalization.localizedString("status.loading"))
-                    }
+                if appState.market.lastError != nil {
+                    Text(PulseLocalization.localizedString("status.providerFallback"))
+                } else if appState.liveStreaming {
+                    Text(PulseLocalization.localizedString("status.streaming"))
+                } else {
+                    Text(PulseLocalization.localizedString("status.healthy"))
                 }
                 Button {
                     appState.engine.poke()

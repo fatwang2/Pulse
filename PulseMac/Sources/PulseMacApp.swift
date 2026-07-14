@@ -1,13 +1,31 @@
 import SwiftUI
 import PulseCore
 
+/// Receives custom-scheme URLs (the Longbridge OAuth callback). A menu bar app's popover
+/// view hierarchy may not be alive when the browser redirects back, so the app delegate is
+/// the reliable entry point rather than `onOpenURL`.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    static var urlHandler: ((URL) -> Void)?
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            Self.urlHandler?(url)
+        }
+    }
+}
+
 @main
 struct PulseMacApp: App {
-    @State private var appState = AppState()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @State private var appState: AppState
 
     init() {
         SelfTest.runIfRequested()
         SoftwareUpdateController.shared.start()
+        let state = AppState()
+        _appState = State(initialValue: state)
+        AppDelegate.urlHandler = { url in state.handleOAuthCallback(url) }
     }
 
     var body: some Scene {

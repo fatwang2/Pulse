@@ -64,6 +64,8 @@ extension MarketState {
             PulseLocalization.localizedString("marketState.preMarket")
         case .postMarket:
             PulseLocalization.localizedString("marketState.postMarket")
+        case .overnight:
+            PulseLocalization.localizedString("marketState.overnight")
         case .regular, .closed:
             nil
         }
@@ -80,7 +82,9 @@ final class AppSettings {
     /// The symbol pinned in single mode; nil falls back to the first watchlist item
     var primarySymbol: SymbolID? { didSet { save() } }
     var rotateInterval: TimeInterval = 6 { didSet { save() } }
-    var refreshInterval: TimeInterval = 15 { didSet { save() } }
+    /// Per-provider quote poll cadence overrides; a missing key falls back to the
+    /// provider's suggested interval. Replaces the former global refresh interval.
+    var providerPollIntervals: [String: TimeInterval] = [:] { didSet { save() } }
     var watchRowMetricMode: WatchRowMetricMode = .totalPnL { didSet { save() } }
     /// Red-up/green-down (A-share convention); false means green-up/red-down
     var redUp: Bool = true { didSet { save() } }
@@ -125,7 +129,7 @@ final class AppSettings {
             menuBarMode = snapshot.menuBarMode
             primarySymbol = snapshot.primarySymbol
             rotateInterval = snapshot.rotateInterval
-            refreshInterval = snapshot.refreshInterval
+            providerPollIntervals = snapshot.providerPollIntervals ?? [:]
             watchRowMetricMode = switch snapshot.watchRowMetricMode {
             case .changePercent, .todayPnL, .totalPnL:
                 snapshot.watchRowMetricMode!
@@ -147,21 +151,22 @@ final class AppSettings {
         var menuBarMode: MenuBarMode
         var primarySymbol: SymbolID?
         var rotateInterval: TimeInterval
-        var refreshInterval: TimeInterval
         var watchRowMetricMode: WatchRowMetricMode?
         var redUp: Bool
         var disabledProviderIDs: Set<String>?
         var showPriceInMenuBar: Bool?
         var languagePreference: PulseLanguagePreference?
+        var providerPollIntervals: [String: TimeInterval]?
     }
 
     private func save() {
         let snapshot = Snapshot(menuBarMode: menuBarMode, primarySymbol: primarySymbol,
-                                rotateInterval: rotateInterval, refreshInterval: refreshInterval,
+                                rotateInterval: rotateInterval,
                                 watchRowMetricMode: watchRowMetricMode, redUp: redUp,
                                 disabledProviderIDs: disabledProviderIDs,
                                 showPriceInMenuBar: showPriceInMenuBar,
-                                languagePreference: languagePreference)
+                                languagePreference: languagePreference,
+                                providerPollIntervals: providerPollIntervals)
         if let data = try? JSONEncoder().encode(snapshot) {
             defaults.set(data, forKey: storageKey)
         }

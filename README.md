@@ -14,10 +14,11 @@ Pulse is a lightweight market-watching app, not a trading terminal. It solves ex
 - **Watchlist** supporting US stocks, Hong Kong stocks, China A-shares, cryptocurrencies, indices, and ETFs — add by ticker, name, or pinyin search
 - **Position tracking**: quantity, cost basis, market value, daily P&L, and total P&L
 - **Quote detail view**: price, change, OHLC, volume, amplitude, realtime / delayed status, quote source, and market-specific timestamp in a dense menu-bar layout
-- **Charts**: realtime Tencent intraday lines for China A-shares, plus Yahoo-backed daily / weekly / monthly candlesticks with OHLC and volume
+- **Charts**: intraday lines and daily / weekly / monthly candlesticks with OHLC and volume, sourced from the best available provider per market
 - **Share images**: copy a branded, mobile-friendly watchlist image that follows the current metric selection and adapts to list length
 - **Multi-provider data layer**: providers are routed per market, cached to reduce duplicate requests, and fail over automatically when one is rate-limited or down
-- **Trading-session-aware refresh**: polls only while each market is open, following its trading calendar — saving power and avoiding rate limits
+- **Real-time via Longbridge**: optionally connect your own [Longbridge](https://open.longbridge.com) account (browser authorization or API keys) to upgrade HK / US / A-share quotes to official real-time data, streamed live over a push connection — including the US overnight session
+- **Session-aware, per-source refresh**: each provider polls at its own configurable cadence, and only while its markets are open — saving power and avoiding rate limits; push-capable sources stream instead of polling
 - **Language control**: follows the system language when possible, with manual switching between English and Simplified Chinese
 
 ## Installation
@@ -50,13 +51,13 @@ PULSE_LIVE_TESTS=1 swift test
 - **`Packages/PulseUI`** — shared SwiftUI components: candlestick chart, intraday chart, sparkline, gain/loss colors.
 - **`PulseMac`** — the macOS menu bar app (`MenuBarExtra`, `LSUIElement=true`).
 
-All market data flows through the `QuoteProvider` protocol abstraction. A `CompositeProvider` routes requests per market and candle period, caches recent responses, breaks the circuit on unhealthy providers, and composes data from multiple sources (e.g. realtime A-share quotes and intraday lines from Tencent, historical candles and cryptocurrency coverage from Yahoo).
+All market data flows through the `QuoteProvider` protocol abstraction. A `CompositeProvider` routes requests per market and candle period, caches recent responses, breaks the circuit on unhealthy providers, and composes data from multiple sources (e.g. realtime A-share quotes and intraday lines from Tencent, historical candles and cryptocurrency coverage from Yahoo, real-time streaming across markets from a connected Longbridge account). The Longbridge integration speaks the OpenAPI binary WebSocket protocol directly — no SDK dependency — and stores credentials only in the local Keychain.
 
-Quotes carry their active source and source-specific delay metadata through the app. The watchlist footer shows the app refresh time, while each symbol detail view shows that symbol's realtime / delayed status, active source, and market timestamp with the relevant time basis.
+Quotes carry their active source and source-specific delay metadata through the app. The watchlist footer shows the live feed status, while each symbol detail view shows that symbol's realtime / delayed status, active source, and market timestamp with the relevant time basis.
 
 ## Data Sources & Disclaimer
 
-Pulse currently uses **free, unofficial** quote endpoints from Yahoo Finance and Tencent. These come with no SLA and may be rate-limited or change without notice. Quote delay varies by provider and market; delayed sources are labeled in the UI when the provider exposes that metadata. All data is for reference only and is **not investment advice**.
+Out of the box, Pulse uses **free, unofficial** quote endpoints from Yahoo Finance and Tencent. These come with no SLA and may be rate-limited or change without notice. Optionally, you can connect your own **Longbridge OpenAPI** account for official real-time quotes delivered by push; quote entitlements follow your account, and credentials never leave the local Keychain. Quote delay varies by provider and market; each source's per-market freshness is spelled out on its detail page. All data is for reference only and is **not investment advice**.
 
 ## License
 

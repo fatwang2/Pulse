@@ -59,7 +59,7 @@ targets:
           - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
     settings:
       base:
-        MARKETING_VERSION: "0.1.6"
+        MARKETING_VERSION: "0.2.0"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         DEVELOPMENT_LANGUAGE: en

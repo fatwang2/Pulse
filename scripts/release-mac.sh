@@ -75,6 +75,9 @@ cat > "$ENTITLEMENTS_PATH" <<'PLIST'
     <true/>
     <key>com.apple.security.network.client</key>
     <true/>
+    <!-- The Longbridge OAuth flow answers the browser redirect on a loopback listener -->
+    <key>com.apple.security.network.server</key>
+    <true/>
     <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
     <array>
         <string>app.pulse.mac-spks</string>

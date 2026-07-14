@@ -34,9 +34,11 @@ struct ProviderRow: View {
     private var isConnectable: Bool { !descriptor.credentials.isEmpty }
 
     private var statusKey: String {
+        // An unconnected account outranks the stored toggle: the switch is locked
+        // until a connection exists, so "not connected" is the only honest state.
+        if isConnectable && !appState.longbridgeConfigured { return "provider.status.notConnected" }
         guard appState.isProviderEnabled(descriptor.id) else { return "provider.status.off" }
-        guard isConnectable else { return "provider.status.on" }
-        return appState.longbridgeConfigured ? "provider.status.connected" : "provider.status.notConnected"
+        return isConnectable ? "provider.status.connected" : "provider.status.on"
     }
 
     private var statusIsPositive: Bool {

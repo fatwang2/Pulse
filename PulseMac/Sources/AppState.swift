@@ -107,6 +107,10 @@ final class AppState {
         Task {
             await provider.setDisabled(ids)
             engine.poke()
+            // A push subscription checks availability only when it starts, so an
+            // already-running stream would keep delivering from a source the user
+            // just turned off — resubscribe against the new availability.
+            if watchlistStreamTask != nil { restartWatchlistStream() }
         }
     }
 
@@ -122,7 +126,9 @@ final class AppState {
         try LongbridgeCredentialStore.saveOAuthTokens(tokens)
         LongbridgeCredentialStore.clear() // OAuth replaces any pasted API-key credentials
         longbridgeAuthState = .oauth
-        applyProviderAvailability()
+        // Connecting is the strongest possible "turn this on" signal — flip the
+        // switch that was locked off while unconfigured.
+        setProvider(LongbridgeProvider.providerID, enabled: true)
     }
 
     /// Forwards `bundleid://oauth/callback?...` URLs from the system to the pending flow.
@@ -137,7 +143,7 @@ final class AppState {
         try LongbridgeCredentialStore.save(credentials)
         LongbridgeCredentialStore.clearOAuthTokens() // manual credentials replace OAuth
         longbridgeAuthState = .apiKey
-        applyProviderAvailability()
+        setProvider(LongbridgeProvider.providerID, enabled: true)
     }
 
     private func activate(auth: LongbridgeAuth) async throws {

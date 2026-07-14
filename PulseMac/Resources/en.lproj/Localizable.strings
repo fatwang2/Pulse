@@ -101,7 +101,7 @@
 "provider.delay.partial" = "Partially real-time";
 "provider.delay.realtime" = "Real-time";
 "provider.longbridge" = "Longbridge";
-"provider.longbridge.summary" = "Real-time HK/US/CN quotes with your own OpenAPI credentials";
+"provider.longbridge.summary" = "Real-time quotes for HK, US and CN markets";
 "longbridge.setup.manualToggle" = "Or enter API keys manually";
 "longbridge.setup.intro" = "Connect your Longbridge account to switch HK, US and CN quotes to real-time data.";
 "longbridge.disconnect" = "Disconnect";

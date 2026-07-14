@@ -101,7 +101,7 @@
 "provider.delay.partial" = "部分实时";
 "provider.delay.realtime" = "实时";
 "provider.longbridge" = "长桥 Longbridge";
-"provider.longbridge.summary" = "港美 A 股实时行情,需要你自己的 OpenAPI 凭证";
+"provider.longbridge.summary" = "港股、美股与 A 股实时行情";
 "longbridge.setup.manualToggle" = "或手动填入 API 密钥";
 "longbridge.setup.intro" = "连接你的 Longbridge 账户后,港股、美股与 A 股行情将切换为实时数据。";
 "longbridge.disconnect" = "断开连接";

@@ -5,6 +5,9 @@ import PulseCore
 struct ProviderEnableCard: View {
     @Environment(AppState.self) private var appState
     let providerID: String
+    /// Connectable sources lock the switch off until an account is connected:
+    /// there is nothing an unconnected source could be "on" for.
+    var locked: Bool = false
 
     var body: some View {
         // Full-width card, label leading and switch trailing — the same row anatomy as a
@@ -14,7 +17,7 @@ struct ProviderEnableCard: View {
                 .font(.system(size: 12, weight: .medium))
             Spacer()
             Toggle(isOn: Binding(
-                get: { appState.isProviderEnabled(providerID) },
+                get: { !locked && appState.isProviderEnabled(providerID) },
                 set: { appState.setProvider(providerID, enabled: $0) }
             )) {
                 EmptyView()
@@ -22,6 +25,7 @@ struct ProviderEnableCard: View {
             .labelsHidden()
             .toggleStyle(.switch)
             .controlSize(.small)
+            .disabled(locked)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)

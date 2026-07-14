@@ -55,8 +55,11 @@ public final class MarketStore {
 
     /// Polls and pushes race: a poll served from a provider-side cache can arrive after a
     /// fresher push. Never let an older market timestamp overwrite a newer one.
+    /// Timestamps are only comparable within one source, though — when the serving source
+    /// changes (user toggled a provider, or routing failed over), the replacement carries
+    /// the freshest data its source has, even if its market timestamp is older.
     private func isFresher(_ incoming: Quote, than existing: Quote?) -> Bool {
-        guard let existing else { return true }
+        guard let existing, incoming.sourceID == existing.sourceID else { return true }
         return incoming.timestamp >= existing.timestamp
     }
 

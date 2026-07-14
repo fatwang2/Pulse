@@ -29,14 +29,17 @@ struct LongbridgeSetupView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 14) {
-                    ProviderEnableCard(providerID: LongbridgeProvider.providerID)
+                    // The switch is locked until an account is connected; connecting
+                    // flips it on automatically, disconnecting locks it off again.
+                    ProviderEnableCard(providerID: LongbridgeProvider.providerID, locked: !configured)
                         .padding(.top, 12)
-                    // A disabled source has nothing to connect: everything below collapses
-                    // with the switch instead of sitting around greyed out.
-                    if enabled {
+                    // Behavior facts only apply to a source that is actually running.
+                    if configured && enabled {
                         ProviderFactsCard(descriptor: appState.longbridge.descriptor)
-                        accountCard
                     }
+                    // The account card always stays: it is the way in (connect) and
+                    // the way out (disconnect).
+                    accountCard
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)

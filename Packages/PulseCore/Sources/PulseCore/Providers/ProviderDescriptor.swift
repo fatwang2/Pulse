@@ -47,11 +47,18 @@ public struct ProviderDescriptor: Codable, Sendable, Hashable {
     public var delay: [Market: TimeInterval]
     public var rateLimit: RateLimitPolicy?
     public var credentials: [CredentialField]
+    /// Default quote-poll cadence for this source (seconds). The user can override it per
+    /// provider; sources with push streaming only need polling as reconciliation.
+    public var suggestedPollInterval: TimeInterval?
+    /// Markets this source keeps quoting during the overnight session (currently a US
+    /// concept). Other sources are simply not polled overnight.
+    public var overnightMarkets: Set<Market>
 
     public init(id: String, name: String, markets: Set<Market>, capabilities: Set<Capability>,
                 candleMarkets: Set<Market>? = nil, candlePeriods: Set<CandlePeriod>? = nil,
                 delay: [Market: TimeInterval] = [:], rateLimit: RateLimitPolicy? = nil,
-                credentials: [CredentialField] = []) {
+                credentials: [CredentialField] = [], suggestedPollInterval: TimeInterval? = nil,
+                overnightMarkets: Set<Market> = []) {
         self.id = id
         self.name = name
         self.markets = markets
@@ -61,6 +68,25 @@ public struct ProviderDescriptor: Codable, Sendable, Hashable {
         self.delay = delay
         self.rateLimit = rateLimit
         self.credentials = credentials
+        self.suggestedPollInterval = suggestedPollInterval
+        self.overnightMarkets = overnightMarkets
+    }
+
+    /// How fresh this source's data is across its markets, for display.
+    public enum DelayClass {
+        /// Every covered market is zero-delay
+        case realtime
+        /// Some markets are zero-delay, others delayed
+        case partiallyRealtime
+        /// No market is zero-delay
+        case delayed
+    }
+
+    public var delayClass: DelayClass {
+        let delays = markets.map { delay[$0] ?? 0 }
+        if delays.allSatisfy({ $0 == 0 }) { return .realtime }
+        if delays.contains(0) { return .partiallyRealtime }
+        return .delayed
     }
 
     public func supports(_ capability: Capability, in market: Market) -> Bool {

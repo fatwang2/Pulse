@@ -2,6 +2,8 @@ import Foundation
 
 public enum MarketState: String, Codable, Sendable {
     case preMarket, regular, postMarket, closed
+    /// US overnight session (Sun–Thu 20:00 → 04:00 ET); only some sources quote it
+    case overnight
 }
 
 /// A single quote snapshot. change/changePercent are derived from price and previousClose to avoid inconsistent definitions across data sources.

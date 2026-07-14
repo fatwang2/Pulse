@@ -137,8 +137,10 @@ struct PopoverRootView: View {
             return 360
         case .settings:
             return 540
-        case .providerDetail(let id):
-            return id == LongbridgeProvider.providerID ? 410 : 320
+        case .providerDetail:
+            // Same height as the settings page it navigates from, so the popover
+            // doesn't shrink on push and the taller pages don't need scrolling.
+            return 540
         }
     }
 }

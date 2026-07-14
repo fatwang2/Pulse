@@ -51,6 +51,7 @@
 "market.timeZone.utc" = "UTC";
 "market.us" = "US";
 
+"marketState.overnight" = "Overnight";
 "marketState.postMarket" = "Post";
 "marketState.preMarket" = "Pre";
 
@@ -86,9 +87,39 @@
 "provider.capability.quotes" = "Quotes";
 "provider.capability.search" = "Search";
 "provider.capability.streaming" = "Streaming";
+"provider.enable" = "Enable this source";
+"provider.refresh.interval" = "Poll interval";
+"provider.refresh.title" = "Refresh";
+"provider.refresh.push" = "Real-time push";
+"provider.status.on" = "On";
+"provider.status.off" = "Off";
+"provider.status.connected" = "Connected";
+"provider.status.notConnected" = "Not connected";
+"provider.detail.capabilities" = "Capabilities";
 "provider.composite" = "Pulse Composite";
 "provider.delay.delayed" = "Delayed";
-"provider.delay.realtime" = "Real-time available";
+"provider.delay.partial" = "Partially real-time";
+"provider.delay.realtime" = "Real-time";
+"provider.longbridge" = "Longbridge";
+"provider.longbridge.summary" = "Real-time quotes for HK, US and CN markets";
+"longbridge.setup.manualToggle" = "Or enter API keys manually";
+"longbridge.setup.intro" = "Connect your Longbridge account to switch HK, US and CN quotes to real-time data.";
+"longbridge.disconnect" = "Disconnect";
+"longbridge.oauth.connect" = "Connect via Browser";
+"longbridge.oauth.waiting" = "Waiting for authorization…";
+"longbridge.oauth.error" = "Authorization failed or timed out — try again";
+"longbridge.account" = "Account";
+"longbridge.credentials.manual" = "Enter API keys manually";
+"longbridge.status.oauth" = "Connected (browser auth)";
+"longbridge.status.apiKey" = "Configured (API keys)";
+"longbridge.credentials.title" = "OpenAPI Credentials";
+"longbridge.credentials.status.configured" = "Configured";
+"longbridge.credentials.status.missing" = "Not configured";
+"longbridge.credentials.save" = "Save & Verify";
+"longbridge.credentials.validating" = "Verifying…";
+"longbridge.credentials.clear" = "Clear Credentials";
+"longbridge.credentials.error" = "Verification failed: check the credentials and whether the access token has expired";
+"longbridge.credentials.help" = "Get the App Key, App Secret and Access Token from the open.longbridge.com user center. Credentials are stored only in the local Keychain.";
 "provider.tencent" = "Tencent Finance";
 "provider.tencent.summary" = "Real-time A-share quotes and intraday charts";
 "provider.yahoo" = "Yahoo Finance";
@@ -97,6 +128,7 @@
 "quote.delay.minutes" = "Delayed ~%d min";
 "quote.price.close" = "Close";
 "quote.price.current" = "Price";
+"quote.price.overnight" = "Overnight";
 "quote.price.postMarket" = "Post-market";
 "quote.price.preMarket" = "Pre-market";
 "quote.realtime" = "Real-time";
@@ -120,7 +152,6 @@
 "settings.market.colorRule" = "Gain Color";
 "settings.market.greenUp" = "Green for Gains";
 "settings.market.redUp" = "Red for Gains";
-"settings.market.refreshInterval" = "Refresh Interval";
 "settings.menuBar.displayMode" = "Display Mode";
 "settings.menuBar.firstWatchlistItem" = "First in Watchlist";
 "settings.menuBar.fixedSymbol" = "Symbol";
@@ -151,13 +182,16 @@
 "stat.volume" = "Volume";
 
 "status.loading" = "Loading…";
+"status.healthy" = "Quotes healthy";
+"status.streaming" = "Streaming live";
 "status.providerFallback" = "Switching data source…";
 "status.reorderHint" = "Drag any row to reorder";
 
 "watchlist.menu.display" = "Display Metric";
 "watchlist.menu.sort" = "Sort By";
-"watchlist.sort.manual" = "Manual Order";
-"watchlist.sort.manualActive" = "Manual Order";
+"watchlist.sort.adjust" = "Adjust Order";
+"watchlist.sort.adjustActive" = "Adjusting Order";
+"watchlist.sort.manual" = "Custom Order";
 
 "watchRow.dragHelp" = "Drag to reorder";
 "watchRow.metricHelp" = "Click to cycle through Change %, Day P&L, and Total P&L";

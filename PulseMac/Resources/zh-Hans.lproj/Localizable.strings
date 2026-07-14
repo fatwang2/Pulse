@@ -51,6 +51,7 @@
 "market.timeZone.utc" = "UTC 时间";
 "market.us" = "美股";
 
+"marketState.overnight" = "夜盘";
 "marketState.postMarket" = "盘后";
 "marketState.preMarket" = "盘前";
 
@@ -86,9 +87,39 @@
 "provider.capability.quotes" = "报价";
 "provider.capability.search" = "搜索";
 "provider.capability.streaming" = "推送";
+"provider.enable" = "启用此数据源";
+"provider.refresh.interval" = "轮询间隔";
+"provider.refresh.title" = "刷新方式";
+"provider.refresh.push" = "实时推送";
+"provider.status.on" = "已启用";
+"provider.status.off" = "已停用";
+"provider.status.connected" = "已连接";
+"provider.status.notConnected" = "未连接";
+"provider.detail.capabilities" = "能力";
 "provider.composite" = "Pulse 聚合";
 "provider.delay.delayed" = "延时";
-"provider.delay.realtime" = "部分实时";
+"provider.delay.partial" = "部分实时";
+"provider.delay.realtime" = "实时";
+"provider.longbridge" = "长桥 Longbridge";
+"provider.longbridge.summary" = "港股、美股与 A 股实时行情";
+"longbridge.setup.manualToggle" = "或手动填入 API 密钥";
+"longbridge.setup.intro" = "连接你的 Longbridge 账户后,港股、美股与 A 股行情将切换为实时数据。";
+"longbridge.disconnect" = "断开连接";
+"longbridge.oauth.connect" = "通过浏览器授权连接";
+"longbridge.oauth.waiting" = "等待浏览器授权…";
+"longbridge.oauth.error" = "授权失败或已超时,请重试";
+"longbridge.account" = "账户";
+"longbridge.credentials.manual" = "手动填入 API 密钥";
+"longbridge.status.oauth" = "已连接(浏览器授权)";
+"longbridge.status.apiKey" = "已配置(API 密钥)";
+"longbridge.credentials.title" = "OpenAPI 凭证";
+"longbridge.credentials.status.configured" = "已配置";
+"longbridge.credentials.status.missing" = "未配置";
+"longbridge.credentials.save" = "保存并校验";
+"longbridge.credentials.validating" = "正在校验…";
+"longbridge.credentials.clear" = "清除凭证";
+"longbridge.credentials.error" = "校验失败:请检查凭证是否正确、Access Token 是否过期";
+"longbridge.credentials.help" = "在 open.longbridge.com 用户中心获取 App Key、App Secret 与 Access Token。凭证仅保存在本机钥匙串。";
 "provider.tencent" = "腾讯行情";
 "provider.tencent.summary" = "A 股实时报价与分时图";
 "provider.yahoo" = "Yahoo Finance";
@@ -97,6 +128,7 @@
 "quote.delay.minutes" = "延时约%d分钟";
 "quote.price.close" = "收盘价";
 "quote.price.current" = "现价";
+"quote.price.overnight" = "夜盘价";
 "quote.price.postMarket" = "盘后价";
 "quote.price.preMarket" = "盘前价";
 "quote.realtime" = "实时";
@@ -120,7 +152,6 @@
 "settings.market.colorRule" = "涨跌颜色";
 "settings.market.greenUp" = "绿涨红跌";
 "settings.market.redUp" = "红涨绿跌";
-"settings.market.refreshInterval" = "盘中刷新频率";
 "settings.menuBar.displayMode" = "显示模式";
 "settings.menuBar.firstWatchlistItem" = "自选第一个";
 "settings.menuBar.fixedSymbol" = "固定标的";
@@ -151,13 +182,16 @@
 "stat.volume" = "成交量";
 
 "status.loading" = "加载中…";
+"status.healthy" = "行情正常";
+"status.streaming" = "实时推送中";
 "status.providerFallback" = "数据源异常，自动降级中";
 "status.reorderHint" = "拖动任意行调整顺序";
 
 "watchlist.menu.display" = "列表显示";
 "watchlist.menu.sort" = "列表排序";
-"watchlist.sort.manual" = "手动排序";
-"watchlist.sort.manualActive" = "正在手动排序";
+"watchlist.sort.adjust" = "调整顺序";
+"watchlist.sort.adjustActive" = "正在调整顺序";
+"watchlist.sort.manual" = "自定义排序";
 
 "watchRow.dragHelp" = "按住拖动调整顺序";
 "watchRow.metricHelp" = "点击切换：涨跌幅 / 今日盈亏 / 持仓盈亏";

@@ -31,12 +31,36 @@ public final class MarketStore {
         // Merge into a copy first, then assign once: a batch of quotes triggers only one view invalidation.
         // Writing entries one by one would re-render the list N times per tick (one of the culprits behind popover jank)
         var merged = quotes
-        for quote in newQuotes {
+        for quote in newQuotes where isFresher(quote, than: merged[quote.symbol]) {
             merged[quote.symbol] = quote
         }
         quotes = merged
         lastRefresh = .now
         lastError = nil
+    }
+
+    /// Merges push-delivered quotes (already coalesced upstream). Unlike a poll round it
+    /// leaves `lastRefresh` and `lastError` alone — pushes are ticks, not health signals.
+    public func applyStreamed(_ newQuotes: [Quote]) {
+        var merged = quotes
+        var changed = false
+        for quote in newQuotes where isFresher(quote, than: merged[quote.symbol]) {
+            merged[quote.symbol] = quote
+            changed = true
+        }
+        if changed {
+            quotes = merged
+        }
+    }
+
+    /// Polls and pushes race: a poll served from a provider-side cache can arrive after a
+    /// fresher push. Never let an older market timestamp overwrite a newer one.
+    /// Timestamps are only comparable within one source, though — when the serving source
+    /// changes (user toggled a provider, or routing failed over), the replacement carries
+    /// the freshest data its source has, even if its market timestamp is older.
+    private func isFresher(_ incoming: Quote, than existing: Quote?) -> Bool {
+        guard let existing, incoming.sourceID == existing.sourceID else { return true }
+        return incoming.timestamp >= existing.timestamp
     }
 
     public func apply(sparkline values: [Double], for symbol: SymbolID) {

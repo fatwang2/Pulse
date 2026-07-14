@@ -2,15 +2,13 @@ import Foundation
 import Observation
 
 /// Refresh scheduling: a trading-session-aware polling loop.
-/// Providers handle HOW to fetch data; this handles WHEN — throttling, slowing down when idle, and low-frequency sparkline refreshes alongside quotes.
+/// Providers handle HOW to fetch data; this handles WHEN. Each data source polls at its own
+/// cadence (user override → descriptor suggestion → 15s default): the scheduler ticks on a
+/// short base interval, groups the watchlist by preferred provider, and polls exactly the
+/// groups whose cadence has elapsed. Sparklines refresh on their own low-frequency track.
 @MainActor
 @Observable
 public final class RefreshEngine {
-    /// Refresh interval while markets are open (seconds), user-configurable
-    public var activeInterval: TimeInterval {
-        didSet { poke() }
-    }
-
     /// Polling interval when all markets are closed (waiting for the open / next day)
     public var idleInterval: TimeInterval = 300
 
@@ -24,13 +22,35 @@ public final class RefreshEngine {
     @ObservationIgnored private let watchlist: WatchlistStore
     @ObservationIgnored private var loopTask: Task<Void, Never>?
     @ObservationIgnored private var lastSparklineAt: [SymbolID: Date] = [:]
+    @ObservationIgnored private var lastPollAt: [String: Date] = [:]
+    @ObservationIgnored private var pollOverrides: [String: TimeInterval]
+    @ObservationIgnored private lazy var suggestedIntervals: [String: TimeInterval] = {
+        Dictionary(uniqueKeysWithValues: provider.registeredDescriptors.compactMap { descriptor in
+            descriptor.suggestedPollInterval.map { (descriptor.id, $0) }
+        })
+    }()
+
+    private static let fallbackPollInterval: TimeInterval = 15
+    /// Scheduler resolution while any covered market trades; also the fastest selectable cadence
+    private static let baseTick: TimeInterval = 5
 
     public init(provider: CompositeProvider, store: MarketStore, watchlist: WatchlistStore,
-                activeInterval: TimeInterval = 15) {
+                pollOverrides: [String: TimeInterval] = [:]) {
         self.provider = provider
         self.store = store
         self.watchlist = watchlist
-        self.activeInterval = activeInterval
+        self.pollOverrides = pollOverrides
+    }
+
+    /// Effective quote cadence for one source: user override → descriptor suggestion → default.
+    public func pollInterval(for providerID: String) -> TimeInterval {
+        pollOverrides[providerID] ?? suggestedIntervals[providerID] ?? Self.fallbackPollInterval
+    }
+
+    public func setPollOverride(_ interval: TimeInterval?, for providerID: String) {
+        pollOverrides[providerID] = interval
+        lastPollAt[providerID] = nil // apply the new cadence right away
+        poke()
     }
 
     public func start() {
@@ -40,7 +60,10 @@ public final class RefreshEngine {
             while !Task.isCancelled {
                 guard let self else { return }
                 await self.tick()
-                let interval = self.currentInterval()
+                let markets = Set(self.watchlist.symbols.map(\.market))
+                // Wake at scheduler resolution while trading; slow down off-hours (the
+                // per-symbol worth-refreshing filter keeps off-hour ticks request-free).
+                let interval = TradingCalendar.anyActive(markets) ? Self.baseTick : 60
                 try? await Task.sleep(for: .seconds(interval))
             }
         }
@@ -57,25 +80,26 @@ public final class RefreshEngine {
         guard loopTask != nil else { return }
         loopTask?.cancel()
         loopTask = nil
+        lastPollAt = [:] // a poke means "refresh everything now", regardless of cadence
         start()
-    }
-
-    private func currentInterval() -> TimeInterval {
-        let markets = Set(watchlist.symbols.map(\.market))
-        if TradingCalendar.anyActive(markets) { return activeInterval }
-        // Post-close settlement window: free sources are delayed ~15 minutes intraday, so quotes take a while after the close to converge on the official closing price.
-        // Keep a medium refresh rate for 35 minutes after the close so closing prices align quickly, instead of dropping straight to the 5-minute idle poll.
-        let wasActiveRecently = TradingCalendar.anyActive(markets, at: .now.addingTimeInterval(-35 * 60))
-        return wasActiveRecently ? 60 : idleInterval
     }
 
     private func tick() async {
         let symbols = watchlist.symbols
         guard !symbols.isEmpty else { return }
 
-        let quoteSymbols = symbolsWorthRefreshing(symbols)
-        do {
-            if !quoteSymbols.isEmpty {
+        let routing = await provider.quoteRouting(for: symbols)
+        let overnightByProvider = Dictionary(uniqueKeysWithValues: provider.registeredDescriptors.map {
+            ($0.id, $0.overnightMarkets)
+        })
+        for (providerID, group) in routing {
+            let last = lastPollAt[providerID] ?? .distantPast
+            guard Date.now.timeIntervalSince(last) >= pollInterval(for: providerID) else { continue }
+
+            let quoteSymbols = symbolsWorthRefreshing(group, overnightMarkets: overnightByProvider[providerID] ?? [])
+            guard !quoteSymbols.isEmpty else { continue }
+            lastPollAt[providerID] = .now
+            do {
                 let quotes = try await provider.quotes(for: quoteSymbols)
                 store.apply(quotes: quotes)
                 // Write the latest name from quotes back to the watchlist (the search-result name captured at add time can be rough)
@@ -84,19 +108,22 @@ public final class RefreshEngine {
                         watchlist.updateDisplayName(quote.symbol, name: name)
                     }
                 }
+            } catch {
+                store.reportError(String(describing: error))
             }
-        } catch {
-            store.reportError(String(describing: error))
         }
 
         await refreshSparklinesIfDue(symbols: symbols)
     }
 
-    private func symbolsWorthRefreshing(_ symbols: [SymbolID]) -> [SymbolID] {
+    private func symbolsWorthRefreshing(_ symbols: [SymbolID], overnightMarkets: Set<Market>) -> [SymbolID] {
         let now = Date.now
         return symbols.filter { symbol in
             if store.quote(for: symbol) == nil { return true }
             if TradingCalendar.isActive(symbol.market, at: now) { return true }
+            // Overnight polls only against sources that actually quote the session
+            if overnightMarkets.contains(symbol.market),
+               TradingCalendar.state(of: symbol.market, at: now) == .overnight { return true }
             return TradingCalendar.isActive(symbol.market, at: now.addingTimeInterval(-35 * 60))
         }
     }

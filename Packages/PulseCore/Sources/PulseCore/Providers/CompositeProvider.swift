@@ -94,6 +94,10 @@ public actor CompositeProvider: QuoteProvider {
     }
 
     private func preferredQuoteProvider(for market: Market, among providers: [any QuoteProvider]) -> (any QuoteProvider)? {
+        // A user-keyed real-time source outranks the free delayed feeds whenever it is available.
+        if let longbridge = providers.first(where: { $0.descriptor.id == LongbridgeProvider.providerID }) {
+            return longbridge
+        }
         if market == .us, let yahoo = providers.first(where: { $0.descriptor.id == "yahoo" }) {
             return yahoo
         }
@@ -110,6 +114,21 @@ public actor CompositeProvider: QuoteProvider {
         } else {
             markUnhealthy(id, cooldown: cooldown)
         }
+    }
+
+    /// Preferred-provider grouping for a symbol set, before failover. The refresh engine
+    /// uses it to poll each group at its source's own cadence; symbols with no available
+    /// candidate are omitted.
+    public func quoteRouting(for symbols: [SymbolID]) -> [String: [SymbolID]] {
+        var groups: [String: [SymbolID]] = [:]
+        for symbol in symbols {
+            guard let primary = preferredQuoteProvider(
+                for: symbol.market,
+                among: candidates(.quotes, market: symbol.market)
+            ) else { continue }
+            groups[primary.descriptor.id, default: []].append(symbol)
+        }
+        return groups
     }
 
     /// Current health status of each data source (for debugging / the settings page)
@@ -210,6 +229,36 @@ public actor CompositeProvider: QuoteProvider {
         }
         candleCache[key] = CacheEntry(value: candles)
         return candles
+    }
+
+    /// Real-time push routes to the (sole) streaming-capable source. The stream resolves
+    /// availability internally so callers can treat "no stream" and "stream ends" the same.
+    public nonisolated func quoteStream(for symbols: [SymbolID]) -> AsyncThrowingStream<Quote, any Error>? {
+        guard let streamer = providers.first(where: { $0.descriptor.capabilities.contains(.streaming) }) else {
+            return nil
+        }
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                guard await !self.isDisabled(streamer.descriptor.id),
+                      let inner = streamer.quoteStream(for: symbols) else {
+                    continuation.finish()
+                    return
+                }
+                do {
+                    for try await quote in inner {
+                        continuation.yield(quote.sourced(by: streamer.descriptor))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private func isDisabled(_ id: String) -> Bool {
+        disabledIDs.contains(id)
     }
 
     public func search(_ query: String) async throws -> [SymbolInfo] {

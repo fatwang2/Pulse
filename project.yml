@@ -41,17 +41,25 @@ targets:
         SUFeedURL: $(SPARKLE_FEED_URL)
         SUPublicEDKey: $(SPARKLE_PUBLIC_ED_KEY)
         SUScheduledCheckInterval: 86400
+        # Longbridge OAuth fallback callback (bundle id doubles as the URL scheme,
+        # keeping dev and release callbacks isolated)
+        CFBundleURLTypes:
+          - CFBundleURLName: $(PRODUCT_BUNDLE_IDENTIFIER).oauth
+            CFBundleURLSchemes:
+              - $(PRODUCT_BUNDLE_IDENTIFIER)
     entitlements:
       path: PulseMac/Pulse.entitlements
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
+        # Loopback listener for the Longbridge OAuth redirect (primary callback path)
+        com.apple.security.network.server: true
         com.apple.security.temporary-exception.mach-lookup.global-name:
           - $(PRODUCT_BUNDLE_IDENTIFIER)-spks
           - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
     settings:
       base:
-        MARKETING_VERSION: "0.1.6"
+        MARKETING_VERSION: "0.2.0"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         DEVELOPMENT_LANGUAGE: en

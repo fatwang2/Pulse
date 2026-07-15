@@ -54,6 +54,7 @@ PY
 fi
 BUILD_NUMBER="${PULSE_BUILD_NUMBER:-$(date +%s)}"
 TAG="${PULSE_TAG:-v$VERSION}"
+RELEASE_NOTES_FILE="${PULSE_RELEASE_NOTES_FILE:-$ROOT/release-notes/$VERSION.md}"
 
 BUILD_DIR="$ROOT/build/release"
 ARCHIVE_PATH="$BUILD_DIR/Pulse.xcarchive"
@@ -273,13 +274,20 @@ echo "==> Uploading GitHub Release assets"
 if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
   gh release upload "$TAG" "$ZIP_PATH" "$DMG_PATH" --repo "$GH_REPO" --clobber
 else
-  gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" \
-    --repo "$GH_REPO" \
-    --title "Pulse ${VERSION}" \
-    --notes "Pulse ${VERSION}
+  if [[ -f "$RELEASE_NOTES_FILE" ]]; then
+    gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" \
+      --repo "$GH_REPO" \
+      --title "Pulse ${VERSION}" \
+      --notes-file "$RELEASE_NOTES_FILE"
+  else
+    gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" \
+      --repo "$GH_REPO" \
+      --title "Pulse ${VERSION}" \
+      --notes "Pulse ${VERSION}
 
 For first-time installation, download Pulse-${VERSION}.dmg and drag Pulse to Applications.
 The zip asset is used by Sparkle automatic updates."
+  fi
 fi
 
 echo "==> Publishing stable Sparkle appcast asset"

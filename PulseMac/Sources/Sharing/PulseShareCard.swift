@@ -80,7 +80,7 @@ struct PulseShareCard<Content: View>: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 24)
         .padding(.top, 14)
-        .padding(.bottom, 18)
+        .padding(.bottom, 24)
     }
 
     private var background: Color {

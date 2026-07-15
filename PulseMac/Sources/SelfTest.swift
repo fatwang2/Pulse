@@ -118,6 +118,29 @@ enum SelfTest {
                 throw ShareImageError.renderingFailed
             }
 
+            func trendCandles(_ values: [Double], market: Market) -> [Candle] {
+                var calendar = Calendar(identifier: .gregorian)
+                calendar.timeZone = market.timeZone
+                let day = calendar.date(from: DateComponents(year: 2026, month: 7, day: 15)) ?? .now
+                let startHour = market == .crypto ? 0 : 9
+                let startMinute = market == .crypto ? 0 : 30
+                let start = calendar.date(
+                    bySettingHour: startHour,
+                    minute: startMinute,
+                    second: 0,
+                    of: day
+                ) ?? day
+                return values.enumerated().map { index, close in
+                    Candle(
+                        time: start.addingTimeInterval(Double(index) * 60),
+                        open: close,
+                        high: close,
+                        low: close,
+                        close: close
+                    )
+                }
+            }
+
             let snapshot = WatchlistShareSnapshot(
                 rows: [
                     .init(
@@ -131,7 +154,7 @@ enum SelfTest {
                         change: 2.92,
                         previousClose: 228.50,
                         sessionLabel: nil,
-                        sparkline: [228.5, 229.2, 228.9, 230.4, 231.0, 231.42]
+                        sparkline: trendCandles([228.5, 229.2, 228.9, 230.4, 231.0, 231.42], market: .us)
                     ),
                     .init(
                         id: SymbolID(market: .hk, code: "700"),
@@ -144,7 +167,7 @@ enum SelfTest {
                         change: 4.50,
                         previousClose: 538.00,
                         sessionLabel: nil,
-                        sparkline: [538, 539, 537.8, 540.2, 541.6, 542.5]
+                        sparkline: trendCandles([538, 539, 537.8, 540.2, 541.6, 542.5], market: .hk)
                     ),
                     .init(
                         id: SymbolID(market: .sh, code: "600519"),
@@ -157,7 +180,7 @@ enum SelfTest {
                         change: -5.40,
                         previousClose: 1487.70,
                         sessionLabel: nil,
-                        sparkline: [1487.7, 1485.2, 1486.4, 1483.8, 1484.5, 1482.3]
+                        sparkline: trendCandles([1487.7, 1485.2, 1486.4, 1483.8, 1484.5, 1482.3], market: .sh)
                     ),
                     .init(
                         id: SymbolID(market: .us, code: "MSFT"),
@@ -170,7 +193,7 @@ enum SelfTest {
                         change: 2.34,
                         previousClose: 495.38,
                         sessionLabel: nil,
-                        sparkline: [495.4, 496.1, 495.8, 496.9, 497.1, 497.72]
+                        sparkline: trendCandles([495.4, 496.1, 495.8, 496.9, 497.1, 497.72], market: .us)
                     ),
                     .init(
                         id: SymbolID(market: .us, code: "NVDA"),
@@ -183,7 +206,7 @@ enum SelfTest {
                         change: -1.03,
                         previousClose: 165.95,
                         sessionLabel: nil,
-                        sparkline: [165.9, 165.5, 165.8, 165.1, 164.7, 164.92]
+                        sparkline: trendCandles([165.9, 165.5, 165.8, 165.1, 164.7, 164.92], market: .us)
                     ),
                     .init(
                         id: SymbolID(market: .hk, code: "9988"),
@@ -196,7 +219,7 @@ enum SelfTest {
                         change: 1.60,
                         previousClose: 110.20,
                         sessionLabel: nil,
-                        sparkline: [110.2, 110.6, 110.4, 111.0, 111.5, 111.8]
+                        sparkline: trendCandles([110.2, 110.6, 110.4, 111.0, 111.5, 111.8], market: .hk)
                     ),
                     .init(
                         id: SymbolID(market: .crypto, code: "BTC-USD"),
@@ -209,7 +232,7 @@ enum SelfTest {
                         change: 2460,
                         previousClose: 113960,
                         sessionLabel: nil,
-                        sparkline: [113960, 114800, 114300, 115400, 116000, 116420]
+                        sparkline: trendCandles([113960, 114800, 114300, 115400, 116000, 116420], market: .crypto)
                     ),
                 ],
                 redUp: true,
@@ -267,16 +290,66 @@ enum SelfTest {
                 throw ShareImageError.renderingFailed
             }
 
+            let detailQuote = Quote(
+                symbol: metricTestItem.symbol,
+                name: "Apple",
+                price: 231.42,
+                previousClose: 228.50,
+                open: 229.10,
+                high: 232.18,
+                low: 227.82,
+                volume: 48_260_000,
+                currencyCode: "USD",
+                marketState: .regular
+            )
+            let detailValues = (0..<120).map { index in
+                let minute = Double(index)
+                return 228.5 + minute * 0.024 + sin(minute / 8) * 0.72 + sin(minute / 2.7) * 0.18
+            }
+            let detailCandles = trendCandles(detailValues, market: .us)
+            let detailSnapshot = DetailShareSnapshot(
+                symbol: metricTestItem.symbol,
+                name: "Apple",
+                quote: detailQuote,
+                period: .minute1,
+                candles: detailCandles,
+                redUp: true,
+                updatedAtText: PulseLocalization.localizedString("refresh.updatedAt", "09:45")
+            )
+            let detailCard = PulseShareCard(
+                metadata: PulseShareCardMetadata(updatedAtText: detailSnapshot.updatedAtText)
+            ) {
+                DetailShareContent(snapshot: detailSnapshot)
+            }
+            let detailArtifact = try ShareImageRenderer.render(
+                detailCard,
+                configuration: .socialPortrait(
+                    height: detailSnapshot.preferredImageHeight,
+                    colorScheme: .light,
+                    locale: Locale(identifier: "en")
+                )
+            )
+            guard let detailBitmap = NSBitmapImageRep(data: detailArtifact.pngData),
+                  detailBitmap.pixelsWide == 1080,
+                  detailBitmap.pixelsHigh == 1024 else {
+                throw ShareImageError.renderingFailed
+            }
+
             let outputURL = URL(fileURLWithPath: NSTemporaryDirectory())
                 .appendingPathComponent("pulse-share-selftest.png")
             try artifact.pngData.write(to: outputURL, options: .atomic)
             let shortOutputURL = URL(fileURLWithPath: NSTemporaryDirectory())
                 .appendingPathComponent("pulse-share-selftest-short.png")
             try shortArtifact.pngData.write(to: shortOutputURL, options: .atomic)
+            let detailOutputURL = URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("pulse-detail-share-selftest.png")
+            try detailArtifact.pngData.write(to: detailOutputURL, options: .atomic)
             print(
                 "SHARE_SELFTEST: ✅ PNG/TIFF copied to isolated pasteboard, "
                     + "images=\(shortBitmap.pixelsWide)x\(shortBitmap.pixelsHigh)..."
-                    + "\(bitmap.pixelsWide)x\(bitmap.pixelsHigh), outputs=\(shortOutputURL.path),\(outputURL.path)"
+                    + "\(bitmap.pixelsWide)x\(bitmap.pixelsHigh), detail="
+                    + "\(detailBitmap.pixelsWide)x\(detailBitmap.pixelsHigh), outputs="
+                    + "\(shortOutputURL.path),\(outputURL.path),\(detailOutputURL.path)"
             )
             return true
         } catch {

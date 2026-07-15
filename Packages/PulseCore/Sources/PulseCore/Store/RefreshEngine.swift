@@ -139,8 +139,14 @@ public final class RefreshEngine {
 
             // Record the time regardless of success: symbols a source lacks (e.g. A-share indices missing from Yahoo) shouldn't be retried over and over
             lastSparklineAt[symbol] = .now
-            if let candles = try? await provider.candles(for: symbol, period: .minute5, count: 60) {
-                store.apply(sparkline: candles.map(\.close), for: symbol)
+            let count = IntradayTrendSnapshot.recommendedCandleCount(for: symbol.market)
+            if let candles = try? await provider.candles(for: symbol, period: .minute1, count: count) {
+                let trend = IntradayTrendSnapshot(candles: candles, market: symbol.market)
+                store.apply(sparkline: trend.candles, for: symbol)
+                store.cache(
+                    candles: trend.candles,
+                    for: CandleCacheKey(symbol: symbol, period: .minute1)
+                )
             }
             // Fetch one at a time with a gap in between to avoid a request burst against a single source (which would trigger rate limiting)
             fetched += 1
@@ -155,15 +161,28 @@ public final class RefreshEngine {
         let key = CandleCacheKey(symbol: symbol, period: period)
         let maxAge: TimeInterval = period.isIntraday ? 60 : 600
         if let cached = store.cachedCandles(for: key, maxAge: maxAge) {
-            return cached
+            return synchronizeIntradayTrend(cached, for: symbol, period: period)
         }
         do {
             let candles = try await provider.candles(for: symbol, period: period, count: count)
-            store.cache(candles: candles, for: key)
-            return candles
+            let synchronized = synchronizeIntradayTrend(candles, for: symbol, period: period)
+            store.cache(candles: synchronized, for: key)
+            return synchronized
         } catch {
             store.reportError(String(describing: error))
-            return store.cachedCandles(for: key, maxAge: .infinity) ?? []
+            let cached = store.cachedCandles(for: key, maxAge: .infinity) ?? []
+            return synchronizeIntradayTrend(cached, for: symbol, period: period)
         }
+    }
+
+    private func synchronizeIntradayTrend(
+        _ candles: [Candle],
+        for symbol: SymbolID,
+        period: CandlePeriod
+    ) -> [Candle] {
+        guard period == .minute1 else { return candles }
+        let trend = IntradayTrendSnapshot(candles: candles, market: symbol.market)
+        store.apply(sparkline: trend.candles, for: symbol)
+        return trend.candles
     }
 }

@@ -80,17 +80,15 @@ struct WatchlistView: View {
                 Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Pulse")
                     .font(.system(size: 12.5, weight: .semibold))
                 Spacer()
+                ClusterIcon(
+                    systemName: "square.and.arrow.up",
+                    help: PulseLocalization.localizedString("action.copyShareSnapshot")
+                ) {
+                    copyShareSnapshot()
+                }
+                .disabled(appState.watchlist.isEmpty)
+                .opacity(appState.watchlist.isEmpty ? 0.45 : 1)
                 ClusterMenu(systemName: "ellipsis.circle", help: PulseLocalization.localizedString("action.more")) {
-                    Button {
-                        copyShareSnapshot()
-                    } label: {
-                        Label(
-                            PulseLocalization.localizedString("action.copyShareSnapshot"),
-                            systemImage: "doc.on.doc"
-                        )
-                    }
-                    .disabled(appState.watchlist.isEmpty)
-                    Divider()
                     Menu {
                         ForEach(WatchRowMetricMode.allCases, id: \.self) { mode in
                             Toggle(mode.displayName, isOn: metricModeBinding(mode))
@@ -143,8 +141,8 @@ struct WatchlistView: View {
             }
             .overlay(alignment: .trailing) {
                 if let shareFeedback {
-                    shareFeedbackHUD(shareFeedback)
-                        .padding(.trailing, 34)
+                    ShareFeedbackHUD(feedback: shareFeedback)
+                        .padding(.trailing, 62)
                         .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .trailing)))
                         .allowsHitTesting(false)
                 }
@@ -232,30 +230,6 @@ struct WatchlistView: View {
         .frame(height: 22)
         .padding(.leading, 12)
         .padding(.bottom, 4)
-    }
-
-    private func shareFeedbackHUD(_ feedback: ShareFeedback) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: feedback.isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(feedback.isSuccess ? .green : .orange)
-            Text(PulseLocalization.localizedString(
-                feedback.isSuccess ? "share.copySuccess" : "share.copyFailed"
-            ))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-        }
-        .font(.system(size: 10.5, weight: .medium))
-        .padding(.horizontal, 8)
-        .frame(height: 22)
-        .fixedSize(horizontal: true, vertical: false)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .stroke(.separator.opacity(0.35), lineWidth: 0.5)
-        }
-        .accessibilityLabel(PulseLocalization.localizedString(
-            feedback.isSuccess ? "share.copySuccess" : "share.copyFailed"
-        ))
     }
 
     @MainActor
@@ -604,11 +578,6 @@ struct WatchlistView: View {
     }
 }
 
-private struct ShareFeedback: Equatable {
-    let id = UUID()
-    let isSuccess: Bool
-}
-
 // MARK: - Components
 
 private enum WatchlistOrderMode: String {
@@ -823,9 +792,10 @@ struct WatchRow: View {
                 }
                 .frame(width: titleColumnWidth, alignment: .leading)
 
-                SparklineView(
-                    values: appState.market.sparklines[item.symbol] ?? [],
-                    baseline: quote?.previousClose,
+                IntradaySparklineView(
+                    candles: appState.market.sparklines[item.symbol] ?? [],
+                    previousClose: quote?.previousClose,
+                    market: item.symbol.market,
                     tint: color
                 )
                 .frame(maxWidth: .infinity, minHeight: 30, maxHeight: 30)

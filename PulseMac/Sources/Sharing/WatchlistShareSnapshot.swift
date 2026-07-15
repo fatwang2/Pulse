@@ -14,7 +14,7 @@ struct WatchlistShareSnapshot {
         let change: Double?
         let previousClose: Double?
         let sessionLabel: String?
-        let sparkline: [Double]
+        let sparkline: [Candle]
     }
 
     let rows: [Row]
@@ -159,9 +159,10 @@ private struct WatchlistShareRow: View {
                 }
                 .frame(width: titleColumnWidth, alignment: .leading)
 
-                SparklineView(
-                    values: row.sparkline,
-                    baseline: row.previousClose,
+                IntradaySparklineView(
+                    candles: row.sparkline,
+                    previousClose: row.previousClose,
+                    market: row.market,
                     tint: row.change.map(palette.color(for:)) ?? .secondary
                 )
                 .frame(maxWidth: .infinity, minHeight: 34, maxHeight: 34)

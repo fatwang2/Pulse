@@ -16,8 +16,8 @@ public struct CandleCacheKey: Hashable, Sendable {
 @Observable
 public final class MarketStore {
     public private(set) var quotes: [SymbolID: Quote] = [:]
-    /// Intraday close series used for the sparkline in list rows
-    public private(set) var sparklines: [SymbolID: [Double]] = [:]
+    /// Canonical current-session minute candles used by list rows and share cards.
+    public private(set) var sparklines: [SymbolID: [Candle]] = [:]
     public private(set) var lastRefresh: Date?
     public private(set) var lastError: String?
 
@@ -63,8 +63,8 @@ public final class MarketStore {
         return incoming.timestamp >= existing.timestamp
     }
 
-    public func apply(sparkline values: [Double], for symbol: SymbolID) {
-        sparklines[symbol] = values
+    public func apply(sparkline candles: [Candle], for symbol: SymbolID) {
+        sparklines[symbol] = candles
     }
 
     public func reportError(_ message: String) {

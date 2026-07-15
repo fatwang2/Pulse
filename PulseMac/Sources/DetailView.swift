@@ -4,6 +4,7 @@ import PulseUI
 
 struct DetailView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let symbol: SymbolID
     @Binding var route: PopoverRoute
@@ -12,6 +13,7 @@ struct DetailView: View {
     @State private var candles: [Candle] = []
     @State private var isLoading = false
     @State private var isFirstLoad = true
+    @State private var shareFeedback: ShareFeedback?
 
     private static let periods: [CandlePeriod] = [.minute1, .day, .week, .month]
 
@@ -115,6 +117,14 @@ struct DetailView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Spacer()
+            ClusterIcon(
+                systemName: "square.and.arrow.up",
+                help: PulseLocalization.localizedString("action.copyShareSnapshot")
+            ) {
+                copyShareSnapshot()
+            }
+            .disabled(quote == nil || candles.isEmpty)
+            .opacity(quote == nil || candles.isEmpty ? 0.45 : 1)
             if let item {
                 ClusterIcon(
                     systemName: item.hasPosition ? "briefcase.fill" : "briefcase",
@@ -126,8 +136,60 @@ struct DetailView: View {
                 }
             }
         }
+        .overlay(alignment: .trailing) {
+            if let shareFeedback {
+                ShareFeedbackHUD(feedback: shareFeedback)
+                    .padding(.trailing, item == nil ? 30 : 58)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .trailing)))
+                    .allowsHitTesting(false)
+            }
+        }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
+    }
+
+    @MainActor
+    private func copyShareSnapshot() {
+        do {
+            let snapshot = DetailShareSnapshot(
+                appState: appState,
+                symbol: symbol,
+                period: period,
+                candles: candles
+            )
+            let card = PulseShareCard(
+                metadata: PulseShareCardMetadata(updatedAtText: snapshot.updatedAtText)
+            ) {
+                DetailShareContent(snapshot: snapshot)
+            }
+            let artifact = try ShareImageRenderer.render(
+                card,
+                configuration: .socialPortrait(
+                    height: snapshot.preferredImageHeight,
+                    colorScheme: colorScheme,
+                    locale: appState.settings.locale
+                )
+            )
+            try ClipboardImageExporter.write(artifact)
+            showShareFeedback(isSuccess: true)
+        } catch {
+            showShareFeedback(isSuccess: false)
+        }
+    }
+
+    @MainActor
+    private func showShareFeedback(isSuccess: Bool) {
+        let feedback = ShareFeedback(isSuccess: isSuccess)
+        withAnimation(.snappy(duration: 0.2)) {
+            shareFeedback = feedback
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(isSuccess ? 1.5 : 3))
+            guard shareFeedback?.id == feedback.id else { return }
+            withAnimation(.snappy(duration: 0.2)) {
+                shareFeedback = nil
+            }
+        }
     }
 
     // MARK: - Hero

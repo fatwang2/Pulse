@@ -70,7 +70,7 @@ public struct IntradayChartView: View {
     }
 
     @ChartContentBuilder
-    private func marks(session: TradingSession) -> some ChartContent {
+    private func marks(session: IntradayTradingSession) -> some ChartContent {
         ForEach(lineSegments) { segment in
             ForEach(segment.candles, id: \.time) { candle in
                 LineMark(
@@ -98,26 +98,15 @@ public struct IntradayChartView: View {
     // MARK: - Trading-minute axis
 
     /// The session frame for the day being displayed (taken from the most recent candle).
-    private var session: TradingSession {
-        let day = marketCalendar.startOfDay(for: candles.max(by: { $0.time < $1.time })?.time ?? .now)
-        func at(_ hour: Int, _ minute: Int) -> Date {
-            marketCalendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
-        }
-        return switch market {
-        case .sh, .sz:
-            TradingSession(open: at(9, 30), morningEnd: at(11, 30), afternoonStart: at(13, 0), close: at(15, 0))
-        case .hk:
-            TradingSession(open: at(9, 30), morningEnd: at(12, 0), afternoonStart: at(13, 0), close: at(16, 0))
-        case .us:
-            TradingSession(open: at(9, 30), morningEnd: nil, afternoonStart: nil, close: at(16, 0))
-        case .crypto:
-            TradingSession(open: at(0, 0), morningEnd: nil, afternoonStart: nil, close: at(23, 59))
-        }
+    private var trend: IntradayTrendSnapshot {
+        IntradayTrendSnapshot(candles: candles, market: market)
     }
+
+    private var session: IntradayTradingSession { trend.session }
 
     /// Three wall-clock ticks, mainstream-app style (e.g. THS): open at the left edge, close at the
     /// right edge, and the lunch boundary (midday for the US) in between.
-    private func xTicks(session: TradingSession) -> [Double] {
+    private func xTicks(session: IntradayTradingSession) -> [Double] {
         switch market {
         case .sh, .sz, .hk: [0, session.morningMinutes, session.totalMinutes]
         case .us: [0, 150, session.totalMinutes]  // 150 trading minutes past 9:30 = 12:00
@@ -125,24 +114,19 @@ public struct IntradayChartView: View {
         }
     }
 
-    private func tickLabel(forMinute minute: Double, session: TradingSession) -> String {
+    private func tickLabel(forMinute minute: Double, session: IntradayTradingSession) -> String {
         axisTimeFormatter.string(from: session.date(forMinute: minute))
     }
 
     /// Edge labels anchor inward so they hug the plot borders instead of spilling outside.
-    private func tickAnchor(forMinute minute: Double, session: TradingSession) -> UnitPoint {
+    private func tickAnchor(forMinute minute: Double, session: IntradayTradingSession) -> UnitPoint {
         if minute < 0.5 { return .topLeading }
         if minute > session.totalMinutes - 0.5 { return .topTrailing }
         return .top
     }
 
     /// Candles inside the displayed session (drops the opening auction and any pre/post-market strays).
-    private var sessionCandles: [Candle] {
-        let session = self.session
-        return candles
-            .filter { $0.time >= session.open.addingTimeInterval(-60) && $0.time <= session.close.addingTimeInterval(60) }
-            .sorted { $0.time < $1.time }
-    }
+    private var sessionCandles: [Candle] { trend.candles }
 
     // MARK: - Crosshair
 
@@ -179,7 +163,7 @@ public struct IntradayChartView: View {
     }
 
     /// Snap to the candle closest to the cursor's trading-minute position.
-    private func candle(at point: CGPoint, proxy: ChartProxy, plot: CGRect, session: TradingSession) -> Candle? {
+    private func candle(at point: CGPoint, proxy: ChartProxy, plot: CGRect, session: IntradayTradingSession) -> Candle? {
         guard plot.insetBy(dx: -2, dy: -2).contains(point),
               let minute: Double = proxy.value(atX: point.x - plot.origin.x) else { return nil }
         return sessionCandles.min {
@@ -237,53 +221,11 @@ public struct IntradayChartView: View {
         market.isChinaA || market == .hk ? 30 * 60 : 20 * 60
     }
 
-    private var marketCalendar: Calendar {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = market.timeZone
-        return calendar
-    }
-
     private var axisTimeFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "H:mm"
         formatter.timeZone = market.timeZone
         return formatter
-    }
-}
-
-/// One trading day's session frame, measured in "trading minutes" that skip the lunch break.
-private struct TradingSession {
-    let open: Date
-    let morningEnd: Date?
-    let afternoonStart: Date?
-    let close: Date
-
-    var morningMinutes: Double {
-        (morningEnd ?? close).timeIntervalSince(open) / 60
-    }
-
-    var totalMinutes: Double {
-        guard let afternoonStart else { return morningMinutes }
-        return morningMinutes + close.timeIntervalSince(afternoonStart) / 60
-    }
-
-    /// Wall-clock date → trading-minute offset; lunch collapses onto the morning close, out-of-session clamps to the edges.
-    func minuteOffset(for date: Date) -> Double {
-        if date <= open { return 0 }
-        if let morningEnd, let afternoonStart {
-            if date <= morningEnd { return date.timeIntervalSince(open) / 60 }
-            if date < afternoonStart { return morningMinutes }
-            return min(morningMinutes + date.timeIntervalSince(afternoonStart) / 60, totalMinutes)
-        }
-        return min(date.timeIntervalSince(open) / 60, totalMinutes)
-    }
-
-    /// Trading-minute offset → wall-clock date (inverse of `minuteOffset`, afternoon side of the boundary).
-    func date(forMinute minute: Double) -> Date {
-        if let afternoonStart, minute > morningMinutes {
-            return afternoonStart.addingTimeInterval((minute - morningMinutes) * 60)
-        }
-        return open.addingTimeInterval(minute * 60)
     }
 }
 

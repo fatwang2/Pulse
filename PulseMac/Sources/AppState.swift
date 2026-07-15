@@ -35,7 +35,12 @@ final class AppState {
         let settings = AppSettings()
         let watchlist = WatchlistStore()
         let market = MarketStore()
-        let (auth, authState) = Self.loadLongbridgeAuth()
+        // Image-rendering self-tests do not need live credentials. Skipping Keychain access
+        // also keeps the headless test from waiting on an authorization prompt.
+        let authContext: (LongbridgeAuth?, LongbridgeAuthState) = CommandLine.arguments.contains("--share-selftest")
+            ? (nil, .none)
+            : Self.loadLongbridgeAuth()
+        let (auth, authState) = authContext
         let longbridge = LongbridgeProvider(auth: auth)
         var disabledIDs = settings.disabledProviderIDs
         if authState == .none { disabledIDs.insert(LongbridgeProvider.providerID) }
@@ -53,6 +58,9 @@ final class AppState {
         )
         self.engine = RefreshEngine(provider: provider, store: market, watchlist: watchlist,
                                     pollOverrides: settings.providerPollIntervals)
+        self.liveStreaming = authState != .none
+            && !disabledIDs.contains(LongbridgeProvider.providerID)
+            && watchlist.symbols.contains { longbridge.descriptor.supports(.streaming, in: $0.market) }
         engine.start()
         startRotation()
         observeMenuTracking()
@@ -110,7 +118,7 @@ final class AppState {
             // A push subscription checks availability only when it starts, so an
             // already-running stream would keep delivering from a source the user
             // just turned off — resubscribe against the new availability.
-            if watchlistStreamTask != nil { restartWatchlistStream() }
+            if isPopoverVisible { restartWatchlistStream() }
         }
     }
 
@@ -230,6 +238,8 @@ final class AppState {
     // MARK: - Live watchlist (push-first home page)
 
     @ObservationIgnored private var watchlistStreamTask: Task<Void, Never>?
+    @ObservationIgnored private var watchlistStreamSessionID: UUID?
+    @ObservationIgnored private var isPopoverVisible = false
     @ObservationIgnored private var pendingPushes: [SymbolID: Quote] = [:]
     @ObservationIgnored private var pushFlushTask: Task<Void, Never>?
 
@@ -237,39 +247,57 @@ final class AppState {
     /// ticks live; the rest keep their source's poll cadence. Closing the popover
     /// unsubscribes — the menu bar text is fine at poll granularity.
     func setPopoverVisible(_ visible: Bool) {
+        isPopoverVisible = visible
         watchlistStreamTask?.cancel()
         watchlistStreamTask = nil
+        watchlistStreamSessionID = nil
+        // Keep the last known/expected streaming state while the popover disappears.
+        // Resetting it here makes the still-visible closing frame flash "quotes healthy".
         guard visible else { return }
         restartWatchlistStream()
     }
 
     /// Re-subscribes after watchlist edits while the popover is open.
     func watchlistSymbolsChanged() {
-        guard watchlistStreamTask != nil else { return }
+        guard isPopoverVisible else { return }
         restartWatchlistStream()
     }
 
-    /// True once the live stream has actually delivered a tick — proof of life, not just
-    /// "a subscription was attempted". Drives the footer's "streaming" status.
+    /// True while a configured live source is being connected or actively delivering.
+    /// Deliberate popover lifecycle cancellations keep this stable to avoid status flicker;
+    /// unsupported configuration and unexpected stream termination reset it.
     private(set) var liveStreaming = false
 
     private func restartWatchlistStream() {
         watchlistStreamTask?.cancel()
-        liveStreaming = false
+        watchlistStreamTask = nil
+        watchlistStreamSessionID = nil
         let symbols = watchlist.symbols
-        guard !symbols.isEmpty, let stream = provider.quoteStream(for: symbols) else {
-            watchlistStreamTask = nil
+        guard longbridgeConfigured,
+              isProviderEnabled(LongbridgeProvider.providerID),
+              symbols.contains(where: { longbridge.descriptor.supports(.streaming, in: $0.market) }),
+              let stream = provider.quoteStream(for: symbols) else {
+            liveStreaming = false
             return
         }
+        liveStreaming = true
+        let sessionID = UUID()
+        watchlistStreamSessionID = sessionID
         watchlistStreamTask = Task { [weak self] in
-            defer { self?.liveStreaming = false }
             do {
                 for try await quote in stream {
+                    guard self?.watchlistStreamSessionID == sessionID else { return }
                     self?.liveStreaming = true
                     self?.ingestStreamedQuote(quote)
                 }
             } catch {
                 // Stream dropped (socket reconnect etc.); polling still covers the list.
+            }
+            guard let self, self.watchlistStreamSessionID == sessionID else { return }
+            self.watchlistStreamTask = nil
+            self.watchlistStreamSessionID = nil
+            if !Task.isCancelled {
+                self.liveStreaming = false
             }
         }
     }

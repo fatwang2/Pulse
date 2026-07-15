@@ -246,6 +246,14 @@ mkdir -p "$DMG_STAGE"
 ln -s /Applications "$DMG_STAGE/Applications"
 create_dmg "$DMG_STAGE" "$DMG_PATH" "Pulse"
 
+echo "==> Signing disk image"
+codesign --force \
+  --sign "$APPLE_SIGNING_IDENTITY" \
+  --timestamp \
+  --options runtime \
+  "$DMG_PATH"
+codesign --verify --strict --verbose=2 "$DMG_PATH"
+
 if [[ "${SKIP_NOTARIZE:-0}" != "1" ]]; then
   echo "==> Notarizing disk image"
   xcrun notarytool submit "$DMG_PATH" \

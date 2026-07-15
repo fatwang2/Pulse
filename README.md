@@ -26,6 +26,33 @@ Pulse is a lightweight market-watching app, not a trading terminal. It solves ex
 
 Download the latest `Pulse-*.dmg` from [GitHub Releases](https://github.com/fatwang2/Pulse/releases), open it, and drag `Pulse.app` to Applications before launching. The `Pulse-*.zip` asset is used by Sparkle for automatic updates.
 
+## Privacy & Analytics
+
+Pulse uses [TelemetryDeck](https://telemetrydeck.com) to understand basic product usage. Anonymous
+analytics are enabled by default and can be disabled at any time in **Settings → General → Share
+Anonymous Usage Data**. Once disabled, Pulse stops queuing new analytics events.
+
+Pulse currently sends only these product-interaction events:
+
+- `Pulse.app.launched`
+- `Pulse.popover.opened`
+- `Pulse.settings.opened`
+- `Pulse.refresh.manualRequested`
+- `Pulse.settings.analyticsEnabled` — sent only when analytics are turned back on
+
+TelemetryDeck's Swift SDK automatically adds basic technical context such as the Pulse version and
+build, macOS version, device model and architecture, language, locale, region, time zone, display
+properties, and whether the build is a debug or App Store build. On macOS, the SDK also generates a
+random pseudonymous device identifier and a session identifier. Pulse does not provide TelemetryDeck
+with a name, email address, account identifier, or other custom user identifier.
+
+Pulse never adds watched symbols, watchlists, positions, quantities, cost bases, search text,
+market-data responses, Longbridge credentials, or other user-provided content to analytics events.
+TelemetryDeck's bundled privacy manifest declares product-interaction data and a device identifier
+for analytics; the data is not linked to the user's identity and is not used for tracking. Pulse has
+no advertising or cross-app tracking. The complete event boundary is intentionally kept in
+[`PulseTelemetry.swift`](PulseMac/Sources/PulseTelemetry.swift) so the implementation can be audited.
+
 ## Building
 
 Requires **Xcode 26+** and [XcodeGen](https://github.com/yonaskolb/XcodeGen). `Pulse.xcodeproj` is generated from `project.yml` and is not checked in.
@@ -45,16 +72,14 @@ certificate is available, it falls back to ad-hoc signing. Development certifica
 private keys never enter the repository; every contributor signs with their own local identity,
 and release signing and notarization remain a separate workflow.
 
-Pulse uses TelemetryDeck for a small set of anonymous usage events. Supply the app identifier
-from the TelemetryDeck dashboard as a build setting; an empty value disables analytics:
+For local telemetry testing, supply the TelemetryDeck app identifier as a build setting. An empty
+or missing value disables analytics for that build:
 
 ```bash
 TELEMETRYDECK_APP_ID="your-app-id" ./script/build_and_run.sh --telemetry
 ```
 
-The initial event set is limited to app launch, opening the menu-bar popover, opening settings,
-and requesting a manual refresh. Pulse never attaches symbols, watchlists, positions, search text,
-or credentials to these events. Users can disable collection in Settings.
+The app identifier is embedded in configured builds and is not a secret or an API credential.
 
 Tests live in the `PulseCore` package:
 

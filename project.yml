@@ -13,6 +13,9 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     from: "2.9.4"
+  TelemetryDeck:
+    url: https://github.com/TelemetryDeck/SwiftSDK
+    from: "2.14.1"
 
 targets:
   PulseMac:
@@ -26,6 +29,8 @@ targets:
       - package: PulseUI
       - package: Sparkle
         product: Sparkle
+      - package: TelemetryDeck
+        product: TelemetryDeck
     info:
       path: PulseMac/Info.plist
       properties:
@@ -41,6 +46,7 @@ targets:
         SUFeedURL: $(SPARKLE_FEED_URL)
         SUPublicEDKey: $(SPARKLE_PUBLIC_ED_KEY)
         SUScheduledCheckInterval: 86400
+        TelemetryDeckAppID: $(TELEMETRYDECK_APP_ID)
         # Longbridge OAuth fallback callback (bundle id doubles as the URL scheme,
         # keeping dev and release callbacks isolated)
         CFBundleURLTypes:
@@ -68,6 +74,7 @@ targets:
         ENABLE_HARDENED_RUNTIME: false
         SPARKLE_FEED_URL: ""
         SPARKLE_PUBLIC_ED_KEY: ""
+        TELEMETRYDECK_APP_ID: ""
         SWIFT_STRICT_CONCURRENCY: complete
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       configs:

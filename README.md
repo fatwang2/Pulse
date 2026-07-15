@@ -17,6 +17,7 @@ Pulse is a lightweight market-watching app, not a trading terminal. It solves ex
 - **Charts**: intraday lines and daily / weekly / monthly candlesticks with OHLC and volume, sourced from the best available provider per market
 - **Share images**: copy a branded, mobile-friendly watchlist image that follows the current metric selection and adapts to list length
 - **Multi-provider data layer**: providers are routed per market, cached to reduce duplicate requests, and fail over automatically when one is rate-limited or down
+- **Real-time crypto via Binance**: cryptocurrency search, quotes, and charts use Binance Spot public market-data endpoints, with a locally cached 24-hour symbol catalog and 1-second WebSocket ticker updates while the popover is open; Pulse stores crypto as a structured base/quote pair and displays it as `BTC/USDT`
 - **Real-time via Longbridge**: optionally connect your own [Longbridge](https://open.longbridge.com) account (browser authorization or API keys) to upgrade HK / US / A-share quotes to official real-time data, streamed live over a push connection — including the US overnight session
 - **Session-aware, per-source refresh**: each provider polls at its own configurable cadence, and only while its markets are open — saving power and avoiding rate limits; push-capable sources stream instead of polling
 - **Language control**: follows the system language when possible, with manual switching between English and Simplified Chinese
@@ -33,12 +34,32 @@ Requires **Xcode 26+** and [XcodeGen](https://github.com/yonaskolb/XcodeGen). `P
 # Generate the Xcode project and build
 xcodegen generate
 xcodebuild -project Pulse.xcodeproj -scheme PulseMac -configuration Debug build
+
+# Or build, launch, and verify the menu-bar process
+./script/build_and_run.sh --verify
 ```
+
+The development script uses the first valid Apple Development identity in the builder's
+local Keychain so macOS recognizes repeated Debug builds as the same app. If no development
+certificate is available, it falls back to ad-hoc signing. Development certificates and
+private keys never enter the repository; every contributor signs with their own local identity,
+and release signing and notarization remain a separate workflow.
+
+Pulse uses TelemetryDeck for a small set of anonymous usage events. Supply the app identifier
+from the TelemetryDeck dashboard as a build setting; an empty value disables analytics:
+
+```bash
+TELEMETRYDECK_APP_ID="your-app-id" ./script/build_and_run.sh --telemetry
+```
+
+The initial event set is limited to app launch, opening the menu-bar popover, opening settings,
+and requesting a manual refresh. Pulse never attaches symbols, watchlists, positions, search text,
+or credentials to these events. Users can disable collection in Settings.
 
 Tests live in the `PulseCore` package:
 
 ```bash
-# Unit tests (includes Tencent/Yahoo parsing via recorded fixtures)
+# Unit tests (includes Binance/Tencent/Yahoo parsing via recorded fixtures)
 cd Packages/PulseCore && swift test
 
 # Unit tests plus provider contracts against the live endpoints
@@ -51,13 +72,13 @@ PULSE_LIVE_TESTS=1 swift test
 - **`Packages/PulseUI`** — shared SwiftUI components: candlestick chart, intraday chart, sparkline, gain/loss colors.
 - **`PulseMac`** — the macOS menu bar app (`MenuBarExtra`, `LSUIElement=true`).
 
-All market data flows through the `QuoteProvider` protocol abstraction. A `CompositeProvider` routes requests per market and candle period, caches recent responses, breaks the circuit on unhealthy providers, and composes data from multiple sources (e.g. realtime A-share quotes and intraday lines from Tencent, historical candles and cryptocurrency coverage from Yahoo, real-time streaming across markets from a connected Longbridge account). The Longbridge integration speaks the OpenAPI binary WebSocket protocol directly — no SDK dependency — and stores credentials only in the local Keychain.
+All market data flows through the `QuoteProvider` protocol abstraction. A `CompositeProvider` routes requests per market and candle period, caches recent responses, breaks the circuit on unhealthy providers, and composes data from multiple sources (e.g. realtime crypto from Binance, realtime A-share quotes and intraday lines from Tencent, broad securities coverage from Yahoo, and real-time securities streaming from a connected Longbridge account). Crypto identity is stored provider-independently as separate base and quote assets; Binance renders `BTCUSDT` on the wire while Pulse displays `BTC/USDT`. Binance is the sole source for cryptocurrency search, quotes, and candles: Pulse never silently substitutes Yahoo's different `BTC-USD` instrument for `BTC/USDT`. Binance's current Spot symbol directory is cached on disk for 24 hours, refreshed in the background when stale, and searched locally with USDT pairs ranked first. Binance and Longbridge can stream different markets concurrently. The Longbridge integration speaks the OpenAPI binary WebSocket protocol directly — no SDK dependency — and stores credentials only in the local Keychain.
 
 Quotes carry their active source and source-specific delay metadata through the app. The watchlist footer shows the live feed status, while each symbol detail view shows that symbol's realtime / delayed status, active source, and market timestamp with the relevant time basis.
 
 ## Data Sources & Disclaimer
 
-Out of the box, Pulse uses **free, unofficial** quote endpoints from Yahoo Finance and Tencent. These come with no SLA and may be rate-limited or change without notice. Optionally, you can connect your own **Longbridge OpenAPI** account for official real-time quotes delivered by push; quote entitlements follow your account, and credentials never leave the local Keychain. Quote delay varies by provider and market; each source's per-market freshness is spelled out on its detail page. All data is for reference only and is **not investment advice**.
+Out of the box, Pulse uses Binance's public Spot market-data API for cryptocurrency prices plus **free, unofficial** quote endpoints from Yahoo Finance and Tencent for broader coverage. No Binance account or API key is required. These public feeds have no SLA and may be rate-limited, unavailable in some regions, or change over time. Optionally, you can connect your own **Longbridge OpenAPI** account for official real-time securities quotes delivered by push; quote entitlements follow your account, and credentials never leave the local Keychain. Quote delay varies by provider and market; each source's per-market freshness is spelled out on its detail page. All data is for reference only and is **not investment advice**.
 
 ## License
 

@@ -1,7 +1,8 @@
 import Foundation
 
 /// Yahoo Finance v8 chart / v1 search (unofficial API).
-/// Capabilities: search + quotes + candles across US/HK/SH/SZ/crypto; A-shares and HK are delayed by about 15 minutes.
+/// Capabilities: search + quotes + candles across US/HK/SH/SZ; A-shares and HK are delayed by about 15 minutes.
+/// Crypto is intentionally excluded: Binance is the sole source of truth for crypto pairs.
 public struct YahooProvider: QuoteProvider {
     let http: HTTPClient
 
@@ -13,9 +14,9 @@ public struct YahooProvider: QuoteProvider {
         ProviderDescriptor(
             id: "yahoo",
             name: PulseLocalization.localizedString("provider.yahoo"),
-            markets: [.us, .hk, .sh, .sz, .crypto],
+            markets: [.us, .hk, .sh, .sz],
             capabilities: [.search, .quotes, .candles],
-            delay: [.us: 0, .hk: 900, .sh: 900, .sz: 900, .crypto: 0],
+            delay: [.us: 0, .hk: 900, .sh: 900, .sz: 900],
             rateLimit: RateLimitPolicy(minInterval: 1, batchSize: 1),
             // Yahoo rate-limits aggressively per IP; poll politely and let pushes/others carry liveliness
             suggestedPollInterval: 60
@@ -26,11 +27,11 @@ public struct YahooProvider: QuoteProvider {
 
     static func yahooSymbol(for id: SymbolID) -> String {
         switch id.market {
-        case .us: id.code
-        case .hk: id.paddedCode(width: 4) + ".HK"
-        case .sh: id.code + ".SS"
-        case .sz: id.code + ".SZ"
-        case .crypto: id.code
+        case .us: return id.code
+        case .hk: return id.paddedCode(width: 4) + ".HK"
+        case .sh: return id.code + ".SS"
+        case .sz: return id.code + ".SZ"
+        case .crypto: return id.code // Unreachable through provider routing.
         }
     }
 
@@ -39,7 +40,7 @@ public struct YahooProvider: QuoteProvider {
         if upper.hasSuffix(".HK") { return SymbolID(market: .hk, code: String(upper.dropLast(3))) }
         if upper.hasSuffix(".SS") { return SymbolID(market: .sh, code: String(upper.dropLast(3))) }
         if upper.hasSuffix(".SZ") { return SymbolID(market: .sz, code: String(upper.dropLast(3))) }
-        if looksLikeCryptoPair(upper) { return SymbolID(market: .crypto, code: upper) }
+        if looksLikeCryptoPair(upper) { return nil }
         // Other exchange suffixes / FX symbols are not supported yet; no suffix means US (including indices like ^GSPC, tickers like BRK-B)
         if upper.contains(".") || upper.contains("=") { return nil }
         return SymbolID(market: .us, code: upper)
@@ -48,11 +49,11 @@ public struct YahooProvider: QuoteProvider {
     private static func looksLikeCryptoPair(_ raw: String) -> Bool {
         let parts = raw.split(separator: "-")
         guard parts.count == 2 else { return false }
-        let quote = String(parts[1])
+        let yahooQuote = String(parts[1])
         let knownQuoteCurrencies: Set<String> = [
             "USD", "USDT", "USDC", "BTC", "ETH", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF"
         ]
-        return knownQuoteCurrencies.contains(quote)
+        return knownQuoteCurrencies.contains(yahooQuote)
     }
 
     // MARK: - QuoteProvider
@@ -80,17 +81,12 @@ public struct YahooProvider: QuoteProvider {
             case "ETF": .etf
             case "INDEX": .index
             case "MUTUALFUND": .fund
-            case "CRYPTOCURRENCY": .crypto
+            case "CRYPTOCURRENCY": .other
             default: .other
             }
             guard type != .other else { return nil }
             guard let raw = item.symbol else { return nil }
-            let id: SymbolID?
-            if type == .crypto {
-                id = SymbolID(market: .crypto, code: raw)
-            } else {
-                id = Self.symbolID(fromYahoo: raw)
-            }
+            let id = Self.symbolID(fromYahoo: raw)
             guard let id else { return nil }
             let name = item.longname ?? item.shortname ?? raw
             return SymbolInfo(symbol: id, name: name, exchangeName: item.exchDisp, type: type)
@@ -122,6 +118,7 @@ public struct YahooProvider: QuoteProvider {
     }
 
     func quote(for symbol: SymbolID) async throws -> Quote {
+        guard symbol.market != .crypto else { throw ProviderError.unsupported(.quotes) }
         if symbol.market == .us, let quote = try? await extendedHoursQuote(for: symbol) {
             return quote
         }
@@ -186,6 +183,7 @@ public struct YahooProvider: QuoteProvider {
     }
 
     public func candles(for symbol: SymbolID, period: CandlePeriod, count: Int) async throws -> [Candle] {
+        guard symbol.market != .crypto else { throw ProviderError.unsupported(.candles) }
         let (interval, range) = Self.chartParams(for: period)
         let result = try await chart(for: symbol, interval: interval, range: range)
         guard let timestamps = result.timestamp, let ohlc = result.indicators.quote?.first else {

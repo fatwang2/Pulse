@@ -87,6 +87,7 @@
 "provider.capability.quotes" = "Quotes";
 "provider.capability.search" = "Search";
 "provider.capability.streaming" = "Streaming";
+"provider.summary.separator" = ", ";
 "provider.enable" = "Enable this source";
 "provider.refresh.interval" = "Poll interval";
 "provider.refresh.title" = "Refresh";
@@ -96,12 +97,12 @@
 "provider.status.connected" = "Connected";
 "provider.status.notConnected" = "Not connected";
 "provider.detail.capabilities" = "Capabilities";
+"provider.binance" = "Binance";
 "provider.composite" = "Pulse Composite";
 "provider.delay.delayed" = "Delayed";
 "provider.delay.partial" = "Partially real-time";
 "provider.delay.realtime" = "Real-time";
 "provider.longbridge" = "Longbridge";
-"provider.longbridge.summary" = "Real-time quotes for HK, US and CN markets";
 "longbridge.setup.manualToggle" = "Or enter API keys manually";
 "longbridge.setup.intro" = "Connect your Longbridge account to switch HK, US and CN quotes to real-time data.";
 "longbridge.disconnect" = "Disconnect";
@@ -121,9 +122,7 @@
 "longbridge.credentials.error" = "Verification failed: check the credentials and whether the access token has expired";
 "longbridge.credentials.help" = "Get the App Key, App Secret and Access Token from the open.longbridge.com user center. Credentials are stored only in the local Keychain.";
 "provider.tencent" = "Tencent Finance";
-"provider.tencent.summary" = "Real-time A-share quotes and intraday charts";
 "provider.yahoo" = "Yahoo Finance";
-"provider.yahoo.summary" = "Global quotes and historical charts";
 
 "quote.delay.minutes" = "Delayed ~%d min";
 "quote.price.close" = "Close";
@@ -149,6 +148,8 @@
 
 "settings.general.language" = "Language";
 "settings.general.launchAtLogin" = "Launch at Login";
+"settings.general.anonymousAnalytics" = "Share Anonymous Usage Data";
+"settings.general.anonymousAnalyticsHelp" = "Helps improve Pulse by sharing app usage and technical metadata. Symbols, watchlists, positions, searches, and credentials are never sent.";
 "settings.market.colorRule" = "Gain Color";
 "settings.market.greenUp" = "Green for Gains";
 "settings.market.redUp" = "Red for Gains";

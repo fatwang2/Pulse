@@ -13,10 +13,14 @@ struct MockProvider: QuoteProvider {
     var candlePeriods: Set<CandlePeriod>?
     var quotePrice: Double = 100
     var delay: [Market: TimeInterval] = [:]
+    var markets: Set<Market> = Set(Market.allCases)
+    var supportsStreaming = false
 
     var descriptor: ProviderDescriptor {
-        ProviderDescriptor(id: id, name: id, markets: Set(Market.allCases),
-                           capabilities: [.search, .quotes, .candles],
+        var capabilities: Set<Capability> = [.search, .quotes, .candles]
+        if supportsStreaming { capabilities.insert(.streaming) }
+        return ProviderDescriptor(id: id, name: id, markets: markets,
+                           capabilities: capabilities,
                            candleMarkets: candleMarkets,
                            candlePeriods: candlePeriods,
                            delay: delay)
@@ -34,6 +38,16 @@ struct MockProvider: QuoteProvider {
 
     func candles(for symbol: SymbolID, period: CandlePeriod, count: Int) async throws -> [Candle] {
         candleResult
+    }
+
+    func quoteStream(for symbols: [SymbolID]) -> AsyncThrowingStream<Quote, any Error>? {
+        guard supportsStreaming else { return nil }
+        return AsyncThrowingStream { continuation in
+            for symbol in symbols {
+                continuation.yield(Quote(symbol: symbol, price: quotePrice, previousClose: 99))
+            }
+            continuation.finish()
+        }
     }
 }
 
@@ -113,6 +127,62 @@ struct CompositeProviderTests {
 
         #expect(quotes.first(where: { $0.symbol == apple })?.price == 200)
         #expect(quotes.first(where: { $0.symbol == tencentHK })?.price == 100)
+    }
+
+    @Test("Crypto quotes use Binance")
+    func cryptoQuotesPreferBinance() async throws {
+        let yahoo = MockProvider(id: "yahoo", quotePrice: 100)
+        let binance = MockProvider(id: BinanceProvider.providerID, quotePrice: 200, markets: [.crypto])
+        let composite = CompositeProvider(providers: [yahoo, binance])
+        let bitcoin = SymbolID(cryptoBase: "BTC", quote: "USDT")
+
+        let quote = try #require(try await composite.quotes(for: [bitcoin]).first)
+
+        #expect(quote.price == 200)
+        #expect(quote.sourceID == BinanceProvider.providerID)
+    }
+
+    @Test("Crypto does not fall back to a different Yahoo USD instrument")
+    func cryptoDoesNotFallbackToYahoo() async {
+        let yahoo = MockProvider(id: "yahoo", quotePrice: 100, markets: [.us, .hk, .sh, .sz])
+        let binance = MockProvider(
+            id: BinanceProvider.providerID,
+            quoteError: .network(underlying: "offline"),
+            markets: [.crypto]
+        )
+        let composite = CompositeProvider(providers: [binance, yahoo])
+        let bitcoin = SymbolID(cryptoBase: "BTC", quote: "USDT")
+
+        await #expect(throws: ProviderError.self) {
+            _ = try await composite.quotes(for: [bitcoin])
+        }
+    }
+
+    @Test("Streaming sources are merged by market")
+    func streamingRoutesByMarket() async throws {
+        let longbridge = MockProvider(
+            id: LongbridgeProvider.providerID,
+            quotePrice: 100,
+            markets: [.us, .hk, .sh, .sz],
+            supportsStreaming: true
+        )
+        let binance = MockProvider(
+            id: BinanceProvider.providerID,
+            quotePrice: 200,
+            markets: [.crypto],
+            supportsStreaming: true
+        )
+        let composite = CompositeProvider(providers: [longbridge, binance])
+        let apple = SymbolID(market: .us, code: "AAPL")
+        let bitcoin = SymbolID(cryptoBase: "BTC", quote: "USDT")
+        let stream = try #require(composite.quoteStream(for: [apple, bitcoin]))
+        var received: [Quote] = []
+
+        for try await quote in stream { received.append(quote) }
+
+        #expect(received.count == 2)
+        #expect(received.first(where: { $0.symbol == apple })?.sourceID == LongbridgeProvider.providerID)
+        #expect(received.first(where: { $0.symbol == bitcoin })?.sourceID == BinanceProvider.providerID)
     }
 
     @Test("Quotes are annotated with the actual source and its market delay")

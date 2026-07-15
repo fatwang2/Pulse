@@ -16,7 +16,7 @@ struct WatchRowMetricDisplay {
             return Self(text: "…", colorValue: nil)
         }
 
-        let currencyCode = quote.currencyCode ?? item.symbol.market.currencyCode
+        let currencyCode = quote.currencyCode ?? item.symbol.currencyCode
         switch mode {
         case .changePercent:
             return Self(

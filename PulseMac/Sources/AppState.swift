@@ -12,6 +12,7 @@ final class AppState {
     let market: MarketStore
     let engine: RefreshEngine
     @ObservationIgnored let provider: CompositeProvider
+    @ObservationIgnored let binance: BinanceProvider
     @ObservationIgnored let longbridge: LongbridgeProvider
     @ObservationIgnored let longbridgeOAuth: LongbridgeOAuthAuthenticator
 
@@ -42,14 +43,16 @@ final class AppState {
             : Self.loadLongbridgeAuth()
         let (auth, authState) = authContext
         let longbridge = LongbridgeProvider(auth: auth)
+        let binance = BinanceProvider()
         var disabledIDs = settings.disabledProviderIDs
         if authState == .none { disabledIDs.insert(LongbridgeProvider.providerID) }
-        let provider = CompositeProvider(providers: [longbridge, TencentProvider(), YahooProvider()],
+        let provider = CompositeProvider(providers: [longbridge, binance, TencentProvider(), YahooProvider()],
                                          disabledIDs: disabledIDs)
         self.settings = settings
         self.watchlist = watchlist
         self.market = market
         self.provider = provider
+        self.binance = binance
         self.longbridge = longbridge
         self.longbridgeAuthState = authState
         self.longbridgeOAuth = LongbridgeOAuthAuthenticator(
@@ -58,12 +61,14 @@ final class AppState {
         )
         self.engine = RefreshEngine(provider: provider, store: market, watchlist: watchlist,
                                     pollOverrides: settings.providerPollIntervals)
-        self.liveStreaming = authState != .none
-            && !disabledIDs.contains(LongbridgeProvider.providerID)
-            && watchlist.symbols.contains { longbridge.descriptor.supports(.streaming, in: $0.market) }
+        self.liveStreaming = false
         engine.start()
         startRotation()
         observeMenuTracking()
+        if !disabledIDs.contains(BinanceProvider.providerID),
+           !CommandLine.arguments.contains("--share-selftest") {
+            Task { try? await binance.refreshSymbolCatalogIfNeeded() }
+        }
     }
 
     /// OAuth tokens win over pasted API-key credentials when both exist.
@@ -100,6 +105,9 @@ final class AppState {
             settings.disabledProviderIDs.insert(id)
         }
         applyProviderAvailability()
+        if enabled, id == BinanceProvider.providerID {
+            Task { try? await binance.refreshSymbolCatalogIfNeeded() }
+        }
     }
 
     /// User intent (enable toggles) combined with configuration state: an unconfigured
@@ -273,9 +281,7 @@ final class AppState {
         watchlistStreamTask = nil
         watchlistStreamSessionID = nil
         let symbols = watchlist.symbols
-        guard longbridgeConfigured,
-              isProviderEnabled(LongbridgeProvider.providerID),
-              symbols.contains(where: { longbridge.descriptor.supports(.streaming, in: $0.market) }),
+        guard hasEnabledStreamingProvider(for: symbols),
               let stream = provider.quoteStream(for: symbols) else {
             liveStreaming = false
             return
@@ -299,6 +305,15 @@ final class AppState {
             if !Task.isCancelled {
                 self.liveStreaming = false
             }
+        }
+    }
+
+    private func hasEnabledStreamingProvider(for symbols: [SymbolID]) -> Bool {
+        providerDescriptors.contains { descriptor in
+            descriptor.capabilities.contains(.streaming)
+                && isProviderEnabled(descriptor.id)
+                && (descriptor.id != LongbridgeProvider.providerID || longbridgeConfigured)
+                && symbols.contains { descriptor.supports(.streaming, in: $0.market) }
         }
     }
 

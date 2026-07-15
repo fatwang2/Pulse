@@ -24,6 +24,8 @@ struct PulseMacApp: App {
         SelfTest.runIfRequested()
         SoftwareUpdateController.shared.start()
         let state = AppState()
+        PulseTelemetry.configure(collectionEnabled: state.settings.shareAnonymousUsageData)
+        PulseTelemetry.signal(.appLaunched)
         _appState = State(initialValue: state)
         AppDelegate.urlHandler = { url in state.handleOAuthCallback(url) }
     }

@@ -74,7 +74,7 @@ struct WatchlistShareSnapshot {
                 id: item.symbol,
                 name: quote?.name ?? item.displayName,
                 market: item.symbol.market,
-                symbolCode: item.symbol.code,
+                symbolCode: item.symbol.displayCode,
                 priceText: quote.map { PriceFormatter.price($0.price) } ?? "—",
                 metricText: metricDisplay.text,
                 metricColorValue: metricDisplay.colorValue,

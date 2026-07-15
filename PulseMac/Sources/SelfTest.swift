@@ -16,7 +16,7 @@ enum SelfTest {
 
         guard CommandLine.arguments.contains("--selftest") else { return }
         Task.detached {
-            let provider = CompositeProvider(providers: [TencentProvider(), YahooProvider()])
+            let provider = CompositeProvider(providers: [BinanceProvider(), TencentProvider(), YahooProvider()])
 
             func report(_ label: String, _ operation: () async throws -> String) async {
                 do {
@@ -51,6 +51,12 @@ enum SelfTest {
             await report("candles(AAPL, day)") {
                 let r = try await provider.candles(for: SymbolID(market: .us, code: "AAPL"), period: .day, count: 30)
                 return "\(r.count) candles, latest close \(r.last?.close ?? 0)"
+            }
+            await report("Binance crypto(BTC/USDT)") {
+                let bitcoin = SymbolID(cryptoBase: "BTC", quote: "USDT")
+                let quote = try await provider.quotes(for: [bitcoin]).first
+                let candles = try await provider.candles(for: bitcoin, period: .minute1, count: 5)
+                return "price \(quote?.price ?? 0), \(candles.count) candles"
             }
 
             // Reproduce a mixed-provider flow: Tencent supplies A-share quotes/minutes; Yahoo covers other candles.
@@ -222,10 +228,10 @@ enum SelfTest {
                         sparkline: trendCandles([110.2, 110.6, 110.4, 111.0, 111.5, 111.8], market: .hk)
                     ),
                     .init(
-                        id: SymbolID(market: .crypto, code: "BTC-USD"),
+                        id: SymbolID(cryptoBase: "BTC", quote: "USDT"),
                         name: "Bitcoin USD",
                         market: .crypto,
-                        symbolCode: "BTC-USD",
+                        symbolCode: "BTC/USDT",
                         priceText: "116,420.00",
                         metricText: "+$2,460.00",
                         metricColorValue: 2460,

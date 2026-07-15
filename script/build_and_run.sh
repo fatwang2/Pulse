@@ -11,6 +11,39 @@ BUNDLE_ID="app.pulse.mac.dev"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
+signing_arguments() {
+  local identity_line identity certificate_subject team_id
+
+  # A development certificate gives Keychain a stable designated requirement across
+  # rebuilds. Discover it locally so no developer identity or private key is committed.
+  identity_line="$(security find-identity -v -p codesigning 2>/dev/null \
+    | sed -n '/"Apple Development:/ { p; q; }')"
+  if [[ -n "$identity_line" ]]; then
+    identity="${identity_line#*\"}"
+    identity="${identity%%\"*}"
+    certificate_subject="$(security find-certificate -c "$identity" -p 2>/dev/null \
+      | /usr/bin/openssl x509 -noout -subject 2>/dev/null || true)"
+    team_id="$(printf '%s\n' "$certificate_subject" \
+      | sed -nE 's/.*OU[ =]+([A-Z0-9]+).*/\1/p')"
+    if [[ -n "$team_id" ]]; then
+      printf '%s\0' \
+        "CODE_SIGN_STYLE=Manual" \
+        "CODE_SIGN_IDENTITY=$identity" \
+        "DEVELOPMENT_TEAM=$team_id"
+      return
+    fi
+  fi
+
+  # Contributors without an Apple Development certificate can still build locally.
+  # Their ad-hoc build may need Keychain approval again after its code hash changes.
+  printf '%s\0' "CODE_SIGN_STYLE=Manual" "CODE_SIGN_IDENTITY=-"
+}
+
+SIGNING_ARGS=()
+while IFS= read -r -d '' argument; do
+  SIGNING_ARGS+=("$argument")
+done < <(signing_arguments)
+
 cd "$ROOT_DIR"
 xcodegen generate
 xcodebuild \
@@ -18,6 +51,8 @@ xcodebuild \
   -scheme PulseMac \
   -configuration Debug \
   -derivedDataPath "$DERIVED_DATA" \
+  TELEMETRYDECK_APP_ID="${TELEMETRYDECK_APP_ID:-}" \
+  "${SIGNING_ARGS[@]}" \
   build
 
 open_app() {

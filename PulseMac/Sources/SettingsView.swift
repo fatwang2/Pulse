@@ -17,11 +17,12 @@ struct ProviderRow: View {
                     Text(summary)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
                 Spacer()
                 Text(PulseLocalization.localizedString(statusKey))
                     .font(.caption)
-                    .foregroundStyle(statusIsPositive ? AnyShapeStyle(Color.green) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(.secondary)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(.tertiary)
@@ -34,47 +35,22 @@ struct ProviderRow: View {
     private var isConnectable: Bool { !descriptor.credentials.isEmpty }
 
     private var statusKey: String {
-        // An unconnected account outranks the stored toggle: the switch is locked
-        // until a connection exists, so "not connected" is the only honest state.
+        // The source list answers whether Pulse is using each provider. Account and
+        // transport details belong on the provider page; an unconfigured account is
+        // the exception because its enable switch is locked until it is connected.
         if isConnectable && !appState.longbridgeConfigured { return "provider.status.notConnected" }
         guard appState.isProviderEnabled(descriptor.id) else { return "provider.status.off" }
-        return isConnectable ? "provider.status.connected" : "provider.status.on"
-    }
-
-    private var statusIsPositive: Bool {
-        isConnectable && appState.isProviderEnabled(descriptor.id) && appState.longbridgeConfigured
+        return "provider.status.on"
     }
 
     private var summary: String {
-        let summaryKey = "provider.\(descriptor.id).summary"
-        let localizedSummary = PulseLocalization.localizedString(summaryKey)
-        if localizedSummary != summaryKey {
-            return localizedSummary
-        }
-
-        let markets = Market.allCases
+        // The list only previews market coverage; capabilities and freshness live on
+        // the detail page. Derive this from the descriptor so the two stay in sync.
+        let separator = PulseLocalization.localizedString("provider.summary.separator")
+        return Market.allCases
             .filter { descriptor.markets.contains($0) }
             .map(\.displayName)
-            .joined(separator: ", ")
-        var capabilities: [String] = []
-        if descriptor.capabilities.contains(.quotes) {
-            capabilities.append(PulseLocalization.localizedString("provider.capability.quotes"))
-        }
-        if descriptor.capabilities.contains(.candles) {
-            capabilities.append(PulseLocalization.localizedString("provider.capability.candles"))
-        }
-        if descriptor.capabilities.contains(.search) {
-            capabilities.append(PulseLocalization.localizedString("provider.capability.search"))
-        }
-        if descriptor.capabilities.contains(.streaming) {
-            capabilities.append(PulseLocalization.localizedString("provider.capability.streaming"))
-        }
-        let realtime = switch descriptor.delayClass {
-        case .realtime: PulseLocalization.localizedString("provider.delay.realtime")
-        case .partiallyRealtime: PulseLocalization.localizedString("provider.delay.partial")
-        case .delayed: PulseLocalization.localizedString("provider.delay.delayed")
-        }
-        return "\(markets) · \(capabilities.joined(separator: ", ")) · \(realtime)"
+            .joined(separator: separator)
     }
 }
 
@@ -144,13 +120,21 @@ struct SettingsView: View {
                 }
             }
 
-            Section(PulseLocalization.localizedString("settings.section.general")) {
+            Section {
                 Picker(PulseLocalization.localizedString("settings.general.language"), selection: $settings.languagePreference) {
                     ForEach(PulseLanguagePreference.allCases, id: \.self) { preference in
                         Text(preference.localizedDisplayName).tag(preference)
                     }
                 }
                 Toggle(PulseLocalization.localizedString("settings.general.launchAtLogin"), isOn: $settings.launchAtLogin)
+                Toggle(
+                    PulseLocalization.localizedString("settings.general.anonymousAnalytics"),
+                    isOn: $settings.shareAnonymousUsageData
+                )
+            } header: {
+                Text(PulseLocalization.localizedString("settings.section.general"))
+            } footer: {
+                Text(PulseLocalization.localizedString("settings.general.anonymousAnalyticsHelp"))
             }
 
             Section {
@@ -171,6 +155,7 @@ struct SettingsView: View {
         .scrollContentBackground(.hidden)
         .scrollEdgeEffectStyle(.soft, for: .all)
         .safeAreaInset(edge: .top, spacing: 0) { header }
+        .onAppear { PulseTelemetry.signal(.settingsOpened) }
     }
 
     private var header: some View {

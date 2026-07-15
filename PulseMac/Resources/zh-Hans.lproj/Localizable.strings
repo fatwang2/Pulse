@@ -87,6 +87,7 @@
 "provider.capability.quotes" = "报价";
 "provider.capability.search" = "搜索";
 "provider.capability.streaming" = "推送";
+"provider.summary.separator" = "、";
 "provider.enable" = "启用此数据源";
 "provider.refresh.interval" = "轮询间隔";
 "provider.refresh.title" = "刷新方式";
@@ -96,12 +97,12 @@
 "provider.status.connected" = "已连接";
 "provider.status.notConnected" = "未连接";
 "provider.detail.capabilities" = "能力";
+"provider.binance" = "币安 Binance";
 "provider.composite" = "Pulse 聚合";
 "provider.delay.delayed" = "延时";
 "provider.delay.partial" = "部分实时";
 "provider.delay.realtime" = "实时";
 "provider.longbridge" = "长桥 Longbridge";
-"provider.longbridge.summary" = "港股、美股与 A 股实时行情";
 "longbridge.setup.manualToggle" = "或手动填入 API 密钥";
 "longbridge.setup.intro" = "连接你的 Longbridge 账户后,港股、美股与 A 股行情将切换为实时数据。";
 "longbridge.disconnect" = "断开连接";
@@ -121,9 +122,7 @@
 "longbridge.credentials.error" = "校验失败:请检查凭证是否正确、Access Token 是否过期";
 "longbridge.credentials.help" = "在 open.longbridge.com 用户中心获取 App Key、App Secret 与 Access Token。凭证仅保存在本机钥匙串。";
 "provider.tencent" = "腾讯行情";
-"provider.tencent.summary" = "A 股实时报价与分时图";
 "provider.yahoo" = "Yahoo Finance";
-"provider.yahoo.summary" = "全球报价与历史 K 线";
 
 "quote.delay.minutes" = "延时约%d分钟";
 "quote.price.close" = "收盘价";
@@ -149,6 +148,8 @@
 
 "settings.general.language" = "语言";
 "settings.general.launchAtLogin" = "开机自启";
+"settings.general.anonymousAnalytics" = "共享匿名使用数据";
+"settings.general.anonymousAnalyticsHelp" = "仅用于改进 Pulse，发送应用使用情况与技术信息；不会发送标的、自选、持仓、搜索内容或凭证。";
 "settings.market.colorRule" = "涨跌颜色";
 "settings.market.greenUp" = "绿涨红跌";
 "settings.market.redUp" = "红涨绿跌";

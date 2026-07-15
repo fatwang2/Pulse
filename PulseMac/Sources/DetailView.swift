@@ -84,7 +84,7 @@ struct DetailView: View {
     private var item: WatchItem? { appState.watchlist.item(for: symbol) }
 
     private var currencyCode: String? {
-        quote?.currencyCode ?? symbol.market.currencyCode
+        quote?.currencyCode ?? symbol.currencyCode
     }
 
     private func candleCount(for period: CandlePeriod) -> Int {
@@ -103,14 +103,14 @@ struct DetailView: View {
                 route = .list
             }
             HStack(spacing: 6) {
-                Text(quote?.name ?? symbol.code)
+                Text(quote?.name ?? symbol.displayCode)
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .layoutPriority(1)
                 MarketBadge(market: symbol.market)
                     .fixedSize()
-                Text(symbol.code)
+                Text(symbol.displayCode)
                     .font(.system(size: 10).monospaced())
                     .foregroundStyle(.secondary)
                     .fixedSize()

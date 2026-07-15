@@ -95,6 +95,15 @@ final class AppSettings {
         }
     }
 
+    /// Anonymous product analytics only. Event definitions live in PulseTelemetry and
+    /// intentionally never include symbols, watchlists, positions, or search content.
+    var shareAnonymousUsageData: Bool = true {
+        didSet {
+            PulseTelemetry.setCollectionEnabled(shareAnonymousUsageData)
+            save()
+        }
+    }
+
     /// Provider ids disabled by the user (all enabled by default)
     var disabledProviderIDs: Set<String> = [] { didSet { save() } }
 
@@ -123,8 +132,10 @@ final class AppSettings {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         languagePreference = PulseLocalization.currentPreference
+        var loadedSnapshot = false
         if let data = defaults.data(forKey: storageKey),
            let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data) {
+            loadedSnapshot = true
             // Assignments in a class's init don't trigger didSet, so no redundant saves
             menuBarMode = snapshot.menuBarMode
             primarySymbol = snapshot.primarySymbol
@@ -142,9 +153,14 @@ final class AppSettings {
             disabledProviderIDs = snapshot.disabledProviderIDs ?? []
             showPriceInMenuBar = snapshot.showPriceInMenuBar ?? false
             languagePreference = snapshot.languagePreference ?? .system
+            shareAnonymousUsageData = snapshot.shareAnonymousUsageData ?? true
             UserDefaults.standard.set(languagePreference.rawValue, forKey: PulseLocalization.languagePreferenceKey)
         }
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        if loadedSnapshot {
+            // Rewrite a legacy crypto primarySymbol using SymbolID's structured format.
+            save()
+        }
     }
 
     private struct Snapshot: Codable {
@@ -157,6 +173,7 @@ final class AppSettings {
         var showPriceInMenuBar: Bool?
         var languagePreference: PulseLanguagePreference?
         var providerPollIntervals: [String: TimeInterval]?
+        var shareAnonymousUsageData: Bool?
     }
 
     private func save() {
@@ -166,7 +183,8 @@ final class AppSettings {
                                 disabledProviderIDs: disabledProviderIDs,
                                 showPriceInMenuBar: showPriceInMenuBar,
                                 languagePreference: languagePreference,
-                                providerPollIntervals: providerPollIntervals)
+                                providerPollIntervals: providerPollIntervals,
+                                shareAnonymousUsageData: shareAnonymousUsageData)
         if let data = try? JSONEncoder().encode(snapshot) {
             defaults.set(data, forKey: storageKey)
         }

@@ -40,7 +40,7 @@ struct DetailShareSnapshot {
         self.name = name
         priceLabel = quote.map(Self.priceLabel) ?? PulseLocalization.localizedString("quote.price.current")
         priceText = quote.map { PriceFormatter.price($0.price) } ?? "—"
-        currencyCode = quote?.currencyCode ?? symbol.market.currencyCode
+        currencyCode = quote?.currencyCode ?? symbol.currencyCode
         changeText = quote.map { PriceFormatter.change($0.change) } ?? "—"
         changePercentText = quote.map { PriceFormatter.percent($0.changePercent) } ?? "—"
         changeValue = quote?.change
@@ -91,7 +91,7 @@ struct DetailShareSnapshot {
         let quote = appState.market.quote(for: symbol)
         self.init(
             symbol: symbol,
-            name: quote?.name ?? appState.watchlist.item(for: symbol)?.displayName ?? symbol.code,
+            name: quote?.name ?? appState.watchlist.item(for: symbol)?.displayName ?? symbol.displayCode,
             quote: quote,
             period: period,
             candles: candles,
@@ -139,7 +139,7 @@ struct DetailShareContent: View {
                 .font(.system(size: 21, weight: .bold))
                 .lineLimit(1)
             MarketBadge(market: snapshot.symbol.market)
-            Text(snapshot.symbol.code)
+            Text(snapshot.symbol.displayCode)
                 .font(.system(size: 12).monospaced())
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)

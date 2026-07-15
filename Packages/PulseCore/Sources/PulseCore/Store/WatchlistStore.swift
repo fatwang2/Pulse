@@ -68,6 +68,10 @@ public final class WatchlistStore {
         guard let data = defaults.data(forKey: manualOrderKey),
               let orderedSymbols = try? JSONDecoder().decode([SymbolID].self, from: data),
               !orderedSymbols.isEmpty else { return false }
+        // Re-encode legacy Yahoo-style crypto identifiers in the structured v2 format.
+        if let migrated = try? JSONEncoder().encode(orderedSymbols) {
+            defaults.set(migrated, forKey: manualOrderKey)
+        }
         reorder(orderedSymbols)
         return true
     }
@@ -94,6 +98,9 @@ public final class WatchlistStore {
     private func load() {
         guard let data = defaults.data(forKey: storageKey) else { return }
         items = (try? JSONDecoder().decode([WatchItem].self, from: data)) ?? []
+        // A successful decode may have migrated legacy BTC-USD identifiers in memory.
+        // Persist immediately so positions and timestamps move forward atomically with them.
+        save()
     }
 
     private func save() {

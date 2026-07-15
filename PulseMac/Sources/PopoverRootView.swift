@@ -116,7 +116,10 @@ struct PopoverRootView: View {
         .animation(.snappy(duration: 0.28), value: route)
         .animation(.snappy(duration: 0.28), value: height(for: route))
         // Live subscriptions run only while the popover is on screen
-        .onAppear { appState.setPopoverVisible(true) }
+        .onAppear {
+            appState.setPopoverVisible(true)
+            PulseTelemetry.signal(.popoverOpened)
+        }
         .onDisappear { appState.setPopoverVisible(false) }
         .onChange(of: appState.watchlist.symbols) { _, _ in
             appState.watchlistSymbolsChanged()

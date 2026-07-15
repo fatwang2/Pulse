@@ -71,9 +71,52 @@ struct ProviderContractTests {
         #expect(results.contains { $0.symbol == SymbolID(market: .hk, code: "700") })
     }
 
+    @Test("Binance: crypto quotes and candles")
+    func binanceCrypto() async throws {
+        let provider = BinanceProvider()
+        let bitcoin = SymbolID(cryptoBase: "BTC", quote: "USDT")
+        let quote = try #require(try await provider.quotes(for: [bitcoin]).first)
+        Self.assertQuoteContract(quote)
+
+        let candles = try await provider.candles(for: bitcoin, period: .minute1, count: 5)
+        Self.assertCandleContract(candles)
+        #expect(candles.count <= 5)
+    }
+
+    @Test("Binance: symbol catalog search")
+    func binanceSearch() async throws {
+        let results = try await BinanceProvider().search("BTC/USDT")
+        #expect(results.first?.symbol == SymbolID(cryptoBase: "BTC", quote: "USDT"))
+    }
+
+    @Test("Binance: crypto WebSocket stream")
+    func binanceCryptoStream() async throws {
+        struct StreamEnded: Error {}
+        struct TimedOut: Error {}
+
+        let bitcoin = SymbolID(cryptoBase: "BTC", quote: "USDT")
+        let stream = try #require(BinanceProvider().quoteStream(for: [bitcoin]))
+        let quote = try await withThrowingTaskGroup(of: Quote.self) { group in
+            group.addTask {
+                for try await quote in stream { return quote }
+                throw StreamEnded()
+            }
+            group.addTask {
+                try await Task.sleep(for: .seconds(12))
+                throw TimedOut()
+            }
+            let first = try await group.next()!
+            group.cancelAll()
+            return first
+        }
+
+        Self.assertQuoteContract(quote)
+        #expect(quote.symbol == bitcoin)
+    }
+
     @Test("Composite: routing and merging")
     func composite() async throws {
-        let composite = CompositeProvider(providers: [TencentProvider(), YahooProvider()])
+        let composite = CompositeProvider(providers: [BinanceProvider(), TencentProvider(), YahooProvider()])
         let quotes = try await composite.quotes(for: Self.testSymbols)
         #expect(quotes.count == Self.testSymbols.count)
         let candles = try await composite.candles(for: Self.testSymbols[0], period: .day, count: 30)

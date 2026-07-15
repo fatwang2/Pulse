@@ -84,7 +84,8 @@ struct ProviderFactsCard: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.trailing)
             }
-            if descriptor.capabilities.contains(.streaming), appState.longbridgeConfigured {
+            if descriptor.capabilities.contains(.streaming),
+               descriptor.id != LongbridgeProvider.providerID || appState.longbridgeConfigured {
                 Divider().padding(.leading, 12)
                 factRow(PulseLocalization.localizedString("provider.refresh.title")) {
                     Text(PulseLocalization.localizedString("provider.refresh.push"))

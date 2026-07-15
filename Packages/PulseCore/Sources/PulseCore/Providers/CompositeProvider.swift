@@ -94,6 +94,12 @@ public actor CompositeProvider: QuoteProvider {
     }
 
     private func preferredQuoteProvider(for market: Market, among providers: [any QuoteProvider]) -> (any QuoteProvider)? {
+        // Binance is the sole crypto source. A USD Yahoo instrument is not a valid
+        // substitute for a USDT Binance pair, even when their prices are close.
+        if market == .crypto,
+           let binance = providers.first(where: { $0.descriptor.id == BinanceProvider.providerID }) {
+            return binance
+        }
         // A user-keyed real-time source outranks the free delayed feeds whenever it is available.
         if let longbridge = providers.first(where: { $0.descriptor.id == LongbridgeProvider.providerID }) {
             return longbridge
@@ -231,34 +237,59 @@ public actor CompositeProvider: QuoteProvider {
         return candles
     }
 
-    /// Real-time push routes to the (sole) streaming-capable source. The stream resolves
-    /// availability internally so callers can treat "no stream" and "stream ends" the same.
+    /// Real-time push is routed per market and then merged. This lets Longbridge stream
+    /// securities while Binance streams crypto over the same app-level subscription.
     public nonisolated func quoteStream(for symbols: [SymbolID]) -> AsyncThrowingStream<Quote, any Error>? {
-        guard let streamer = providers.first(where: { $0.descriptor.capabilities.contains(.streaming) }) else {
+        guard providers.contains(where: { $0.descriptor.capabilities.contains(.streaming) }) else {
             return nil
         }
         return AsyncThrowingStream { continuation in
             let task = Task {
-                guard await !self.isDisabled(streamer.descriptor.id),
-                      let inner = streamer.quoteStream(for: symbols) else {
+                let routes = await self.streamingRoutes(for: symbols)
+                guard !routes.isEmpty else {
                     continuation.finish()
                     return
                 }
-                do {
-                    for try await quote in inner {
-                        continuation.yield(quote.sourced(by: streamer.descriptor))
+
+                await withTaskGroup(of: Void.self) { group in
+                    for route in routes {
+                        group.addTask {
+                            guard let inner = route.provider.quoteStream(for: route.symbols) else { return }
+                            do {
+                                for try await quote in inner {
+                                    continuation.yield(quote.sourced(by: route.provider.descriptor))
+                                }
+                            } catch {
+                                // One market stream can disappear independently; the remaining
+                                // streams keep running and REST polling continues as a fallback.
+                            }
+                        }
                     }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
                 }
+                continuation.finish()
             }
             continuation.onTermination = { _ in task.cancel() }
         }
     }
 
-    private func isDisabled(_ id: String) -> Bool {
-        disabledIDs.contains(id)
+    private struct StreamingRoute: Sendable {
+        var provider: any QuoteProvider
+        var symbols: [SymbolID]
+    }
+
+    private func streamingRoutes(for symbols: [SymbolID]) -> [StreamingRoute] {
+        var symbolsByProvider: [String: [SymbolID]] = [:]
+        var providerByID: [String: any QuoteProvider] = [:]
+        for symbol in symbols {
+            let available = candidates(.streaming, market: symbol.market)
+            guard let streamer = preferredQuoteProvider(for: symbol.market, among: available) else { continue }
+            let id = streamer.descriptor.id
+            symbolsByProvider[id, default: []].append(symbol)
+            providerByID[id] = streamer
+        }
+        return symbolsByProvider.compactMap { id, symbols in
+            providerByID[id].map { StreamingRoute(provider: $0, symbols: symbols) }
+        }
     }
 
     public func search(_ query: String) async throws -> [SymbolInfo] {
@@ -287,13 +318,22 @@ public actor CompositeProvider: QuoteProvider {
         }
 
         var merged: [SymbolInfo] = []
-        var seen = Set<SymbolID>()
+        var indexBySymbol: [SymbolID: Int] = [:]
         var lastError: (any Error)?
         for (index, outcome) in outcomes {
             switch outcome {
             case .success(let infos):
-                for info in infos where seen.insert(info.symbol).inserted {
-                    merged.append(info)
+                for info in infos {
+                    if let existingIndex = indexBySymbol[info.symbol] {
+                        let existing = merged[existingIndex]
+                        if Self.isPlaceholderName(existing.name, for: existing.symbol),
+                           !Self.isPlaceholderName(info.name, for: info.symbol) {
+                            merged[existingIndex].name = info.name
+                        }
+                    } else {
+                        indexBySymbol[info.symbol] = merged.count
+                        merged.append(info)
+                    }
                 }
             case .failure(let error):
                 noteFailure(capable[index].descriptor.id, error)
@@ -306,6 +346,13 @@ public actor CompositeProvider: QuoteProvider {
         }
         searchCache[cacheKey] = CacheEntry(value: merged)
         return merged
+    }
+
+    private nonisolated static func isPlaceholderName(_ name: String, for symbol: SymbolID) -> Bool {
+        let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return normalized == symbol.code.uppercased()
+            || normalized == symbol.displayCode.uppercased()
+            || normalized == symbol.cryptoPair?.baseAsset
     }
 
     private func failover<T>(_ capability: Capability, market: Market,

@@ -182,7 +182,7 @@ struct WatchlistView: View {
         let widths = appState.watchlist.items.map { item in
             WatchRowColumnLayout.titleWidth(
                 name: appState.market.quote(for: item.symbol)?.name ?? item.displayName,
-                symbolCode: item.symbol.code,
+                symbolCode: item.symbol.displayCode,
                 marketName: item.symbol.market.displayName,
                 presentation: .popover
             )
@@ -209,6 +209,7 @@ struct WatchlistView: View {
                     Text(PulseLocalization.localizedString("status.healthy"))
                 }
                 Button {
+                    PulseTelemetry.signal(.manualRefreshRequested)
                     appState.engine.poke()
                 } label: {
                     Image(systemName: "arrow.clockwise")
@@ -701,7 +702,7 @@ struct SearchResultRow: View {
                     .lineLimit(1)
                 HStack(spacing: 4) {
                     MarketBadge(market: info.symbol.market)
-                    Text(info.symbol.code)
+                    Text(info.symbol.displayCode)
                         .font(.system(size: 10).monospaced())
                         .foregroundStyle(.secondary)
                     if let typeLabel {
@@ -785,7 +786,7 @@ struct WatchRow: View {
                         .lineLimit(1)
                     HStack(spacing: 4) {
                         MarketBadge(market: item.symbol.market)
-                        Text(item.symbol.code)
+                        Text(item.symbol.displayCode)
                             .font(.system(size: 10).monospaced())
                             .foregroundStyle(.secondary)
                     }

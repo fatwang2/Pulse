@@ -283,7 +283,8 @@ struct LongbridgeProtocolTests {
         #expect(LongbridgeProvider.longbridgeSymbol(for: SymbolID(market: .us, code: "AAPL")) == "AAPL.US")
         #expect(LongbridgeProvider.longbridgeSymbol(for: SymbolID(market: .sh, code: "603986")) == "603986.SH")
         #expect(LongbridgeProvider.longbridgeSymbol(for: SymbolID(market: .sz, code: "300750")) == "300750.SZ")
-        #expect(LongbridgeProvider.longbridgeSymbol(for: SymbolID(market: .crypto, code: "BTC-USD")) == nil)
+        #expect(LongbridgeProvider.longbridgeSymbol(
+            for: SymbolID(cryptoBase: "BTC", quote: "USDT")) == nil)
     }
 
     @Test func mapsWireQuoteToQuote() throws {

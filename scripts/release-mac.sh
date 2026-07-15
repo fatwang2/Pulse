@@ -37,6 +37,10 @@ set -a; . "$ENV_FILE"; set +a
 : "${SPARKLE_FEED_URL:?SPARKLE_FEED_URL is required}"
 : "${SPARKLE_PUBLIC_ED_KEY:?SPARKLE_PUBLIC_ED_KEY is required}"
 
+if [[ -z "${TELEMETRYDECK_APP_ID:-}" ]]; then
+  echo "warning: TELEMETRYDECK_APP_ID is empty; anonymous usage analytics will be disabled" >&2
+fi
+
 [[ -f "$APPLE_API_KEY_PATH" ]] || { echo "error: missing APPLE_API_KEY_PATH: $APPLE_API_KEY_PATH" >&2; exit 1; }
 command -v xcodegen >/dev/null || { echo "error: xcodegen is required" >&2; exit 1; }
 command -v gh >/dev/null || { echo "error: GitHub CLI (gh) is required" >&2; exit 1; }
@@ -198,7 +202,8 @@ xcodebuild -quiet archive \
   OTHER_CODE_SIGN_FLAGS="--timestamp --options=runtime" \
   CODE_SIGN_ENTITLEMENTS="$ENTITLEMENTS_PATH" \
   SPARKLE_FEED_URL="$SPARKLE_FEED_URL" \
-  SPARKLE_PUBLIC_ED_KEY="$SPARKLE_PUBLIC_ED_KEY"
+  SPARKLE_PUBLIC_ED_KEY="$SPARKLE_PUBLIC_ED_KEY" \
+  TELEMETRYDECK_APP_ID="${TELEMETRYDECK_APP_ID:-}"
 
 echo "==> Exporting Developer ID archive"
 xcodebuild -quiet -exportArchive \

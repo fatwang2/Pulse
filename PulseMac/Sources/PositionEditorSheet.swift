@@ -77,7 +77,7 @@ struct PositionEditorView: View {
                 Text(quote?.name ?? item.displayName)
                     .font(.subheadline)
                     .lineLimit(1)
-                Text(item.symbol.code)
+                Text(item.symbol.displayCode)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
             }
@@ -85,7 +85,7 @@ struct PositionEditorView: View {
     }
 
     private var currencyCode: String? {
-        quote?.currencyCode ?? item.symbol.market.currencyCode
+        quote?.currencyCode ?? item.symbol.currencyCode
     }
 
     private var parsedQuantity: Double? {

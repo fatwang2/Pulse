@@ -37,7 +37,8 @@ test("server-renders the Pulse landing page", async () => {
   assert.match(html, /工业富联/);
   assert.match(html, /class="market-pulse" aria-hidden="true"/);
   assert.match(html, /class="brand-mark"/);
-  assert.match(html, /github\.com\/fatwang2\/Pulse\/releases\/latest/);
+  assert.match(html, /href="\/download"/);
+  assert.doesNotMatch(html, /github\.com\/fatwang2\/Pulse\/releases\/latest/);
   assert.match(html, /apple\.svg/);
   assert.match(html, /aria-pressed="false"[^>]*>中文<\/button>/);
   assert.match(html, /aria-pressed="true"[^>]*>EN<\/button>/);
@@ -58,4 +59,61 @@ test("includes English copy and remembered language selection", async () => {
   assert.match(page, /localStorage\.getItem\("pulse-language"\)/);
   assert.match(page, /localStorage\.setItem\("pulse-language", nextLanguage\)/);
   assert.match(page, /document\.documentElement\.lang/);
+});
+
+test("redirects the stable download URL to the versioned DMG", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("download-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+
+  const response = await worker.fetch(
+    new Request("http://localhost/download", { redirect: "manual" }),
+    {},
+    {},
+  );
+
+  assert.equal(response.status, 302);
+  assert.equal(
+    response.headers.get("location"),
+    "http://localhost/downloads/v0.4.0/Pulse-0.4.0.dmg",
+  );
+});
+
+test("serves a stored DMG from the Sites R2 binding", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("r2-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const body = new TextEncoder().encode("dmg");
+
+  const response = await worker.fetch(
+    new Request("http://localhost/downloads/v0.4.0/Pulse-0.4.0.dmg"),
+    {
+      DOWNLOADS: {
+        async get(key) {
+          assert.equal(key, "releases/v0.4.0/Pulse-0.4.0.dmg");
+          return {
+            body: new Blob([body]).stream(),
+            httpEtag: '"test-etag"',
+            size: body.byteLength,
+            writeHttpMetadata(headers) {
+              headers.set("content-type", "application/x-apple-diskimage");
+            },
+          };
+        },
+      },
+    },
+    {},
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get("content-disposition"),
+    'attachment; filename="Pulse-0.4.0.dmg"',
+  );
+  assert.equal(
+    response.headers.get("content-type"),
+    "application/x-apple-diskimage",
+  );
+  assert.equal(response.headers.get("x-pulse-version"), "0.4.0");
+  assert.equal(new TextDecoder().decode(await response.arrayBuffer()), "dmg");
 });

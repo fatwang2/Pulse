@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { InteractivePreview } from "./interactive-preview";
 
-const latestReleaseUrl = "https://github.com/fatwang2/Pulse/releases/latest";
+const latestReleaseUrl = "/download";
 const repositoryUrl = "https://github.com/fatwang2/Pulse";
 
 type Language = "zh" | "en";

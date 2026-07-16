@@ -1,6 +1,6 @@
 # Pulse Website
 
-Pulse 的中英文单页官网，介绍 macOS 菜单栏行情工具并提供最新版下载与 GitHub 开源地址。
+Pulse 的中英文单页官网，介绍 macOS 菜单栏行情工具并通过 Sites 托管的 R2 提供最新版 DMG 下载，同时保留 GitHub 开源地址。
 
 ## 本地运行
 
@@ -24,4 +24,12 @@ npm test
 
 ## 发布
 
-网站使用 Codex Sites 发布，项目配置保存在 `.openai/hosting.json`。线上下载按钮始终指向 Pulse GitHub 仓库的最新 Release。
+网站使用 Codex Sites 发布，项目配置保存在 `.openai/hosting.json`。
+
+安装包使用版本化 R2 对象路径，官网稳定入口 `/download` 会跳转到当前版本：
+
+```text
+/downloads/v0.4.0/Pulse-0.4.0.dmg
+```
+
+首次访问版本化地址时，Worker 会从固定的 GitHub Release 地址读取文件，校验预期大小与 SHA-256 后写入 Sites 管理的 R2；后续请求直接从 R2 返回。发布新版时需要同步更新 `worker/index.ts` 中的版本、文件名、下载地址、大小和 SHA-256。

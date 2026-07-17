@@ -25,6 +25,9 @@ npm test
 ## 发布
 
 网站使用 Codex Sites 发布，项目配置保存在 `.openai/hosting.json`。
+生产环境使用自定义域名 [`www.pulseticker.app`](https://www.pulseticker.app/)。
+
+R2 是 Sites Worker 的内部存储绑定，与访问域名无关；自定义域名由 Sites 路由到同一个 Worker 后，`/download` 和版本化下载路径会继续使用现有的 `DOWNLOADS` 绑定，不需要为域名单独配置 R2。
 
 安装包使用版本化 R2 对象路径，官网稳定入口 `/download` 会跳转到当前版本：
 

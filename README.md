@@ -2,7 +2,7 @@
 
 **Glanceable market data for the macOS menu bar.**
 
-**Website:** [pulse-market-glance.wangding0798.chatgpt.site](https://pulse-market-glance.wangding0798.chatgpt.site/)
+**Website:** [www.pulseticker.app](https://www.pulseticker.app/)
 
 Pulse is a lightweight market-watching app, not a trading terminal. It solves exactly one problem: seeing how the symbols you care about are doing — and whether your positions are up or down — in the shortest possible time, without leaving what you're working on.
 

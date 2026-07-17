@@ -8,6 +8,7 @@ import PulseCore
 /// never displayed back, only overwritten.
 struct LongbridgeSetupView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var route: PopoverRoute
 
     @State private var showManualFields = false
@@ -101,7 +102,7 @@ struct LongbridgeSetupView: View {
                 if configured {
                     actionButton(titleKey: "longbridge.disconnect", tint: .red) {
                         appState.clearLongbridgeCredentials()
-                        connectionError = nil
+                        setConnectionError(nil)
                         showManualFields = false
                     }
                     .disabled(isConnecting)
@@ -147,6 +148,7 @@ struct LongbridgeSetupView: View {
                         .font(.caption2)
                         .foregroundStyle(.orange)
                         .multilineTextAlignment(.center)
+                        .transition(connectionErrorTransition)
                 }
             }
             .padding(12)
@@ -244,17 +246,34 @@ struct LongbridgeSetupView: View {
         [appKey, appSecret, accessToken].allSatisfy { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
     }
 
+    private var connectionErrorTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .scale(scale: 0.96, anchor: .top))
+    }
+
+    private var connectionErrorAnimation: Animation {
+        .easeOut(duration: reduceMotion ? 0.15 : 0.18)
+    }
+
+    @MainActor
+    private func setConnectionError(_ message: String?) {
+        withAnimation(connectionErrorAnimation) {
+            connectionError = message
+        }
+    }
+
     // MARK: - Actions
 
     private func connectOAuth() {
         isConnecting = true
-        connectionError = nil
+        setConnectionError(nil)
         Task {
             do {
                 try await appState.connectLongbridgeOAuth()
                 showManualFields = false
             } catch {
-                connectionError = PulseLocalization.localizedString("longbridge.oauth.error")
+                setConnectionError(PulseLocalization.localizedString("longbridge.oauth.error"))
             }
             isConnecting = false
         }
@@ -267,7 +286,7 @@ struct LongbridgeSetupView: View {
             accessToken: accessToken.trimmingCharacters(in: .whitespaces)
         )
         isConnecting = true
-        connectionError = nil
+        setConnectionError(nil)
         Task {
             do {
                 try await appState.saveLongbridgeCredentials(credentials)
@@ -276,7 +295,7 @@ struct LongbridgeSetupView: View {
                 accessToken = ""
                 showManualFields = false
             } catch {
-                connectionError = PulseLocalization.localizedString("longbridge.credentials.error")
+                setConnectionError(PulseLocalization.localizedString("longbridge.credentials.error"))
             }
             isConnecting = false
         }

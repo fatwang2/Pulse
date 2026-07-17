@@ -20,6 +20,12 @@ struct WatchlistView: View {
     @AppStorage("pulse.watchlist.orderMode.v1") private var listOrderMode = WatchlistOrderMode.manual.rawValue
     @AppStorage("pulse.watchlist.sortOption.v1") private var listSortOption = WatchlistSortOption.changePercent.rawValue
 
+    private enum SearchTerminalState: Equatable {
+        case none
+        case failure(String)
+        case noResults
+    }
+
     var body: some View {
         // The correct Liquid Glass structure: put the chrome in safeAreaInset so the system treats it as a floating bar —
         // content scrolls underneath it and fades at the edge via scrollEdgeEffect, without clashing with the chrome text
@@ -354,9 +360,8 @@ struct WatchlistView: View {
             .padding(.vertical, 4)
         }
         .overlay {
-            let query = normalizedSearchQuery(searchText)
-            let completedCurrentSearch = completedSearchQuery == query
-            if let searchError, completedCurrentSearch {
+            switch searchTerminalState {
+            case .failure(let searchError):
                 VStack(spacing: 6) {
                     Image(systemName: "wifi.exclamationmark")
                         .font(.system(size: 22))
@@ -369,12 +374,27 @@ struct WatchlistView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                 }
-            } else if searchResults.isEmpty && completedCurrentSearch && shouldRunSearch(for: query) {
+                .transition(.opacity)
+            case .noResults:
                 Text(PulseLocalization.localizedString("search.noResults"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .transition(.opacity)
+            case .none:
+                EmptyView()
             }
         }
+        .animation(.easeOut(duration: 0.15), value: searchTerminalState)
+    }
+
+    private var searchTerminalState: SearchTerminalState {
+        let query = normalizedSearchQuery(searchText)
+        guard completedSearchQuery == query, shouldRunSearch(for: query) else {
+            return .none
+        }
+        if let searchError { return .failure(searchError) }
+        if searchResults.isEmpty { return .noResults }
+        return .none
     }
 
     private func normalizedSearchQuery(_ text: String) -> String {

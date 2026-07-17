@@ -29,7 +29,7 @@ struct ProviderRow: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     private var isConnectable: Bool { !descriptor.credentials.isEmpty }
@@ -56,6 +56,7 @@ struct ProviderRow: View {
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var route: PopoverRoute
     @StateObject private var softwareUpdate = SoftwareUpdateController.shared
 
@@ -70,6 +71,7 @@ struct SettingsView: View {
                         Text(MenuBarMode.single.displayName).tag(MenuBarMode.single)
                         Text(MenuBarMode.rotate.displayName).tag(MenuBarMode.rotate)
                     }
+                    .transition(contextualRowTransition)
                     if settings.menuBarMode == .single {
                         Picker(PulseLocalization.localizedString("settings.menuBar.fixedSymbol"), selection: $settings.primarySymbol) {
                             Text(PulseLocalization.localizedString("settings.menuBar.firstWatchlistItem")).tag(SymbolID?.none)
@@ -77,6 +79,7 @@ struct SettingsView: View {
                                 Text(item.displayName).tag(SymbolID?.some(item.symbol))
                             }
                         }
+                        .transition(contextualRowTransition)
                     }
                     if settings.menuBarMode == .rotate {
                         Picker(PulseLocalization.localizedString("settings.menuBar.rotateInterval"), selection: $settings.rotateInterval) {
@@ -84,6 +87,7 @@ struct SettingsView: View {
                             Text(PulseLocalization.localizedString("duration.seconds", 6)).tag(TimeInterval(6))
                             Text(PulseLocalization.localizedString("duration.seconds", 10)).tag(TimeInterval(10))
                         }
+                        .transition(contextualRowTransition)
                     }
                 }
             } header: {
@@ -91,6 +95,7 @@ struct SettingsView: View {
             } footer: {
                 if !settings.showPriceInMenuBar {
                     Text(PulseLocalization.localizedString("settings.menuBar.iconOnlyHelp"))
+                        .transition(.opacity)
                 }
             }
 
@@ -150,6 +155,8 @@ struct SettingsView: View {
                 Text(PulseLocalization.localizedString("settings.section.updates"))
             }
         }
+        .animation(contextualRowAnimation, value: settings.showPriceInMenuBar)
+        .animation(contextualRowAnimation, value: settings.menuBarMode)
         .formStyle(.grouped)
         .controlSize(.small)
         .scrollContentBackground(.hidden)
@@ -169,6 +176,18 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
+    }
+
+    private var contextualRowTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .move(edge: .top))
+    }
+
+    private var contextualRowAnimation: Animation {
+        reduceMotion
+            ? .easeOut(duration: 0.15)
+            : .snappy(duration: 0.22)
     }
 
 }

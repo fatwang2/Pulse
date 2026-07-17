@@ -63,7 +63,7 @@ xcodegen generate
 xcodebuild -project Pulse.xcodeproj -scheme PulseMac -configuration Debug build
 
 # Or build, launch, and verify the menu-bar process
-./script/build_and_run.sh --verify
+./scripts/dev-mac.sh --verify
 ```
 
 The development script uses the first valid Apple Development identity in the builder's
@@ -76,7 +76,7 @@ For local telemetry testing, supply the TelemetryDeck app identifier as a build 
 or missing value disables analytics for that build:
 
 ```bash
-TELEMETRYDECK_APP_ID="your-app-id" ./script/build_and_run.sh --telemetry
+TELEMETRYDECK_APP_ID="your-app-id" ./scripts/dev-mac.sh --telemetry
 ```
 
 The app identifier is embedded in configured builds and is not a secret or an API credential.
@@ -90,6 +90,13 @@ cd Packages/PulseCore && swift test
 # Unit tests plus provider contracts against the live endpoints
 PULSE_LIVE_TESTS=1 swift test
 ```
+
+## Releasing
+
+The release pipeline lives in `scripts/release-mac.sh`. It archives, signs,
+notarizes, packages, and uploads Pulse together with its Sparkle appcast.
+Version-specific GitHub Release copy lives in `.github/release-notes/<version>.md`.
+Both are tracked so a release can be reproduced from the repository.
 
 ## Architecture
 

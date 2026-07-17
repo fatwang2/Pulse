@@ -1,13 +1,56 @@
+# macOS metadata
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Local environment and signing material
 .env
 .env.*
 !.env.example
 !.env.release.example
+.envrc
+.direnv/
 *.p8
+*.p12
+*.pem
+*.key
+*.cer
+*.mobileprovision
+*.provisionprofile
+
+# Swift, Xcode, and generated app artifacts
 .build/
-build/
+/build/
 DerivedData/
-*.xcodeproj
 .swiftpm/
+*.xcodeproj/
+*.xcworkspace/
 xcuserdata/
+*.xcuserstate
 *.xcresult
+*.xcarchive
+*.dSYM/
+*.dSYM.zip
+*.profdata
+*.profraw
+/coverage/
+/vendor/Sparkle/
+
+# Logs and editor temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+.idea/
+
+# Local agent and planning state
+/plans/
+/.codex/
+/.conductor/
+/.context/

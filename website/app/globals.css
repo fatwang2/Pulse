@@ -224,6 +224,10 @@ a {
   animation-delay: 780ms;
 }
 
+.copy > :nth-child(6) {
+  animation-delay: 900ms;
+}
+
 .overline {
   margin: 0 0 22px;
   color: var(--blue);
@@ -332,6 +336,85 @@ a {
 .brand:focus-visible {
   outline: 3px solid rgba(10, 132, 255, 0.28);
   outline-offset: 4px;
+}
+
+.data-sources {
+  max-width: 560px;
+  margin-top: 38px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(60, 68, 78, 0.12);
+}
+
+.data-sources-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.data-sources-heading h2,
+.data-sources-heading p {
+  margin: 0;
+}
+
+.data-sources-heading h2 {
+  flex: 0 0 auto;
+  color: #626870;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.data-sources-heading p {
+  color: #a0a5ab;
+  font-size: 9px;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.provider-logos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: 16px;
+  margin: 15px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.provider-logo {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 30px;
+  opacity: 0.74;
+}
+
+.provider-logo img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 24px;
+  object-fit: contain;
+}
+
+.provider-logo--longbridge img {
+  max-width: 112px;
+}
+
+.provider-logo--binance img {
+  max-width: 102px;
+}
+
+.provider-logo--tencent img {
+  max-width: 102px;
+}
+
+.provider-logo--yahoo-finance img {
+  max-width: 118px;
 }
 
 .product-shot {
@@ -960,6 +1043,30 @@ a {
 
   .cta-button {
     width: 100%;
+  }
+
+  .data-sources {
+    margin-top: 32px;
+  }
+
+  .data-sources-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .data-sources-heading p {
+    text-align: left;
+  }
+
+  .provider-logos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 24px;
+    margin-top: 18px;
+  }
+
+  .provider-logo {
+    height: 32px;
   }
 
   .footer {

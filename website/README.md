@@ -33,3 +33,16 @@ npm test
 ```
 
 首次访问版本化地址时，Worker 会从固定的 GitHub Release 地址读取文件，校验预期大小与 SHA-256 后写入 Sites 管理的 R2；后续请求直接从 R2 返回。发布新版时需要同步更新 `worker/index.ts` 中的版本、文件名、下载地址、大小和 SHA-256。
+
+## 行情数据源标识
+
+官网展示的品牌标识仅用于说明 Pulse 使用的行情数据来源，不代表合作、赞助或背书。商标及品牌标识归各自权利人所有。
+
+- Longbridge：当前 Longbridge 香港官网品牌素材
+  `https://assets.wbrks.com/assets/logo/light/hk.png`
+- Binance：Wikimedia Commons 收录的 Binance 标准标识
+  `https://upload.wikimedia.org/wikipedia/commons/1/12/Binance_logo.svg`
+- Tencent：腾讯官方媒体资源库蓝色标准标识
+  `https://www.tencent.com/wp-content/uploads/2022/12/01_Tencent_Standard-Logo.png`
+- Yahoo Finance：Yahoo Inc. 提供、由 Wikimedia Commons 收录的标准标识
+  `https://upload.wikimedia.org/wikipedia/commons/9/9f/Yahoo%21_Finance_logo.svg`

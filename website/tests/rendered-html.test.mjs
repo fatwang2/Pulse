@@ -40,6 +40,11 @@ test("server-renders the Pulse landing page", async () => {
   assert.match(html, /href="\/download"/);
   assert.doesNotMatch(html, /github\.com\/fatwang2\/Pulse\/releases\/latest/);
   assert.match(html, /apple\.svg/);
+  assert.match(html, /Market data sources/);
+  assert.match(html, /providers\/longbridge\.png/);
+  assert.match(html, /providers\/binance\.svg/);
+  assert.match(html, /providers\/tencent\.png/);
+  assert.match(html, /providers\/yahoo-finance\.svg/);
   assert.match(html, /aria-pressed="false"[^>]*>中文<\/button>/);
   assert.match(html, /aria-pressed="true"[^>]*>EN<\/button>/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);

@@ -7,6 +7,37 @@ import { InteractivePreview } from "./interactive-preview";
 const latestReleaseUrl = "/download";
 const repositoryUrl = "https://github.com/fatwang2/Pulse";
 
+const dataSources = [
+  {
+    id: "longbridge",
+    name: "Longbridge",
+    src: "/providers/longbridge.png",
+    width: 633,
+    height: 139,
+  },
+  {
+    id: "binance",
+    name: "Binance",
+    src: "/providers/binance.svg",
+    width: 632,
+    height: 127,
+  },
+  {
+    id: "tencent",
+    name: "Tencent",
+    src: "/providers/tencent.png",
+    width: 800,
+    height: 241,
+  },
+  {
+    id: "yahoo-finance",
+    name: "Yahoo Finance",
+    src: "/providers/yahoo-finance.svg",
+    width: 1284,
+    height: 181,
+  },
+] as const;
+
 type Language = "zh" | "en";
 
 const translations = {
@@ -25,6 +56,8 @@ const translations = {
     screenshotAlt:
       "Pulse 自选列表截图，展示美股、A 股、港股与加密货币的价格和走势图",
     markets: "支持美股、港股、A 股、加密货币、指数与 ETF",
+    dataSourcesLabel: "行情数据来源",
+    dataSourcesNote: "仅用于说明数据来源，覆盖范围因市场而异。",
     disclaimer: "行情数据仅供参考，不构成投资建议。",
     pageTitle: "Pulse — 你的市场，一眼掌握",
   },
@@ -43,6 +76,8 @@ const translations = {
     screenshotAlt:
       "Pulse watchlist showing prices and sparklines for US, China, Hong Kong, and crypto markets",
     markets: "US, Hong Kong and China stocks, crypto, indices, and ETFs",
+    dataSourcesLabel: "Market data sources",
+    dataSourcesNote: "Shown for source identification only; coverage varies by market.",
     disclaimer: "Market data is for reference only and is not investment advice.",
     pageTitle: "Pulse — Your market, at a glance",
   },
@@ -165,6 +200,29 @@ export default function Home() {
               {copy.githubLabel}
             </a>
           </div>
+
+          <section className="data-sources" aria-labelledby="data-sources-title">
+            <div className="data-sources-heading">
+              <h2 id="data-sources-title">{copy.dataSourcesLabel}</h2>
+              <p>{copy.dataSourcesNote}</p>
+            </div>
+            <ul className="provider-logos">
+              {dataSources.map((source) => (
+                <li
+                  className={`provider-logo provider-logo--${source.id}`}
+                  key={source.id}
+                >
+                  <Image
+                    src={source.src}
+                    alt={source.name}
+                    width={source.width}
+                    height={source.height}
+                    unoptimized
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
         </div>
 
         <div className="product-shot">

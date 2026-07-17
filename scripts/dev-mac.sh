@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Build, run, debug, or verify the local development app.
 set -euo pipefail
 
 MODE="${1:-run}"

@@ -25,7 +25,7 @@ const dataSources = [
   {
     id: "tencent",
     name: "Tencent",
-    src: "/providers/tencent.png",
+    src: "/providers/tencent.png?v=1",
     width: 800,
     height: 241,
   },

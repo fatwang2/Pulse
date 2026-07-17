@@ -224,10 +224,6 @@ a {
   animation-delay: 780ms;
 }
 
-.copy > :nth-child(6) {
-  animation-delay: 900ms;
-}
-
 .overline {
   margin: 0 0 22px;
   color: var(--blue);
@@ -339,17 +335,22 @@ a {
 }
 
 .data-sources {
-  max-width: 560px;
-  margin-top: 38px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(60, 68, 78, 0.12);
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.5fr);
+  align-items: center;
+  gap: clamp(36px, 6vw, 96px);
+  min-height: 86px;
+  border-top: 1px solid rgba(60, 68, 78, 0.1);
+  opacity: 0;
+  transform: translateY(8px);
+  animation: reveal-hero-item 800ms 920ms var(--ease-out-expo) forwards;
 }
 
 .data-sources-heading {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 18px;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .data-sources-heading h2,
@@ -371,15 +372,14 @@ a {
   color: #a0a5ab;
   font-size: 9px;
   line-height: 1.45;
-  text-align: right;
 }
 
 .provider-logos {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
-  gap: 16px;
-  margin: 15px 0 0;
+  gap: clamp(24px, 4vw, 54px);
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -387,9 +387,10 @@ a {
 .provider-logo {
   display: flex;
   align-items: center;
+  justify-content: center;
   min-width: 0;
   height: 30px;
-  opacity: 0.74;
+  opacity: 0.68;
 }
 
 .provider-logo img {
@@ -839,20 +840,6 @@ a {
 
 }
 
-.footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 58px;
-  border-top: 1px solid var(--line);
-  color: #a0a5ab;
-  font-size: 10px;
-}
-
-.footer p {
-  margin: 0;
-}
-
 @keyframes draw-market-pulse {
   0% {
     opacity: 0;
@@ -1003,6 +990,16 @@ a {
     inset-block: 70px 80px;
   }
 
+  .data-sources {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding-block: 24px 28px;
+  }
+
+  .data-sources-heading {
+    align-items: center;
+    text-align: center;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1046,17 +1043,12 @@ a {
   }
 
   .data-sources {
-    margin-top: 32px;
+    gap: 18px;
+    padding-block: 22px 26px;
   }
 
   .data-sources-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .data-sources-heading p {
-    text-align: left;
+    gap: 5px;
   }
 
   .provider-logos {
@@ -1069,12 +1061,6 @@ a {
     height: 32px;
   }
 
-  .footer {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 7px;
-    padding-block: 20px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1089,6 +1075,7 @@ a {
 
   .header,
   .copy > *,
+  .data-sources,
   .product-shot {
     opacity: 1;
     transform: none;

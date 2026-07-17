@@ -57,8 +57,8 @@ const translations = {
       "Pulse 自选列表截图，展示美股、A 股、港股与加密货币的价格和走势图",
     markets: "支持美股、港股、A 股、加密货币、指数与 ETF",
     dataSourcesLabel: "行情数据来源",
-    dataSourcesNote: "仅用于说明数据来源，覆盖范围因市场而异。",
-    disclaimer: "行情数据仅供参考，不构成投资建议。",
+    dataSourcesNote:
+      "仅用于说明数据来源，覆盖范围因市场而异；行情数据仅供参考，不构成投资建议。",
     pageTitle: "Pulse — 你的市场，一眼掌握",
   },
   en: {
@@ -77,8 +77,8 @@ const translations = {
       "Pulse watchlist showing prices and sparklines for US, China, Hong Kong, and crypto markets",
     markets: "US, Hong Kong and China stocks, crypto, indices, and ETFs",
     dataSourcesLabel: "Market data sources",
-    dataSourcesNote: "Shown for source identification only; coverage varies by market.",
-    disclaimer: "Market data is for reference only and is not investment advice.",
+    dataSourcesNote:
+      "Shown for source identification only; coverage varies by market. Market data is not investment advice.",
     pageTitle: "Pulse — Your market, at a glance",
   },
 } as const;
@@ -200,29 +200,6 @@ export default function Home() {
               {copy.githubLabel}
             </a>
           </div>
-
-          <section className="data-sources" aria-labelledby="data-sources-title">
-            <div className="data-sources-heading">
-              <h2 id="data-sources-title">{copy.dataSourcesLabel}</h2>
-              <p>{copy.dataSourcesNote}</p>
-            </div>
-            <ul className="provider-logos">
-              {dataSources.map((source) => (
-                <li
-                  className={`provider-logo provider-logo--${source.id}`}
-                  key={source.id}
-                >
-                  <Image
-                    src={source.src}
-                    alt={source.name}
-                    width={source.width}
-                    height={source.height}
-                    unoptimized
-                  />
-                </li>
-              ))}
-            </ul>
-          </section>
         </div>
 
         <div className="product-shot">
@@ -241,10 +218,31 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="footer shell">
-        <p>{copy.disclaimer}</p>
-        <p>MIT License · © 2026 Pulse</p>
-      </footer>
+      <section
+        className="data-sources shell"
+        aria-labelledby="data-sources-title"
+      >
+        <div className="data-sources-heading">
+          <h2 id="data-sources-title">{copy.dataSourcesLabel}</h2>
+          <p>{copy.dataSourcesNote}</p>
+        </div>
+        <ul className="provider-logos">
+          {dataSources.map((source) => (
+            <li
+              className={`provider-logo provider-logo--${source.id}`}
+              key={source.id}
+            >
+              <Image
+                src={source.src}
+                alt={source.name}
+                width={source.width}
+                height={source.height}
+                unoptimized
+              />
+            </li>
+          ))}
+        </ul>
+      </section>
     </main>
   );
 }

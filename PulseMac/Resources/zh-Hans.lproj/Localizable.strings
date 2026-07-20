@@ -7,6 +7,8 @@
 "action.done" = "完成";
 "action.editPosition" = "编辑持仓";
 "action.more" = "更多";
+"action.openGitHub" = "GitHub 项目";
+"action.openWebsite" = "官方网站";
 "action.pinToMenuBar" = "设为菜单栏显示";
 "action.quitPulse" = "退出 Pulse";
 "action.refreshNow" = "立即刷新";

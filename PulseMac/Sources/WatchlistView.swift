@@ -2,6 +2,11 @@ import SwiftUI
 import PulseCore
 import PulseUI
 
+private enum PulseExternalLinks {
+    static let website = URL(string: "https://www.pulseticker.app/?utm_source=pulse_macos&utm_medium=app&utm_campaign=menu_links&utm_content=official_website")!
+    static let github = URL(string: "https://github.com/fatwang2/Pulse?utm_source=pulse_macos&utm_medium=app&utm_campaign=menu_links&utm_content=github_repository")!
+}
+
 struct WatchlistView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.colorScheme) private var colorScheme
@@ -129,6 +134,17 @@ struct WatchlistView: View {
                         .disabled(isReordering)
                     } label: {
                         Text(PulseLocalization.localizedString("watchlist.menu.sort"))
+                    }
+                    Divider()
+                    Button {
+                        NSWorkspace.shared.open(PulseExternalLinks.website)
+                    } label: {
+                        Text(PulseLocalization.localizedString("action.openWebsite"))
+                    }
+                    Button {
+                        NSWorkspace.shared.open(PulseExternalLinks.github)
+                    } label: {
+                        Text(PulseLocalization.localizedString("action.openGitHub"))
                     }
                     Divider()
                     Button {

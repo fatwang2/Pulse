@@ -7,6 +7,8 @@
 "action.done" = "Done";
 "action.editPosition" = "Edit Position";
 "action.more" = "More";
+"action.openGitHub" = "GitHub Project";
+"action.openWebsite" = "Official Website";
 "action.pinToMenuBar" = "Show in Menu Bar";
 "action.quitPulse" = "Quit Pulse";
 "action.refreshNow" = "Refresh";

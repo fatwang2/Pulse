@@ -31,7 +31,7 @@ struct PopoverRootView: View {
     private static let minHeight: CGFloat = 300
     private static let minListHeight: CGFloat = 220
     private static let maxHeight: CGFloat = 600
-    private static let listChromeHeight: CGFloat = 112
+    private static let listChromeHeight: CGFloat = 143
     private static let listRowHeight: CGFloat = 48
 
     /// Children push in from the trailing edge and pop back out the same way
@@ -123,6 +123,9 @@ struct PopoverRootView: View {
         .onDisappear { appState.setPopoverVisible(false) }
         .onChange(of: appState.watchlist.symbols) { _, _ in
             appState.watchlistSymbolsChanged()
+        }
+        .onChange(of: appState.watchlist.groups.map(\.id)) { _, _ in
+            appState.watchlistGroupsChanged()
         }
     }
 

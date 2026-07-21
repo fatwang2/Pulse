@@ -12,6 +12,7 @@ struct MockProvider: QuoteProvider {
     var candleMarkets: Set<Market>?
     var candlePeriods: Set<CandlePeriod>?
     var quotePrice: Double = 100
+    var searchDelay: Duration = .zero
     var delay: [Market: TimeInterval] = [:]
     var markets: Set<Market> = Set(Market.allCases)
     var supportsStreaming = false
@@ -27,6 +28,9 @@ struct MockProvider: QuoteProvider {
     }
 
     func search(_ query: String) async throws -> [SymbolInfo] {
+        if searchDelay > .zero {
+            try await Task.sleep(for: searchDelay)
+        }
         if let searchError { throw searchError }
         return searchResults
     }
@@ -54,6 +58,22 @@ struct MockProvider: QuoteProvider {
 @Suite("Composite circuit breaking and disabling")
 struct CompositeProviderTests {
     static let apple = SymbolInfo(symbol: SymbolID(market: .us, code: "AAPL"), name: "Apple")
+
+    @Test("Search providers run concurrently while results keep provider order")
+    func concurrentSearchKeepsRanking() async throws {
+        let tencent = SymbolInfo(symbol: SymbolID(market: .hk, code: "700"), name: "Tencent")
+        let first = MockProvider(id: "first", searchResults: [Self.apple], searchDelay: .milliseconds(300))
+        let second = MockProvider(id: "second", searchResults: [tencent], searchDelay: .milliseconds(300))
+        let composite = CompositeProvider(providers: [first, second])
+        let clock = ContinuousClock()
+
+        let startedAt = clock.now
+        let results = try await composite.search("tech")
+        let elapsed = startedAt.duration(to: clock.now)
+
+        #expect(results == [Self.apple, tencent])
+        #expect(elapsed < .milliseconds(500))
+    }
 
     @Test("4xx client errors don't trip the circuit: candles still work after a 400 from search")
     func clientErrorDoesNotTrip() async throws {

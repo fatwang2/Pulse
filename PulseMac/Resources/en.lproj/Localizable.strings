@@ -155,6 +155,8 @@
 "refresh.updatedAt" = "Updated %@";
 
 "search.failed" = "Search failed";
+"search.addToGroup" = "Add to “%@”";
+"search.inGroup" = "Already in “%@”";
 "search.noResults" = "No symbols found";
 "search.placeholder" = "Search symbols or companies";
 
@@ -177,6 +179,7 @@
 "settings.menuBar.fixedSymbol" = "Symbol";
 "settings.menuBar.iconOnlyHelp" = "Only the Pulse icon appears in the menu bar.";
 "settings.menuBar.rotateInterval" = "Switch Every";
+"settings.menuBar.rotateGroup" = "Cycle List";
 "settings.menuBar.showQuote" = "Show Prices in Menu Bar";
 "settings.providers.allDisabled" = "All data sources are disabled. Quotes and search will be unavailable.";
 "settings.providers.help" = "Pulse automatically chooses the best available source and switches if one fails.";
@@ -212,6 +215,16 @@
 "watchlist.sort.adjust" = "Adjust Order";
 "watchlist.sort.adjustActive" = "Adjusting Order";
 "watchlist.sort.manual" = "Custom Order";
+"watchlist.defaultName" = "Watchlist";
+"watchlist.group.delete" = "Delete List";
+"watchlist.group.deleteMessage" = "Symbols that are only in this list will move to another list. Positions will not be deleted.";
+"watchlist.group.deleteTitle" = "Delete “%@”?";
+"watchlist.group.membership" = "Lists";
+"watchlist.group.nameError" = "Enter a unique list name.";
+"watchlist.group.namePlaceholder" = "List Name";
+"watchlist.group.new" = "New List";
+"watchlist.group.removeFromCurrent" = "Remove from %@";
+"watchlist.group.rename" = "Rename List";
 
 "watchRow.dragHelp" = "Drag to reorder";
 "watchRow.metricHelp" = "Click to cycle through Change %, Day P&L, and Total P&L";

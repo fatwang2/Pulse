@@ -313,14 +313,30 @@ public actor CompositeProvider: QuoteProvider {
         // Sources exist but are all in circuit-breaker cooldown — that's not the same as disabled: report rate limiting, which recovers automatically
         guard !capable.isEmpty else { throw ProviderError.rateLimited }
 
-        var outcomes: [(Int, Result<[SymbolInfo], any Error>)] = []
-        for (index, provider) in capable.enumerated() {
-            await waitForProviderBudget(provider)
-            do {
-                outcomes.append((index, .success(try await provider.search(query))))
-            } catch {
-                outcomes.append((index, .failure(error)))
+        // Search providers are independent. Running them concurrently avoids making
+        // Tencent/Yahoo results wait for a symbol-catalog refresh in another source.
+        let outcomes = await withTaskGroup(
+            of: (Int, Result<[SymbolInfo], any Error>).self,
+            returning: [(Int, Result<[SymbolInfo], any Error>)].self
+        ) { group in
+            for (index, provider) in capable.enumerated() {
+                group.addTask {
+                    await self.waitForProviderBudget(provider)
+                    do {
+                        return (index, .success(try await provider.search(query)))
+                    } catch {
+                        return (index, .failure(error))
+                    }
+                }
             }
+
+            var completed: [(Int, Result<[SymbolInfo], any Error>)] = []
+            for await outcome in group {
+                completed.append(outcome)
+            }
+            // Completion order is nondeterministic; merge in registration order so
+            // provider preference and search ranking stay stable.
+            return completed.sorted { $0.0 < $1.0 }
         }
 
         var merged: [SymbolInfo] = []

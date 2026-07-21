@@ -83,13 +83,24 @@ struct SettingsView: View {
                     if settings.menuBarMode == .single {
                         Picker(PulseLocalization.localizedString("settings.menuBar.fixedSymbol"), selection: $settings.primarySymbol) {
                             Text(PulseLocalization.localizedString("settings.menuBar.firstWatchlistItem")).tag(SymbolID?.none)
-                            ForEach(appState.watchlist.items) { item in
+                            ForEach(appState.watchlist.allItems) { item in
                                 Text(item.displayName).tag(SymbolID?.some(item.symbol))
                             }
                         }
                         .transition(contextualRowTransition)
                     }
                     if settings.menuBarMode == .rotate {
+                        if appState.watchlist.groups.count > 1 {
+                            Picker(
+                                PulseLocalization.localizedString("settings.menuBar.rotateGroup"),
+                                selection: menuBarRotationGroupBinding
+                            ) {
+                                ForEach(appState.watchlist.groups) { group in
+                                    Text(group.name).tag(Optional(group.id))
+                                }
+                            }
+                            .transition(contextualRowTransition)
+                        }
                         Picker(PulseLocalization.localizedString("settings.menuBar.rotateInterval"), selection: $settings.rotateInterval) {
                             Text(PulseLocalization.localizedString("duration.seconds", 3)).tag(TimeInterval(3))
                             Text(PulseLocalization.localizedString("duration.seconds", 6)).tag(TimeInterval(6))
@@ -196,6 +207,16 @@ struct SettingsView: View {
         reduceMotion
             ? .easeOut(duration: 0.15)
             : .snappy(duration: 0.22)
+    }
+
+    private var menuBarRotationGroupBinding: Binding<UUID?> {
+        Binding(
+            get: { appState.menuBarRotationGroupID },
+            set: { id in
+                guard let id else { return }
+                appState.setMenuBarRotationGroup(id)
+            }
+        )
     }
 
 }

@@ -72,7 +72,7 @@ struct WatchlistView: View {
 
     @ViewBuilder
     private var baseContent: some View {
-        if appState.watchlist.isEmpty {
+        if appState.watchlist.items.isEmpty {
             emptyState
         } else {
             watchList
@@ -97,8 +97,8 @@ struct WatchlistView: View {
                 ) {
                     copyShareSnapshot()
                 }
-                .disabled(appState.watchlist.isEmpty)
-                .opacity(appState.watchlist.isEmpty ? 0.45 : 1)
+                .disabled(appState.watchlist.items.isEmpty)
+                .opacity(appState.watchlist.items.isEmpty ? 0.45 : 1)
                 ClusterMenu(systemName: "ellipsis.circle", help: PulseLocalization.localizedString("action.more")) {
                     Menu {
                         ForEach(WatchRowMetricMode.allCases, id: \.self) { mode in
@@ -169,11 +169,32 @@ struct WatchlistView: View {
                         .allowsHitTesting(false)
                 }
             }
+            WatchlistGroupBar(isDisabled: isReordering, onSelect: selectGroup)
             searchField
         }
         .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 7)
+    }
+
+    private func selectGroup(_ id: UUID) {
+        guard appState.watchlist.selectedGroupID != id else { return }
+        searchText = ""
+        isReordering = false
+
+        // Switching tags is a high-frequency navigation action. Apply the final
+        // list state in one non-animated transaction so rows do not look as if
+        // they were individually inserted, removed, and sorted.
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            appState.watchlist.selectGroup(id)
+            if listOrderMode == WatchlistOrderMode.manual.rawValue {
+                _ = appState.watchlist.restoreManualOrder()
+            } else if let option = WatchlistSortOption(rawValue: listSortOption) {
+                applySort(option, animated: false)
+            }
+        }
     }
 
     private var watchRowMetricColumnWidth: CGFloat {
@@ -337,12 +358,15 @@ struct WatchlistView: View {
         .task(id: searchText) {
             let query = normalizedSearchQuery(searchText)
             guard shouldRunSearch(for: query) else {
+                isSearching = false
                 searchResults = []
                 searchError = nil
                 completedSearchQuery = nil
                 return
             }
-            if let cached = searchCache[query] {
+            let cacheKey = normalizedSearchCacheKey(query)
+            if let cached = searchCache[cacheKey] {
+                isSearching = false
                 searchResults = cached
                 searchError = nil
                 completedSearchQuery = query
@@ -352,16 +376,25 @@ struct WatchlistView: View {
             searchResults = []
             searchError = nil
             completedSearchQuery = nil
-            defer { isSearching = false }
-            try? await Task.sleep(for: .milliseconds(800))  // debounce
-            guard !Task.isCancelled else { return }
+            defer {
+                if query == normalizedSearchQuery(searchText) {
+                    isSearching = false
+                }
+            }
             do {
+                try await Task.sleep(for: .milliseconds(350))
+                try Task.checkCancellation()
                 let results = try await appState.search(query)
-                searchCache[query] = results
+                try Task.checkCancellation()
+                guard query == normalizedSearchQuery(searchText) else { return }
+                searchCache[cacheKey] = results
                 searchResults = results
                 searchError = nil
                 completedSearchQuery = query
+            } catch is CancellationError {
+                return
             } catch {
+                guard !Task.isCancelled, query == normalizedSearchQuery(searchText) else { return }
                 searchResults = []
                 searchError = shortErrorText(error)
                 completedSearchQuery = query
@@ -374,9 +407,7 @@ struct WatchlistView: View {
             LazyVStack(spacing: 1) {
                 ForEach(searchResults) { info in
                     SearchResultRow(info: info) {
-                        appState.watchlist.add(info)
-                        appState.engine.poke()
-                        searchText = ""
+                        addSearchResult(info)
                     }
                 }
             }
@@ -425,8 +456,26 @@ struct WatchlistView: View {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private func normalizedSearchCacheKey(_ query: String) -> String {
+        query.lowercased()
+    }
+
     private func shouldRunSearch(for query: String) -> Bool {
-        query.count >= 2
+        !query.isEmpty
+    }
+
+    private func addSearchResult(_ info: SymbolInfo) {
+        let queryAtAddition = normalizedSearchQuery(searchText)
+        appState.watchlist.add(info)
+        appState.engine.poke()
+
+        // Keep the result visible just long enough for its plus icon to become a
+        // checkmark, then return to the selected list.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard normalizedSearchQuery(searchText) == queryAtAddition else { return }
+            searchText = ""
+        }
     }
 
     private func shortErrorText(_ error: any Error) -> String {
@@ -450,20 +499,27 @@ struct WatchlistView: View {
     /// First-run is the one rare moment that earns an entrance: icon and text
     /// fade up with a short stagger. Reduced motion drops the offset, keeps the fade.
     private var emptyState: some View {
-        VStack(spacing: 10) {
+        let shouldAnimateEntrance = appState.watchlist.isEmpty
+        return VStack(spacing: 10) {
             Spacer()
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.system(size: 34))
                 .foregroundStyle(.quaternary)
-                .opacity(emptyStateShown ? 1 : 0)
-                .offset(y: emptyStateShown || reduceMotion ? 0 : 6)
-                .animation(.snappy(duration: 0.35), value: emptyStateShown)
+                .opacity(shouldAnimateEntrance ? (emptyStateShown ? 1 : 0) : 1)
+                .offset(y: shouldAnimateEntrance && !emptyStateShown && !reduceMotion ? 6 : 0)
+                .animation(
+                    shouldAnimateEntrance ? .snappy(duration: 0.35) : nil,
+                    value: emptyStateShown
+                )
             Text(PulseLocalization.localizedString("empty.watchlist"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
-                .opacity(emptyStateShown ? 1 : 0)
-                .offset(y: emptyStateShown || reduceMotion ? 0 : 6)
-                .animation(.snappy(duration: 0.35).delay(0.06), value: emptyStateShown)
+                .opacity(shouldAnimateEntrance ? (emptyStateShown ? 1 : 0) : 1)
+                .offset(y: shouldAnimateEntrance && !emptyStateShown && !reduceMotion ? 6 : 0)
+                .animation(
+                    shouldAnimateEntrance ? .snappy(duration: 0.35).delay(0.06) : nil,
+                    value: emptyStateShown
+                )
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -498,8 +554,33 @@ struct WatchlistView: View {
                         Button(PulseLocalization.localizedString("action.editPosition")) {
                             route = .position(item.symbol, .list)
                         }
+                        Menu(PulseLocalization.localizedString("watchlist.group.membership")) {
+                            ForEach(appState.watchlist.groups) { group in
+                                let included = appState.watchlist.contains(item.symbol, in: group.id)
+                                Button {
+                                    appState.watchlist.setMembership(
+                                        item.symbol,
+                                        in: group.id,
+                                        included: !included
+                                    )
+                                } label: {
+                                    if included {
+                                        Label(group.name, systemImage: "checkmark")
+                                    } else {
+                                        Text(group.name)
+                                    }
+                                }
+                                .disabled(included && membershipCount(for: item.symbol) == 1)
+                            }
+                        }
                         Divider()
-                        Button(PulseLocalization.localizedString("action.delete"), role: .destructive) {
+                        Button(
+                            PulseLocalization.localizedString(
+                                "watchlist.group.removeFromCurrent",
+                                appState.watchlist.selectedGroup?.name ?? ""
+                            ),
+                            role: .destructive
+                        ) {
                             withAnimation(.snappy(duration: 0.22)) {
                                 appState.watchlist.remove(item.symbol)
                             }
@@ -515,6 +596,10 @@ struct WatchlistView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+    }
+
+    private func membershipCount(for symbol: SymbolID) -> Int {
+        appState.watchlist.groups.count { $0.symbols.contains(symbol) }
     }
 
     /// State switch: bring back the remembered custom order. Does not enter the reorder UI.
@@ -534,7 +619,7 @@ struct WatchlistView: View {
         withAnimation(.snappy(duration: 0.25)) { isReordering = true }
     }
 
-    private func applySort(_ option: WatchlistSortOption) {
+    private func applySort(_ option: WatchlistSortOption, animated: Bool = true) {
         if listOrderMode == WatchlistOrderMode.manual.rawValue {
             appState.watchlist.rememberManualOrder()
         }
@@ -563,7 +648,11 @@ struct WatchlistView: View {
         isReordering = false
         listOrderMode = WatchlistOrderMode.automatic.rawValue
         listSortOption = option.rawValue
-        withAnimation(.snappy(duration: 0.16)) {
+        if animated {
+            withAnimation(.snappy(duration: 0.16)) {
+                appState.watchlist.reorder(sortedSymbols)
+            }
+        } else {
             appState.watchlist.reorder(sortedSymbols)
         }
     }
@@ -739,6 +828,32 @@ struct SearchResultRow: View {
     @State private var hovering = false
 
     var body: some View {
+        let isIncluded = appState.watchlist.contains(info.symbol)
+        let selectedGroupName = appState.watchlist.selectedGroup?.name ?? ""
+        let actionLabel = PulseLocalization.localizedString(
+            isIncluded ? "search.inGroup" : "search.addToGroup",
+            selectedGroupName
+        )
+
+        Group {
+            if isIncluded {
+                rowContent(isIncluded: true)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(actionLabel)
+            } else {
+                Button(action: onAdd) {
+                    rowContent(isIncluded: false)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(actionLabel)
+            }
+        }
+        .help(actionLabel)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+    }
+
+    private func rowContent(isIncluded: Bool) -> some View {
         HStack(spacing: 6) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(info.name)
@@ -757,16 +872,13 @@ struct SearchResultRow: View {
                 }
             }
             Spacer()
-            if appState.watchlist.contains(info.symbol) {
+            if isIncluded {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.secondary)
             } else {
-                Button(action: onAdd) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 15))
-                        .foregroundStyle(.tint)
-                }
-                .buttonStyle(.pressable)
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(.tint)
             }
         }
         .padding(.horizontal, 8)
@@ -775,7 +887,6 @@ struct SearchResultRow: View {
             RoundedRectangle(cornerRadius: 7)
                 .fill(hovering ? Color.primary.opacity(0.05) : .clear)
         )
-        .onHover { hovering = $0 }
     }
 
     private var typeLabel: String? {

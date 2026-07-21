@@ -82,6 +82,8 @@ final class AppSettings {
     /// The symbol pinned in single mode; nil falls back to the first watchlist item
     var primarySymbol: SymbolID? { didSet { save() } }
     var rotateInterval: TimeInterval = 6 { didSet { save() } }
+    /// The tag used by menu-bar rotation. Nil resolves to the first available group.
+    var rotateGroupID: UUID? { didSet { save() } }
     /// Per-provider quote poll cadence overrides; a missing key falls back to the
     /// provider's suggested interval. Replaces the former global refresh interval.
     var providerPollIntervals: [String: TimeInterval] = [:] { didSet { save() } }
@@ -140,6 +142,7 @@ final class AppSettings {
             menuBarMode = snapshot.menuBarMode
             primarySymbol = snapshot.primarySymbol
             rotateInterval = snapshot.rotateInterval
+            rotateGroupID = snapshot.rotateGroupID
             providerPollIntervals = snapshot.providerPollIntervals ?? [:]
             watchRowMetricMode = switch snapshot.watchRowMetricMode {
             case .changePercent, .todayPnL, .totalPnL:
@@ -167,6 +170,7 @@ final class AppSettings {
         var menuBarMode: MenuBarMode
         var primarySymbol: SymbolID?
         var rotateInterval: TimeInterval
+        var rotateGroupID: UUID?
         var watchRowMetricMode: WatchRowMetricMode?
         var redUp: Bool
         var disabledProviderIDs: Set<String>?
@@ -179,6 +183,7 @@ final class AppSettings {
     private func save() {
         let snapshot = Snapshot(menuBarMode: menuBarMode, primarySymbol: primarySymbol,
                                 rotateInterval: rotateInterval,
+                                rotateGroupID: rotateGroupID,
                                 watchRowMetricMode: watchRowMetricMode, redUp: redUp,
                                 disabledProviderIDs: disabledProviderIDs,
                                 showPriceInMenuBar: showPriceInMenuBar,

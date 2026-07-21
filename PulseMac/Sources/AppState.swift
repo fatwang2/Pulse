@@ -208,20 +208,40 @@ final class AppState {
     // MARK: - Menu bar text
 
     var menuBarItem: WatchItem? {
-        let items = watchlist.items
-        guard !items.isEmpty else { return nil }
         switch settings.menuBarMode {
         case .compact:
             return nil
         case .single:
+            let items = watchlist.allItems
+            guard !items.isEmpty else { return nil }
             if let primary = settings.primarySymbol,
                let item = items.first(where: { $0.symbol == primary }) {
                 return item
             }
             return items.first
         case .rotate:
+            let items = watchlist.items(in: menuBarRotationGroupID)
+            guard !items.isEmpty else { return nil }
             return items[rotationIndex % items.count]
         }
+    }
+
+    var menuBarRotationGroupID: UUID? {
+        if let id = settings.rotateGroupID, watchlist.group(for: id) != nil { return id }
+        return watchlist.groups.first?.id
+    }
+
+    func setMenuBarRotationGroup(_ id: UUID) {
+        guard watchlist.group(for: id) != nil else { return }
+        settings.rotateGroupID = id
+        rotationIndex = 0
+    }
+
+    func watchlistGroupsChanged() {
+        if settings.rotateGroupID != menuBarRotationGroupID {
+            settings.rotateGroupID = menuBarRotationGroupID
+        }
+        rotationIndex = 0
     }
 
     var menuBarText: String {
@@ -248,7 +268,7 @@ final class AppState {
                 let interval = self?.settings.rotateInterval ?? 6
                 try? await Task.sleep(for: .seconds(interval))
                 guard let self, self.settings.menuBarMode == .rotate else { continue }
-                let count = self.watchlist.items.count
+                let count = self.watchlist.items(in: self.menuBarRotationGroupID).count
                 guard count > 0 else { continue }
                 self.rotationIndex = (self.rotationIndex + 1) % count
             }

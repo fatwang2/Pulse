@@ -1,91 +1,227 @@
 import Foundation
 import Observation
 
-/// Watchlist: in-memory state + UserDefaults persistence.
-/// The suite is injectable — switching to an App Group container (shared with widgets) in the release build only touches one place.
+/// Watchlist instruments plus named tag membership, backed by UserDefaults.
+/// Instruments and positions are stored once even when they appear in several groups.
 @MainActor
 @Observable
 public final class WatchlistStore {
-    public private(set) var items: [WatchItem] = []
+    public private(set) var allItems: [WatchItem] = []
+    public private(set) var groups: [WatchlistGroup] = []
+    public private(set) var selectedGroupID: UUID?
 
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let storageKey = "pulse.watchlist.v1"
-    @ObservationIgnored private let manualOrderKey = "pulse.watchlist.manualOrder.v1"
+    @ObservationIgnored private let storageKey = "pulse.watchlists.v2"
+    @ObservationIgnored private let legacyStorageKey = "pulse.watchlist.v1"
+    @ObservationIgnored private let legacyManualOrderKey = "pulse.watchlist.manualOrder.v1"
+    @ObservationIgnored private let initialGroupName: String
 
-    public init(defaults: UserDefaults = .standard) {
+    public init(defaults: UserDefaults = .standard, defaultGroupName: String? = nil) {
         self.defaults = defaults
+        self.initialGroupName = defaultGroupName ?? Self.localizedDefaultGroupName
         load()
     }
 
-    public var symbols: [SymbolID] { items.map(\.symbol) }
+    /// Items in the selected group, in that group's current presentation order.
+    public var items: [WatchItem] {
+        guard let group = selectedGroup else { return [] }
+        let bySymbol = Dictionary(uniqueKeysWithValues: allItems.map { ($0.symbol, $0) })
+        return group.symbols.compactMap { bySymbol[$0] }
+    }
 
-    public var isEmpty: Bool { items.isEmpty }
+    /// Every followed instrument, de-duplicated across groups. Refresh and streaming use this union.
+    public var symbols: [SymbolID] { allItems.map(\.symbol) }
 
-    public func contains(_ symbol: SymbolID) -> Bool {
-        items.contains { $0.symbol == symbol }
+    public var isEmpty: Bool { allItems.isEmpty }
+
+    public var selectedGroup: WatchlistGroup? {
+        groups.first { $0.id == selectedGroupID } ?? groups.first
+    }
+
+    public func items(in groupID: UUID?) -> [WatchItem] {
+        guard let group = group(for: groupID) else { return [] }
+        let bySymbol = Dictionary(uniqueKeysWithValues: allItems.map { ($0.symbol, $0) })
+        return group.symbols.compactMap { bySymbol[$0] }
+    }
+
+    public func group(for id: UUID?) -> WatchlistGroup? {
+        guard let id else { return groups.first }
+        return groups.first { $0.id == id }
+    }
+
+    public func selectGroup(_ id: UUID) {
+        guard groups.contains(where: { $0.id == id }), selectedGroupID != id else { return }
+        selectedGroupID = id
+        save()
+    }
+
+    /// Reorders a tag relative to another tag while preserving the selected tag and memberships.
+    /// Moving right places the source after the destination; moving left places it before.
+    public func moveGroup(_ sourceID: UUID, relativeTo destinationID: UUID) {
+        guard sourceID != destinationID,
+              let sourceIndex = groups.firstIndex(where: { $0.id == sourceID }),
+              let destinationIndex = groups.firstIndex(where: { $0.id == destinationID }) else { return }
+
+        let moving = groups.remove(at: sourceIndex)
+        guard let updatedDestinationIndex = groups.firstIndex(where: { $0.id == destinationID }) else { return }
+        let insertionIndex = sourceIndex < destinationIndex
+            ? updatedDestinationIndex + 1
+            : updatedDestinationIndex
+        groups.insert(moving, at: insertionIndex)
+        save()
+    }
+
+    @discardableResult
+    public func createGroup(named rawName: String) -> UUID? {
+        let name = normalizedName(rawName)
+        guard !name.isEmpty, !hasGroup(named: name) else { return nil }
+        let group = WatchlistGroup(name: name)
+        groups.append(group)
+        selectedGroupID = group.id
+        save()
+        return group.id
+    }
+
+    @discardableResult
+    public func renameGroup(_ id: UUID, to rawName: String) -> Bool {
+        guard let index = groups.firstIndex(where: { $0.id == id }) else { return false }
+        let name = normalizedName(rawName)
+        guard !name.isEmpty, !hasGroup(named: name, excluding: id) else { return false }
+        groups[index].name = name
+        save()
+        return true
+    }
+
+    /// Deletes only the tag. Instruments that would otherwise become orphaned move to a remaining group.
+    @discardableResult
+    public func deleteGroup(_ id: UUID) -> Bool {
+        guard groups.count > 1, let removedIndex = groups.firstIndex(where: { $0.id == id }) else {
+            return false
+        }
+        let removed = groups.remove(at: removedIndex)
+        let fallbackIndex = groups.firstIndex(where: { $0.id == selectedGroupID }) ?? 0
+        let stillAssigned = Set(groups.flatMap(\.symbols))
+        let orphaned = removed.symbols.filter { !stillAssigned.contains($0) }
+        for symbol in orphaned where !groups[fallbackIndex].symbols.contains(symbol) {
+            groups[fallbackIndex].symbols.append(symbol)
+            if groups[fallbackIndex].manualOrder != nil {
+                groups[fallbackIndex].manualOrder?.append(symbol)
+            }
+        }
+        if selectedGroupID == id || group(for: selectedGroupID) == nil {
+            selectedGroupID = groups[fallbackIndex].id
+        }
+        save()
+        return true
+    }
+
+    public func contains(_ symbol: SymbolID, in groupID: UUID? = nil) -> Bool {
+        group(for: groupID ?? selectedGroupID)?.symbols.contains(symbol) == true
     }
 
     public func item(for symbol: SymbolID) -> WatchItem? {
-        items.first { $0.symbol == symbol }
+        allItems.first { $0.symbol == symbol }
     }
 
-    public func add(_ info: SymbolInfo) {
-        guard !contains(info.symbol) else { return }
-        items.append(WatchItem(symbol: info.symbol, displayName: info.name))
+    /// Adds to the selected group by default. An existing instrument only gains another tag.
+    public func add(_ info: SymbolInfo, to groupID: UUID? = nil) {
+        guard let targetID = group(for: groupID ?? selectedGroupID)?.id,
+              let groupIndex = groups.firstIndex(where: { $0.id == targetID }) else { return }
+        if item(for: info.symbol) == nil {
+            allItems.append(WatchItem(symbol: info.symbol, displayName: info.name))
+        }
+        guard !groups[groupIndex].symbols.contains(info.symbol) else { return }
+        groups[groupIndex].symbols.append(info.symbol)
+        if groups[groupIndex].manualOrder != nil {
+            groups[groupIndex].manualOrder?.append(info.symbol)
+        }
         save()
     }
 
+    public func setMembership(_ symbol: SymbolID, in groupID: UUID, included: Bool) {
+        guard item(for: symbol) != nil,
+              let groupIndex = groups.firstIndex(where: { $0.id == groupID }) else { return }
+        if included {
+            guard !groups[groupIndex].symbols.contains(symbol) else { return }
+            groups[groupIndex].symbols.append(symbol)
+            if groups[groupIndex].manualOrder != nil {
+                groups[groupIndex].manualOrder?.append(symbol)
+            }
+        } else {
+            guard groups[groupIndex].symbols.contains(symbol) else { return }
+            groups[groupIndex].symbols.removeAll { $0 == symbol }
+            groups[groupIndex].manualOrder?.removeAll { $0 == symbol }
+            if !groups.contains(where: { $0.symbols.contains(symbol) }) {
+                allItems.removeAll { $0.symbol == symbol }
+            }
+        }
+        save()
+    }
+
+    /// Removes an instrument from the selected group. Its position survives while another tag contains it.
     public func remove(_ symbol: SymbolID) {
-        items.removeAll { $0.symbol == symbol }
-        save()
+        guard let id = selectedGroup?.id else { return }
+        setMembership(symbol, in: id, included: false)
     }
 
     public func move(fromOffsets source: IndexSet, toOffset destination: Int) {
-        // Equivalent to SwiftUI's move(fromOffsets:toOffset:); implemented manually because PulseCore doesn't depend on SwiftUI
-        let moving = source.sorted().map { items[$0] }
-        let adjusted = destination - source.filter { $0 < destination }.count
-        items.removeAll { item in moving.contains { $0.id == item.id } }
-        items.insert(contentsOf: moving, at: min(adjusted, items.count))
+        guard let id = selectedGroup?.id,
+              let groupIndex = groups.firstIndex(where: { $0.id == id }) else { return }
+        let current = groups[groupIndex].symbols
+        let validOffsets = source.filter { current.indices.contains($0) }
+        let moving = validOffsets.sorted().map { current[$0] }
+        let adjusted = destination - validOffsets.filter { $0 < destination }.count
+        groups[groupIndex].symbols.removeAll { moving.contains($0) }
+        groups[groupIndex].symbols.insert(
+            contentsOf: moving,
+            at: min(max(adjusted, 0), groups[groupIndex].symbols.count)
+        )
         save()
     }
 
     public func reorder(_ orderedSymbols: [SymbolID]) {
-        let bySymbol = Dictionary(uniqueKeysWithValues: items.map { ($0.symbol, $0) })
-        let ordered = orderedSymbols.compactMap { bySymbol[$0] }
-        let orderedSet = Set(orderedSymbols)
-        let remaining = items.filter { !orderedSet.contains($0.symbol) }
-        items = ordered + remaining
+        guard let id = selectedGroup?.id,
+              let groupIndex = groups.firstIndex(where: { $0.id == id }) else { return }
+        let existing = groups[groupIndex].symbols
+        let existingSet = Set(existing)
+        let ordered = orderedSymbols.filter { existingSet.contains($0) }.uniqued()
+        let orderedSet = Set(ordered)
+        groups[groupIndex].symbols = ordered + existing.filter { !orderedSet.contains($0) }
         save()
     }
 
     public func rememberManualOrder() {
-        guard let data = try? JSONEncoder().encode(symbols) else { return }
-        defaults.set(data, forKey: manualOrderKey)
+        guard let id = selectedGroup?.id,
+              let groupIndex = groups.firstIndex(where: { $0.id == id }) else { return }
+        groups[groupIndex].manualOrder = groups[groupIndex].symbols
+        save()
     }
 
     @discardableResult
     public func restoreManualOrder() -> Bool {
-        guard let data = defaults.data(forKey: manualOrderKey),
-              let orderedSymbols = try? JSONDecoder().decode([SymbolID].self, from: data),
-              !orderedSymbols.isEmpty else { return false }
-        // Re-encode legacy Yahoo-style crypto identifiers in the structured v2 format.
-        if let migrated = try? JSONEncoder().encode(orderedSymbols) {
-            defaults.set(migrated, forKey: manualOrderKey)
-        }
-        reorder(orderedSymbols)
+        guard let id = selectedGroup?.id,
+              let groupIndex = groups.firstIndex(where: { $0.id == id }),
+              let manualOrder = groups[groupIndex].manualOrder,
+              !manualOrder.isEmpty else { return false }
+        let existing = groups[groupIndex].symbols
+        let existingSet = Set(existing)
+        let ordered = manualOrder.filter { existingSet.contains($0) }.uniqued()
+        let orderedSet = Set(ordered)
+        groups[groupIndex].symbols = ordered + existing.filter { !orderedSet.contains($0) }
+        save()
         return true
     }
 
     public func updateDisplayName(_ symbol: SymbolID, name: String) {
-        guard let index = items.firstIndex(where: { $0.symbol == symbol }),
-              items[index].displayName != name else { return }
-        items[index].displayName = name
+        guard let index = allItems.firstIndex(where: { $0.symbol == symbol }),
+              allItems[index].displayName != name else { return }
+        allItems[index].displayName = name
         save()
     }
 
     public func updateLots(_ symbol: SymbolID, lots: [CostLot]) {
-        guard let index = items.firstIndex(where: { $0.symbol == symbol }) else { return }
-        items[index].lots = lots
+        guard let index = allItems.firstIndex(where: { $0.symbol == symbol }) else { return }
+        allItems[index].lots = lots
         save()
     }
 
@@ -93,18 +229,108 @@ public final class WatchlistStore {
         updateLots(symbol, lots: [])
     }
 
-    // MARK: - Persistence
+    private struct Snapshot: Codable {
+        var items: [WatchItem]
+        var groups: [WatchlistGroup]
+        var selectedGroupID: UUID?
+    }
 
     private func load() {
-        guard let data = defaults.data(forKey: storageKey) else { return }
-        items = (try? JSONDecoder().decode([WatchItem].self, from: data)) ?? []
-        // A successful decode may have migrated legacy BTC-USD identifiers in memory.
-        // Persist immediately so positions and timestamps move forward atomically with them.
+        if let data = defaults.data(forKey: storageKey),
+           let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data) {
+            allItems = snapshot.items
+            groups = snapshot.groups
+            selectedGroupID = snapshot.selectedGroupID
+            normalizeLoadedState()
+            save()
+            return
+        }
+        migrateLegacyState()
+    }
+
+    private func migrateLegacyState() {
+        if let data = defaults.data(forKey: legacyStorageKey),
+           let decoded = try? JSONDecoder().decode([WatchItem].self, from: data) {
+            allItems = decoded
+        }
+        let symbols = allItems.map(\.symbol).uniqued()
+        var manualOrder: [SymbolID]?
+        if let data = defaults.data(forKey: legacyManualOrderKey),
+           let decoded = try? JSONDecoder().decode([SymbolID].self, from: data) {
+            let known = Set(symbols)
+            let ordered = decoded.filter { known.contains($0) }.uniqued()
+            let orderedSet = Set(ordered)
+            manualOrder = ordered + symbols.filter { !orderedSet.contains($0) }
+
+            // Keep the legacy payload readable by the immediately preceding app version.
+            if let encoded = try? JSONEncoder().encode(manualOrder) {
+                defaults.set(encoded, forKey: legacyManualOrderKey)
+            }
+        }
+        let group = WatchlistGroup(name: initialGroupName, symbols: symbols, manualOrder: manualOrder)
+        groups = [group]
+        selectedGroupID = group.id
+
+        // Re-encoding also advances legacy crypto identifiers before v2 takes ownership.
+        if let encoded = try? JSONEncoder().encode(allItems) {
+            defaults.set(encoded, forKey: legacyStorageKey)
+        }
         save()
     }
 
+    private func normalizeLoadedState() {
+        var seenSymbols: Set<SymbolID> = []
+        allItems = allItems.filter { seenSymbols.insert($0.symbol).inserted }
+        if groups.isEmpty {
+            groups = [WatchlistGroup(name: initialGroupName, symbols: allItems.map(\.symbol))]
+        }
+
+        let known = Set(allItems.map(\.symbol))
+        for index in groups.indices {
+            groups[index].name = normalizedName(groups[index].name)
+            if groups[index].name.isEmpty { groups[index].name = initialGroupName }
+            groups[index].symbols = groups[index].symbols.filter { known.contains($0) }.uniqued()
+            if let manualOrder = groups[index].manualOrder {
+                groups[index].manualOrder = manualOrder.filter { known.contains($0) }.uniqued()
+            }
+        }
+
+        let assigned = Set(groups.flatMap(\.symbols))
+        for symbol in allItems.map(\.symbol) where !assigned.contains(symbol) {
+            groups[0].symbols.append(symbol)
+        }
+        if group(for: selectedGroupID) == nil {
+            selectedGroupID = groups[0].id
+        }
+    }
+
     private func save() {
-        guard let data = try? JSONEncoder().encode(items) else { return }
+        let snapshot = Snapshot(items: allItems, groups: groups, selectedGroupID: selectedGroupID)
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
         defaults.set(data, forKey: storageKey)
+    }
+
+    private func normalizedName(_ rawName: String) -> String {
+        String(rawName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(20))
+    }
+
+    private func hasGroup(named name: String, excluding excludedID: UUID? = nil) -> Bool {
+        groups.contains {
+            $0.id != excludedID && $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame
+        }
+    }
+
+    private static var localizedDefaultGroupName: String {
+        let key = "watchlist.defaultName"
+        let localized = PulseLocalization.localizedString(key)
+        guard localized == key else { return localized }
+        return PulseLocalization.currentLanguageIdentifier.hasPrefix("zh") ? "自选" : "Watchlist"
+    }
+}
+
+private extension Sequence where Element: Hashable {
+    func uniqued() -> [Element] {
+        var seen: Set<Element> = []
+        return filter { seen.insert($0).inserted }
     }
 }

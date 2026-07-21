@@ -32,7 +32,7 @@ R2 是 Sites Worker 的内部存储绑定，与访问域名无关；自定义域
 安装包使用版本化 R2 对象路径，官网稳定入口 `/download` 会跳转到当前版本：
 
 ```text
-/downloads/v0.4.1/Pulse-0.4.1.dmg
+/downloads/v0.5.0/Pulse-0.5.0.dmg
 ```
 
 首次访问版本化地址时，Worker 会从固定的 GitHub Release 地址读取文件，校验预期大小与 SHA-256 后写入 Sites 管理的 R2；后续请求直接从 R2 返回。发布新版时需要同步更新 `worker/index.ts` 中的版本、文件名、下载地址、大小和 SHA-256。

@@ -157,7 +157,8 @@ public struct TencentProvider: QuoteProvider {
     // MARK: - Parsing
 
     /// Known field positions: 1 name, 3 last price, 4 previous close, 5 open, 30 timestamp, 31 change, 32 change %,
-    /// 33 high, 34 low, 36 volume (in lots of 100 shares for A-shares), 37 turnover (in units of 10,000 CNY)
+    /// 33 high, 34 low, 36 volume (in lots of 100 shares for A-shares), 37 turnover
+    /// (in units of 10,000 CNY for A-shares, full local-currency units for HK/US shares)
     static func parseQuotes(text: String, mapping: [String: SymbolID]) -> [Quote] {
         var result: [Quote] = []
         for line in text.split(separator: ";") {
@@ -172,6 +173,7 @@ public struct TencentProvider: QuoteProvider {
 
             let volumeRaw = Double(f[36]) ?? Double(f[6])
             let volumeMultiplier: Double = symbol.market.isChinaA ? 100 : 1  // A-share volume is reported in lots (100 shares)
+            let volume = volumeRaw.map { $0 * volumeMultiplier }
             result.append(Quote(
                 symbol: symbol,
                 name: f[1].isEmpty ? nil : f[1],
@@ -180,13 +182,29 @@ public struct TencentProvider: QuoteProvider {
                 open: Double(f[5]),
                 high: Double(f[33]),
                 low: Double(f[34]),
-                volume: volumeRaw.map { $0 * volumeMultiplier },
-                turnover: Double(f[37]).map { $0 * 10_000 },
+                volume: volume,
+                turnover: parseTurnover(f[37], market: symbol.market, price: price, volume: volume),
                 currencyCode: symbol.market.currencyCode,
                 timestamp: parseTimestamp(f[30], timeZone: symbol.market.timeZone) ?? .now
             ))
         }
         return result
+    }
+
+    /// Tencent reports A-share turnover in ten-thousands, while HK/US responses already contain the full amount.
+    /// Reject values that are implausibly far from price × volume so a future source-unit change cannot poison the model.
+    static func parseTurnover(_ raw: String, market: Market, price: Double, volume: Double?) -> Double? {
+        guard let reported = Double(raw), reported.isFinite, reported >= 0 else { return nil }
+        let multiplier: Double = market.isChinaA ? 10_000 : 1
+        let turnover = reported * multiplier
+        guard turnover.isFinite, turnover <= 1_000_000_000_000_000 else { return nil }
+
+        guard let volume, volume > 0 else { return turnover }
+        let reference = price * volume
+        guard reference.isFinite, reference > 0 else { return nil }
+        let ratio = turnover / reference
+        guard (0.01...100).contains(ratio) else { return nil }
+        return turnover
     }
 
     /// Timestamp format varies by market: A-shares "20260703112400", HK/US "2026/07/03 11:24:00", etc. — all parsed in the exchange's time zone

@@ -5,14 +5,23 @@ import Testing
 @Suite("Tencent quote parsing")
 struct TencentParserTests {
     /// Excerpt from a real API response (intraday, 2026-07-03)
-    static let fixture = """
+    static let aShareFixture = """
     v_sh600519="1~贵州茅台~600519~1191.53~1203.00~1205.24~19108~8113~10970~1191.53~3~1191.51~3~1191.48~8~1191.43~1~1191.35~1~1192.80~1~1192.84~3~1192.85~2~1192.90~1~1193.18~1~~20260703112400~-11.47~-0.95~1210.14~1190.50~1191.53/19108/2293596002~19108~229360~0.15~18.01~~1210.14~1190.50~1.63~14895.10~14895.10~6.40~1323.30~1082.70~0.80~8~1200.32~13.67~18.09~~~0.34~229359.6002~0.0000~0~ ~GP-A~-11.68~1.96~4.37~30.53~26.78~1539.98~1151.01~0.38~-3.91~-16.79~1250081601~1250081601~33.33~-15.43~1250081601";
+    """
+
+    /// Excerpts from real HK/US API responses (2026-07-21). Unlike A-shares, field 37 is already the full local-currency amount.
+    static let hkShareFixture = """
+    v_hk00700="100~腾讯控股~00700~474.000~477.800~478.200~21362780.0~0~0~474.000~0~0~0~0~0~0~0~0~0~474.000~0~0~0~0~0~0~0~0~0~21362780.0~2026/07/21 16:08:11~-3.800~-0.80~482.600~472.800~474.000~21362780.0~10172603239.590~0~17.31~~0~0~2.05~43098.5272~43098.5272~TENCENT~1.12~677.700~411.000~0.63~18.95~0~0~0~0~0~16.19~3.43~0.23~100~-20.16~3.90~GP~20.59~11.53~2.78~9.47~-4.95~9092516289.00~9092516289.00~16.38~5.315~476.183~-23.33~HKD~1~50";
+    """
+
+    static let usShareFixture = """
+    v_usAAPL="200~苹果~AAPL.OQ~326.59~333.74~333.51~53468008~0~0~325.70~160~0~0~0~0~0~0~0~0~326.00~80~0~0~0~0~0~0~0~0~~2026-07-20 16:00:01~-7.15~-2.14~333.71~323.68~USD~53468008~17479885376~0.36~39.54~~43.78~~3.01~47937.81058~47967.43596~Apple Inc.~8.26~334.99~200.72~80~45.04~0.32~47967.43596~20.35~2.92~GP~141.47~34.91~4.46~9.59~19.66~14687356000~14678284878~1.00~33.67~1.05~326.92~~~";
     """
 
     @Test("Parses an A-share snapshot")
     func parseAShare() throws {
         let symbol = SymbolID(market: .sh, code: "600519")
-        let quotes = TencentProvider.parseQuotes(text: Self.fixture, mapping: ["sh600519": symbol])
+        let quotes = TencentProvider.parseQuotes(text: Self.aShareFixture, mapping: ["sh600519": symbol])
         let quote = try #require(quotes.first)
 
         #expect(quote.symbol == symbol)
@@ -31,6 +40,43 @@ struct TencentParserTests {
         // Turnover (field 37) is in units of 10,000 CNY
         let turnover = try #require(quote.turnover)
         #expect(abs(turnover - 2_293_600_000.0) < 0.5)
+    }
+
+    @Test("Parses HK turnover as a full HKD amount")
+    func parseHKShare() throws {
+        let symbol = SymbolID(market: .hk, code: "700")
+        let quotes = TencentProvider.parseQuotes(text: Self.hkShareFixture, mapping: ["hk00700": symbol])
+        let quote = try #require(quotes.first)
+
+        #expect(quote.symbol == symbol)
+        #expect(quote.currencyCode == "HKD")
+        #expect(quote.volume == 21_362_780)
+        #expect(quote.turnover == 10_172_603_239.590)
+    }
+
+    @Test("Parses US turnover as a full USD amount")
+    func parseUSShare() throws {
+        let symbol = SymbolID(market: .us, code: "AAPL")
+        let quotes = TencentProvider.parseQuotes(text: Self.usShareFixture, mapping: ["usAAPL": symbol])
+        let quote = try #require(quotes.first)
+
+        #expect(quote.symbol == symbol)
+        #expect(quote.currencyCode == "USD")
+        #expect(quote.volume == 53_468_008)
+        #expect(quote.turnover == 17_479_885_376)
+    }
+
+    @Test("Rejects turnover with an implausible unit scale")
+    func rejectsImplausibleTurnover() throws {
+        let symbol = SymbolID(market: .hk, code: "700")
+        let badFixture = Self.hkShareFixture.replacingOccurrences(
+            of: "~10172603239.590~",
+            with: "~101726032395900~"
+        )
+        let quotes = TencentProvider.parseQuotes(text: badFixture, mapping: ["hk00700": symbol])
+        let quote = try #require(quotes.first)
+
+        #expect(quote.turnover == nil)
     }
 
     @Test("Timestamps parsed in the exchange time zone")

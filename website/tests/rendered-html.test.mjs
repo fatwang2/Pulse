@@ -66,7 +66,7 @@ test("includes English copy and remembered language selection", async () => {
   assert.match(page, /document\.documentElement\.lang/);
 });
 
-test("redirects the stable download URL to the versioned DMG", async () => {
+test("redirects the stable download URL to a versioned request", async () => {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("download-test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
@@ -78,9 +78,10 @@ test("redirects the stable download URL to the versioned DMG", async () => {
   );
 
   assert.equal(response.status, 302);
+  assert.equal(response.headers.get("cache-control"), "no-store");
   assert.equal(
     response.headers.get("location"),
-    "http://localhost/downloads/v0.5.1/Pulse-0.5.1.dmg",
+    "http://localhost/download?version=0.5.1",
   );
 });
 
@@ -91,7 +92,7 @@ test("serves a stored DMG from the Sites R2 binding", async () => {
   const body = new TextEncoder().encode("dmg");
 
   const response = await worker.fetch(
-    new Request("http://localhost/downloads/v0.5.1/Pulse-0.5.1.dmg"),
+    new Request("http://localhost/download?version=0.5.1"),
     {
       DOWNLOADS: {
         async get(key) {

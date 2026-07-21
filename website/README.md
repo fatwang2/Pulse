@@ -27,15 +27,15 @@ npm test
 网站使用 Codex Sites 发布，项目配置保存在 `.openai/hosting.json`。
 生产环境使用自定义域名 [`www.pulseticker.app`](https://www.pulseticker.app/)。
 
-R2 是 Sites Worker 的内部存储绑定，与访问域名无关；自定义域名由 Sites 路由到同一个 Worker 后，`/download` 和版本化下载路径会继续使用现有的 `DOWNLOADS` 绑定，不需要为域名单独配置 R2。
+R2 是 Sites Worker 的内部存储绑定，与访问域名无关；自定义域名由 Sites 路由到同一个 Worker 后，`/download` 会继续使用现有的 `DOWNLOADS` 绑定，不需要为域名单独配置 R2。
 
-安装包使用版本化 R2 对象路径，官网稳定入口 `/download` 会跳转到当前版本：
+安装包使用版本化 R2 对象，官网稳定入口 `/download` 会跳转到带版本参数的下载请求：
 
 ```text
-/downloads/v0.5.1/Pulse-0.5.1.dmg
+/download?version=0.5.1
 ```
 
-首次访问版本化地址时，Worker 会从固定的 GitHub Release 地址读取文件，校验预期大小与 SHA-256 后写入 Sites 管理的 R2；后续请求直接从 R2 返回。发布新版时需要同步更新 `worker/index.ts` 中的版本、文件名、下载地址、大小和 SHA-256。
+首次访问版本化请求时，Worker 会从固定的 GitHub Release 地址读取文件，校验预期大小与 SHA-256 后写入 Sites 管理的 R2；后续请求直接从 R2 返回。使用查询参数是为了避免 Sites 的静态资源路由拦截带 `.dmg` 后缀的路径。发布新版时需要同步更新 `worker/index.ts` 中的版本、文件名、下载地址、大小和 SHA-256。
 
 ## 行情数据源标识
 

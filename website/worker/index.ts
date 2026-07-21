@@ -6,7 +6,6 @@ const latestDownload = {
   version: "0.5.1",
   fileName: "Pulse-0.5.1.dmg",
   key: "releases/v0.5.1/Pulse-0.5.1.dmg",
-  path: "/downloads/v0.5.1/Pulse-0.5.1.dmg",
   sourceUrl:
     "https://github.com/fatwang2/Pulse/releases/download/v0.5.1/Pulse-0.5.1.dmg",
   size: 5_647_513,
@@ -149,14 +148,22 @@ const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    if (url.pathname === "/download") {
-      return Response.redirect(new URL(latestDownload.path, request.url), 302);
-    }
-
     if (
-      url.pathname === latestDownload.path &&
+      url.pathname === "/download" &&
       (request.method === "GET" || request.method === "HEAD")
     ) {
+      if (url.searchParams.get("version") !== latestDownload.version) {
+        const versionedUrl = new URL("/download", request.url);
+        versionedUrl.searchParams.set("version", latestDownload.version);
+        return new Response(null, {
+          status: 302,
+          headers: {
+            "cache-control": "no-store",
+            location: versionedUrl.toString(),
+          },
+        });
+      }
+
       try {
         return await serveDownload(request, env);
       } catch (error) {

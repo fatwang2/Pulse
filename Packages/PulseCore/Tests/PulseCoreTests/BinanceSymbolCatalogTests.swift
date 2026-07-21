@@ -111,6 +111,30 @@ struct BinanceSymbolCatalogTests {
         #expect(await fixture.requestCount == 2)
     }
 
+    @Test("Cancelling an initial refresh stops waiting for the catalog")
+    func initialRefreshIsCancellable() async throws {
+        let catalog = BinanceSymbolCatalog(cacheURL: nil) {
+            try await Task.sleep(for: .seconds(5))
+            return [Self.bitcoinUSDT]
+        }
+        let search = Task { try await catalog.search("btc") }
+        let clock = ContinuousClock()
+
+        try await Task.sleep(for: .milliseconds(30))
+        let cancelledAt = clock.now
+        search.cancel()
+        do {
+            _ = try await search.value
+            Issue.record("Cancelled catalog refresh should throw CancellationError")
+        } catch is CancellationError {
+            // Expected.
+        } catch {
+            Issue.record("Expected CancellationError, got \(error)")
+        }
+
+        #expect(cancelledAt.duration(to: clock.now) < .milliseconds(200))
+    }
+
     @Test("Binance declares search capability")
     func descriptorIncludesSearch() {
         #expect(BinanceProvider().descriptor.capabilities.contains(.search))

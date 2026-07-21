@@ -5,7 +5,7 @@ import Foundation
 public actor CompositeProvider: QuoteProvider {
     private let providers: [any QuoteProvider]
     private var unhealthyUntil: [String: Date] = [:]
-    private var nextProviderRequestAt: [String: Date] = [:]
+    private var lastProviderRequestAt: [String: Date] = [:]
     private var searchCache: [String: CacheEntry<[SymbolInfo]>] = [:]
     private var quoteCache: [SymbolID: CacheEntry<Quote>] = [:]
     private var candleCache: [ProviderCandleCacheKey: CacheEntry<[Candle]>] = [:]
@@ -14,19 +14,25 @@ public actor CompositeProvider: QuoteProvider {
     private let searchCacheTTL: TimeInterval
     private let quoteCacheTTL: TimeInterval
     private let candleCacheTTL: TimeInterval
+    private let searchResultSettleDelay: Duration
+    private let searchDeadline: Duration
 
     public init(providers: [any QuoteProvider],
                 disabledIDs: Set<String> = [],
                 cooldown: TimeInterval = 120,
                 searchCacheTTL: TimeInterval = 300,
                 quoteCacheTTL: TimeInterval = 12,
-                candleCacheTTL: TimeInterval = 60) {
+                candleCacheTTL: TimeInterval = 60,
+                searchResultSettleDelay: Duration = .milliseconds(350),
+                searchDeadline: Duration = .seconds(3)) {
         self.providers = providers
         self.disabledIDs = disabledIDs
         self.cooldown = cooldown
         self.searchCacheTTL = searchCacheTTL
         self.quoteCacheTTL = quoteCacheTTL
         self.candleCacheTTL = candleCacheTTL
+        self.searchResultSettleDelay = searchResultSettleDelay
+        self.searchDeadline = searchDeadline
     }
 
     /// Descriptors of all registered providers (including disabled ones), for display on the settings page
@@ -77,15 +83,24 @@ public actor CompositeProvider: QuoteProvider {
         unhealthyUntil[id] = Date.now.addingTimeInterval(cooldown)
     }
 
-    private func waitForProviderBudget(_ provider: any QuoteProvider) async {
+    private func waitForProviderBudget(_ provider: any QuoteProvider) async throws {
         guard let minInterval = provider.descriptor.rateLimit?.minInterval, minInterval > 0 else { return }
         let id = provider.descriptor.id
-        let now = Date.now
-        let scheduledAt = max(now, nextProviderRequestAt[id] ?? .distantPast)
-        nextProviderRequestAt[id] = scheduledAt.addingTimeInterval(minInterval)
-        let delay = scheduledAt.timeIntervalSince(now)
-        if delay > 0 {
-            try? await Task.sleep(for: .seconds(delay))
+
+        // Reserve the budget only when the request is actually ready to start.
+        // A cancelled search must not leave a future reservation behind and push
+        // every subsequent keystroke farther into a throttling queue.
+        while true {
+            try Task.checkCancellation()
+            let now = Date.now
+            let earliestStart = (lastProviderRequestAt[id] ?? .distantPast)
+                .addingTimeInterval(minInterval)
+            let delay = earliestStart.timeIntervalSince(now)
+            guard delay > 0 else {
+                lastProviderRequestAt[id] = now
+                return
+            }
+            try await Task.sleep(for: .seconds(delay))
         }
     }
 
@@ -194,13 +209,15 @@ public actor CompositeProvider: QuoteProvider {
         for (id, group) in groups {
             do {
                 let provider = providerByID[id]!
-                await waitForProviderBudget(provider)
+                try await waitForProviderBudget(provider)
                 let quotes = try await provider.quotes(for: group).map { $0.sourced(by: provider.descriptor) }
                 for quote in quotes {
                     quoteCache[quote.symbol] = CacheEntry(value: quote)
                     quotesBySymbol[quote.symbol] = quote
                 }
                 result += quotes
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
                 noteFailure(id, error)
                 lastError = error
@@ -208,8 +225,10 @@ public actor CompositeProvider: QuoteProvider {
                 for (market, marketSymbols) in Dictionary(grouping: group, by: \.market) {
                     guard let fallback = candidates(.quotes, market: market)
                         .first(where: { $0.descriptor.id != id }) else { continue }
-                    await waitForProviderBudget(fallback)
-                    if let recovered = try? await fallback.quotes(for: marketSymbols).map({ $0.sourced(by: fallback.descriptor) }) {
+                    if let recovered = try? await fallbackQuotes(
+                        from: fallback,
+                        for: marketSymbols
+                    ) {
                         for quote in recovered {
                             quoteCache[quote.symbol] = CacheEntry(value: quote)
                             quotesBySymbol[quote.symbol] = quote
@@ -225,6 +244,14 @@ public actor CompositeProvider: QuoteProvider {
         let ordered = symbols.compactMap { quotesBySymbol[$0] }
         if ordered.isEmpty, let lastError { throw lastError }
         return ordered
+    }
+
+    private func fallbackQuotes(
+        from provider: any QuoteProvider,
+        for symbols: [SymbolID]
+    ) async throws -> [Quote] {
+        try await waitForProviderBudget(provider)
+        return try await provider.quotes(for: symbols).map { $0.sourced(by: provider.descriptor) }
     }
 
     public func candles(for symbol: SymbolID, period: CandlePeriod, count: Int) async throws -> [Candle] {
@@ -313,36 +340,87 @@ public actor CompositeProvider: QuoteProvider {
         // Sources exist but are all in circuit-breaker cooldown — that's not the same as disabled: report rate limiting, which recovers automatically
         guard !capable.isEmpty else { throw ProviderError.rateLimited }
 
-        // Search providers are independent. Running them concurrently avoids making
-        // Tencent/Yahoo results wait for a symbol-catalog refresh in another source.
-        let outcomes = await withTaskGroup(
-            of: (Int, Result<[SymbolInfo], any Error>).self,
-            returning: [(Int, Result<[SymbolInfo], any Error>)].self
+        // Search providers are independent. Return soon after the first useful source,
+        // while keeping a short window for other fast sources to enrich the result set.
+        // A hard deadline prevents one stalled source from holding every result hostage.
+        let aggregation = await withTaskGroup(
+            of: SearchEvent.self,
+            returning: SearchAggregation.self
         ) { group in
             for (index, provider) in capable.enumerated() {
                 group.addTask {
-                    await self.waitForProviderBudget(provider)
                     do {
-                        return (index, .success(try await provider.search(query)))
+                        try await self.waitForProviderBudget(provider)
+                        try Task.checkCancellation()
+                        return .provider(index, .success(try await provider.search(query)))
+                    } catch is CancellationError {
+                        return .cancelled
                     } catch {
-                        return (index, .failure(error))
+                        return .provider(index, .failure(error))
                     }
+                }
+            }
+            group.addTask {
+                do {
+                    try await Task.sleep(for: self.searchDeadline)
+                    return .hardDeadline
+                } catch {
+                    return .cancelled
                 }
             }
 
             var completed: [(Int, Result<[SymbolInfo], any Error>)] = []
-            for await outcome in group {
-                completed.append(outcome)
+            var completedProviderCount = 0
+            var settleTimerStarted = false
+            while let event = await group.next() {
+                switch event {
+                case .provider(let index, let outcome):
+                    completed.append((index, outcome))
+                    completedProviderCount += 1
+
+                    if !settleTimerStarted,
+                       case .success(let results) = outcome,
+                       !results.isEmpty {
+                        settleTimerStarted = true
+                        group.addTask {
+                            do {
+                                try await Task.sleep(for: self.searchResultSettleDelay)
+                                return .settleDeadline
+                            } catch {
+                                return .cancelled
+                            }
+                        }
+                    }
+
+                    if completedProviderCount == capable.count {
+                        group.cancelAll()
+                        return SearchAggregation(
+                            outcomes: completed.sorted { $0.0 < $1.0 },
+                            completedAllProviders: true
+                        )
+                    }
+                case .settleDeadline, .hardDeadline:
+                    group.cancelAll()
+                    return SearchAggregation(
+                        outcomes: completed.sorted { $0.0 < $1.0 },
+                        completedAllProviders: false
+                    )
+                case .cancelled:
+                    continue
+                }
             }
-            // Completion order is nondeterministic; merge in registration order so
-            // provider preference and search ranking stay stable.
-            return completed.sorted { $0.0 < $1.0 }
+            group.cancelAll()
+            return SearchAggregation(
+                outcomes: completed.sorted { $0.0 < $1.0 },
+                completedAllProviders: false
+            )
         }
+        try Task.checkCancellation()
 
         var merged: [SymbolInfo] = []
         var indexBySymbol: [SymbolID: Int] = [:]
         var lastError: (any Error)?
-        for (index, outcome) in outcomes {
+        for (index, outcome) in aggregation.outcomes {
             switch outcome {
             case .success(let infos):
                 for info in infos {
@@ -362,12 +440,36 @@ public actor CompositeProvider: QuoteProvider {
                 lastError = error
             }
         }
-        // Only throw when every provider failed; partial failures with results still return normally
-        if merged.isEmpty, let lastError, outcomes.allSatisfy({ if case .failure = $0.1 { true } else { false } }) {
-            throw lastError
+        if merged.isEmpty {
+            if let lastError,
+               aggregation.outcomes.allSatisfy({ if case .failure = $0.1 { true } else { false } }) {
+                throw lastError
+            }
+            if !aggregation.completedAllProviders {
+                throw lastError ?? ProviderError.network(underlying: "Search timed out")
+            }
         }
-        searchCache[cacheKey] = CacheEntry(value: merged)
+
+        // Cache only a complete, fully successful answer. Partial results are useful
+        // for the current interaction but should not mask a recovered source later.
+        let allProvidersSucceeded = aggregation.completedAllProviders
+            && aggregation.outcomes.allSatisfy { if case .success = $0.1 { true } else { false } }
+        if allProvidersSucceeded {
+            searchCache[cacheKey] = CacheEntry(value: merged)
+        }
         return merged
+    }
+
+    private enum SearchEvent: Sendable {
+        case provider(Int, Result<[SymbolInfo], any Error>)
+        case settleDeadline
+        case hardDeadline
+        case cancelled
+    }
+
+    private struct SearchAggregation: Sendable {
+        var outcomes: [(Int, Result<[SymbolInfo], any Error>)]
+        var completedAllProviders: Bool
     }
 
     private nonisolated static func isPlaceholderName(_ name: String, for symbol: SymbolID) -> Bool {
@@ -392,8 +494,10 @@ public actor CompositeProvider: QuoteProvider {
         var lastError: (any Error) = ProviderError.unsupported(capability)
         for provider in healthy {
             do {
-                await waitForProviderBudget(provider)
+                try await waitForProviderBudget(provider)
                 return try await operation(provider)
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
                 noteFailure(provider.descriptor.id, error)
                 lastError = error

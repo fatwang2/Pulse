@@ -13,6 +13,7 @@ struct MockProvider: QuoteProvider {
     var candlePeriods: Set<CandlePeriod>?
     var quotePrice: Double = 100
     var searchDelay: Duration = .zero
+    var minimumRequestInterval: TimeInterval?
     var delay: [Market: TimeInterval] = [:]
     var markets: Set<Market> = Set(Market.allCases)
     var supportsStreaming = false
@@ -24,7 +25,8 @@ struct MockProvider: QuoteProvider {
                            capabilities: capabilities,
                            candleMarkets: candleMarkets,
                            candlePeriods: candlePeriods,
-                           delay: delay)
+                           delay: delay,
+                           rateLimit: minimumRequestInterval.map { RateLimitPolicy(minInterval: $0) })
     }
 
     func search(_ query: String) async throws -> [SymbolInfo] {
@@ -73,6 +75,85 @@ struct CompositeProviderTests {
 
         #expect(results == [Self.apple, tencent])
         #expect(elapsed < .milliseconds(500))
+    }
+
+    @Test("A stalled source cannot hold useful search results")
+    func stalledSourceReturnsPartialResults() async throws {
+        let fast = MockProvider(id: "fast", searchResults: [Self.apple])
+        let stalled = MockProvider(
+            id: "stalled",
+            searchResults: [],
+            searchDelay: .seconds(5)
+        )
+        let composite = CompositeProvider(
+            providers: [fast, stalled],
+            searchResultSettleDelay: .milliseconds(50),
+            searchDeadline: .milliseconds(200)
+        )
+        let clock = ContinuousClock()
+
+        let startedAt = clock.now
+        let results = try await composite.search("apple")
+        let elapsed = startedAt.duration(to: clock.now)
+
+        #expect(results == [Self.apple])
+        #expect(elapsed < .milliseconds(180))
+    }
+
+    @Test("Search fails by its deadline when no source responds")
+    func stalledSearchHasHardDeadline() async {
+        let stalled = MockProvider(
+            id: "stalled",
+            searchResults: [],
+            searchDelay: .seconds(5)
+        )
+        let composite = CompositeProvider(
+            providers: [stalled],
+            searchResultSettleDelay: .milliseconds(50),
+            searchDeadline: .milliseconds(100)
+        )
+        let clock = ContinuousClock()
+
+        let startedAt = clock.now
+        await #expect(throws: ProviderError.self) {
+            _ = try await composite.search("apple")
+        }
+        let elapsed = startedAt.duration(to: clock.now)
+
+        #expect(elapsed < .milliseconds(250))
+    }
+
+    @Test("Cancelling a throttled search does not delay the next query")
+    func cancelledSearchDoesNotReserveFutureBudget() async throws {
+        let limited = MockProvider(
+            id: "limited",
+            searchResults: [Self.apple],
+            minimumRequestInterval: 0.4
+        )
+        let composite = CompositeProvider(
+            providers: [limited],
+            searchDeadline: .seconds(2)
+        )
+        _ = try await composite.search("first")
+
+        let cancelled = Task { try await composite.search("second") }
+        try await Task.sleep(for: .milliseconds(40))
+        cancelled.cancel()
+        do {
+            _ = try await cancelled.value
+            Issue.record("Cancelled search should throw CancellationError")
+        } catch is CancellationError {
+            // Expected.
+        } catch {
+            Issue.record("Expected CancellationError, got \(error)")
+        }
+
+        let clock = ContinuousClock()
+        let startedAt = clock.now
+        _ = try await composite.search("third")
+        let elapsed = startedAt.duration(to: clock.now)
+
+        #expect(elapsed < .milliseconds(650))
     }
 
     @Test("4xx client errors don't trip the circuit: candles still work after a 400 from search")

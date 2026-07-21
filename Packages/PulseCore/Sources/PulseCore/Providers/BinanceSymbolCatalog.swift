@@ -82,7 +82,7 @@ actor BinanceSymbolCatalog {
 
     private func refresh(now: Date) async throws {
         if let refreshTask {
-            snapshot = try await refreshTask.value
+            snapshot = try await cancellableValue(of: refreshTask)
             return
         }
 
@@ -96,13 +96,21 @@ actor BinanceSymbolCatalog {
         }
         refreshTask = task
         do {
-            let fresh = try await task.value
+            let fresh = try await cancellableValue(of: task)
             snapshot = fresh
             refreshTask = nil
             persist(fresh)
         } catch {
             refreshTask = nil
             throw error
+        }
+    }
+
+    private func cancellableValue(of task: Task<Snapshot, any Error>) async throws -> Snapshot {
+        try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
         }
     }
 

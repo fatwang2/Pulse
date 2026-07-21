@@ -122,4 +122,12 @@ struct ProviderContractTests {
         let candles = try await composite.candles(for: Self.testSymbols[0], period: .day, count: 30)
         Self.assertCandleContract(candles)
     }
+
+    @Test("Composite: stock search")
+    func compositeSearch() async throws {
+        let composite = CompositeProvider(providers: [BinanceProvider(), TencentProvider(), YahooProvider()])
+        let results = try await composite.search("AAPL")
+
+        #expect(results.contains { $0.symbol == SymbolID(market: .us, code: "AAPL") })
+    }
 }

@@ -387,7 +387,11 @@ struct WatchlistView: View {
                 let results = try await appState.search(query)
                 try Task.checkCancellation()
                 guard query == normalizedSearchQuery(searchText) else { return }
-                searchCache[cacheKey] = results
+                // Never make a transient all-source failure sticky for the lifetime
+                // of the popover. Successful results remain instant on repeat search.
+                if !results.isEmpty {
+                    searchCache[cacheKey] = results
+                }
                 searchResults = results
                 searchError = nil
                 completedSearchQuery = query

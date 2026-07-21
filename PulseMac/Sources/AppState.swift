@@ -26,6 +26,7 @@ final class AppState {
     /// regardless of the user's enable toggle.
     private(set) var longbridgeAuthState: LongbridgeAuthState
     var longbridgeConfigured: Bool { longbridgeAuthState != .none }
+    private(set) var longbridgeConnectionStatus: LongbridgeConnectionStatus = .disconnected
 
     private(set) var rotationIndex = 0
     @ObservationIgnored private var rotationTask: Task<Void, Never>?
@@ -69,6 +70,13 @@ final class AppState {
            !CommandLine.arguments.contains("--share-selftest") {
             Task { try? await binance.refreshSymbolCatalogIfNeeded() }
         }
+        Task { [weak self, longbridge] in
+            let updates = await longbridge.connectionStatusUpdates()
+            for await status in updates {
+                guard let self else { return }
+                self.longbridgeConnectionStatus = status
+            }
+        }
     }
 
     /// OAuth tokens win over pasted API-key credentials when both exist.
@@ -107,6 +115,9 @@ final class AppState {
         applyProviderAvailability()
         if enabled, id == BinanceProvider.providerID {
             Task { try? await binance.refreshSymbolCatalogIfNeeded() }
+        }
+        if !enabled, id == LongbridgeProvider.providerID {
+            Task { await longbridge.resetConnection() }
         }
     }
 
@@ -180,6 +191,18 @@ final class AppState {
             await longbridge.updateAuth(nil)
         }
         applyProviderAvailability()
+    }
+
+    /// Retries only the market-data transport. OAuth credentials stay intact, and the
+    /// provider's circuit breaker is cleared so the request is not delayed by cooldown.
+    func retryLongbridgeConnection() {
+        guard longbridgeConfigured, isProviderEnabled(LongbridgeProvider.providerID) else { return }
+        Task {
+            await longbridge.resetConnection()
+            await provider.resetHealth(LongbridgeProvider.providerID)
+            engine.poke()
+            if isPopoverVisible { restartWatchlistStream() }
+        }
     }
 
     // MARK: - Menu bar text

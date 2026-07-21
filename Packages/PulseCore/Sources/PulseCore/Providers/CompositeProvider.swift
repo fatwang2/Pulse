@@ -39,6 +39,12 @@ public actor CompositeProvider: QuoteProvider {
         disabledIDs = ids
     }
 
+    /// User-initiated retries should not remain trapped behind a previous circuit-breaker
+    /// cooldown. The next request re-evaluates the provider immediately.
+    public func resetHealth(_ providerID: String) {
+        unhealthyUntil[providerID] = nil
+    }
+
     public nonisolated var descriptor: ProviderDescriptor {
         ProviderDescriptor(
             id: "composite",

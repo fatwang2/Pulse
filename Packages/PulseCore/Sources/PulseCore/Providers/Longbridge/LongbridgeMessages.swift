@@ -53,6 +53,54 @@ enum LongbridgeMessages {
         }
     }
 
+    /// message ReconnectRequest { string session_id = 1; map<string, string> metadata = 2; }
+    static func reconnectRequest(sessionID: String, metadata: [String: String] = [:]) -> Data {
+        var writer = ProtobufWriter()
+        writer.field(1, string: sessionID)
+        for (key, value) in metadata.sorted(by: { $0.key < $1.key }) {
+            var entry = ProtobufWriter()
+            entry.field(1, string: key)
+            entry.field(2, string: value)
+            writer.field(2, message: entry)
+        }
+        return writer.data
+    }
+
+    /// Auth and reconnect return the same session payload.
+    typealias ReconnectResponse = AuthResponse
+
+    /// Server close push (cmd 0): code identifies the lifecycle reason and reason carries
+    /// the actionable gateway detail (for example a connection-limit rejection).
+    struct CloseNotice: Sendable, Equatable {
+        enum Code: Int64, Sendable {
+            case heartbeatTimeout = 0
+            case serverError = 1
+            case serverShutdown = 2
+            case unpackError = 3
+            case authError = 4
+            case sessionExpired = 5
+            case duplicateConnection = 6
+        }
+
+        var code: Code?
+        var reason: String
+
+        init(decoding data: Data) throws {
+            var rawCode: Int64?
+            var reason = ""
+            var reader = ProtobufReader(data)
+            while let field = try reader.nextField() {
+                switch field.number {
+                case 1: rawCode = field.value.int
+                case 2: reason = field.value.string ?? ""
+                default: break
+                }
+            }
+            self.code = rawCode.flatMap(Code.init(rawValue:))
+            self.reason = reason
+        }
+    }
+
     // MARK: - Quotes (cmd 11)
 
     /// message MultiSecurityRequest { repeated string symbol = 1; }

@@ -35,9 +35,17 @@ struct ProviderRow: View {
     private var isConnectable: Bool { !descriptor.credentials.isEmpty }
 
     private var statusKey: String {
-        // The source list answers whether Pulse is using each provider. Account and
-        // transport details belong on the provider page; an unconfigured account is
-        // the exception because its enable switch is locked until it is connected.
+        if descriptor.id == LongbridgeProvider.providerID {
+            guard appState.longbridgeConfigured else { return "provider.status.notConnected" }
+            guard appState.isProviderEnabled(descriptor.id) else { return "provider.status.off" }
+            return switch appState.longbridgeConnectionStatus {
+            case .disconnected: "provider.status.authorized"
+            case .connecting: "provider.status.connecting"
+            case .reconnecting: "provider.status.reconnecting"
+            case .connected: "provider.status.connected"
+            case .failed: "provider.status.fallback"
+            }
+        }
         if isConnectable && !appState.longbridgeConfigured { return "provider.status.notConnected" }
         guard appState.isProviderEnabled(descriptor.id) else { return "provider.status.off" }
         return "provider.status.on"

@@ -156,10 +156,14 @@ public actor LongbridgeOAuthAuthenticator {
     }
 
     private func ensureClient() async throws -> LongbridgeOAuthClient {
+        if let cached = LongbridgeCredentialStore.loadOAuthClient(),
+           Set(cached.redirectURIs) == Set(desiredRedirectURIs) {
+            return cached
+        }
         if let data = defaults.data(forKey: Self.clientCacheKey),
            let cached = try? JSONDecoder().decode(LongbridgeOAuthClient.self, from: data),
-           Set(cached.redirectURIs) == Set(desiredRedirectURIs),
-           cached.logoURI == Self.logoURI {
+           Set(cached.redirectURIs) == Set(desiredRedirectURIs) {
+            try? LongbridgeCredentialStore.saveOAuthClient(cached)
             return cached
         }
 
@@ -190,6 +194,7 @@ public actor LongbridgeOAuthAuthenticator {
             redirectURIs: desiredRedirectURIs,
             logoURI: Self.logoURI
         )
+        try LongbridgeCredentialStore.saveOAuthClient(client)
         defaults.set(try JSONEncoder().encode(client), forKey: Self.clientCacheKey)
         return client
     }

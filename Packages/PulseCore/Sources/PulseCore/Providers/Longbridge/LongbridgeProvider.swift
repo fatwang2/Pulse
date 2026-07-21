@@ -13,7 +13,12 @@ public actor LongbridgeProvider: QuoteProvider {
     private var configured = false
 
     public init(auth: LongbridgeAuth? = nil) {
-        Task { await self.updateAuth(auth) }
+        Task { [weak self, socket] in
+            await socket.setRecoveryHandler { [weak self] in
+                Task { await self?.restoreSubscriptionsAfterReconnect() }
+            }
+            await self?.updateAuth(auth)
+        }
     }
 
     /// Swaps the auth mode at runtime (settings page); drops the connection so the next
@@ -30,6 +35,14 @@ public actor LongbridgeProvider: QuoteProvider {
             configured = false
             await socket.updateOTPSource(nil)
         }
+    }
+
+    public func connectionStatusUpdates() async -> AsyncStream<LongbridgeConnectionStatus> {
+        await socket.statusUpdates()
+    }
+
+    public func resetConnection() async {
+        await socket.resetConnection()
     }
 
     public nonisolated var descriptor: ProviderDescriptor {
@@ -162,6 +175,15 @@ public actor LongbridgeProvider: QuoteProvider {
         }
         let body = LongbridgeMessages.unsubscribeQuoteRequest(symbols: Array(orphaned))
         _ = try? await socket.request(.unsubscribe, body: body)
+    }
+
+    /// A resumed gateway session may have lost its transport-level subscriptions. Re-send
+    /// the union of symbols still wanted by live consumers without creating another socket.
+    private func restoreSubscriptionsAfterReconnect() async {
+        let symbols = Set(streamSubscribers.values.flatMap(\.symbols))
+        guard !symbols.isEmpty else { return }
+        let body = LongbridgeMessages.subscribeQuoteRequest(symbols: Array(symbols))
+        _ = try? await socket.request(.subscribe, body: body)
     }
 
     private func handleQuotePush(_ body: Data) {

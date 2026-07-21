@@ -100,6 +100,21 @@ struct LongbridgeSetupView: View {
 
             VStack(spacing: 10) {
                 if configured {
+                    connectionStatusRow
+
+                    if case .failed = appState.longbridgeConnectionStatus {
+                        Text(PulseLocalization.localizedString(connectionIssueKey))
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        actionButton(titleKey: "longbridge.connection.retry", tint: .accentColor) {
+                            appState.retryLongbridgeConnection()
+                        }
+                    }
+
                     actionButton(titleKey: "longbridge.disconnect", tint: .red) {
                         appState.clearLongbridgeCredentials()
                         setConnectionError(nil)
@@ -161,6 +176,52 @@ struct LongbridgeSetupView: View {
         case .oauth: "longbridge.status.oauth"
         case .apiKey: "longbridge.status.apiKey"
         case .none: "provider.status.notConnected"
+        }
+    }
+
+    private var connectionStatusRow: some View {
+        HStack(spacing: 6) {
+            Text(PulseLocalization.localizedString("longbridge.connection.title"))
+                .font(.caption)
+            Spacer()
+            Circle()
+                .fill(connectionStatusColor)
+                .frame(width: 6, height: 6)
+            Text(PulseLocalization.localizedString(connectionStatusKey))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var connectionStatusColor: Color {
+        switch appState.longbridgeConnectionStatus {
+        case .connected: .green.opacity(0.85)
+        case .connecting, .reconnecting: .accentColor
+        case .failed: .orange
+        case .disconnected: .secondary.opacity(0.35)
+        }
+    }
+
+    private var connectionStatusKey: String {
+        switch appState.longbridgeConnectionStatus {
+        case .disconnected: "longbridge.connection.waiting"
+        case .connecting: "longbridge.connection.connecting"
+        case .reconnecting: "longbridge.connection.reconnecting"
+        case .connected: "longbridge.connection.connected"
+        case .failed: "longbridge.connection.fallback"
+        }
+    }
+
+    private var connectionIssueKey: String {
+        guard case .failed(let issue) = appState.longbridgeConnectionStatus else {
+            return "longbridge.connection.fallback.help"
+        }
+        return switch issue {
+        case .connectionLimit: "longbridge.connection.error.limit"
+        case .authentication: "longbridge.connection.error.authentication"
+        case .rateLimited: "longbridge.connection.error.rateLimit"
+        case .network: "longbridge.connection.error.network"
+        case .server: "longbridge.connection.error.server"
         }
     }
 

@@ -221,9 +221,9 @@ struct WatchlistView: View {
                 Text(PulseLocalization.localizedString("status.reorderHint"))
             } else {
                 Circle()
-                    .fill(appState.market.lastError == nil ? Color.green.opacity(0.8) : .orange)
+                    .fill(footerShowsFallback ? .orange : Color.green.opacity(0.8))
                     .frame(width: 6, height: 6)
-                if appState.market.lastError != nil {
+                if footerShowsFallback {
                     Text(PulseLocalization.localizedString("status.providerFallback"))
                 } else if appState.liveStreaming {
                     Text(PulseLocalization.localizedString("status.streaming"))
@@ -253,6 +253,14 @@ struct WatchlistView: View {
         .frame(height: 22)
         .padding(.leading, 12)
         .padding(.bottom, 4)
+    }
+
+    private var footerShowsFallback: Bool {
+        if appState.market.lastError != nil { return true }
+        guard appState.longbridgeConfigured,
+              appState.isProviderEnabled(LongbridgeProvider.providerID) else { return false }
+        if case .failed = appState.longbridgeConnectionStatus { return true }
+        return false
     }
 
     @MainActor

@@ -335,9 +335,20 @@ enum SelfTest {
                     locale: Locale(identifier: "en")
                 )
             )
+            let darkDetailArtifact = try ShareImageRenderer.render(
+                detailCard,
+                configuration: .socialPortrait(
+                    height: detailSnapshot.preferredImageHeight,
+                    colorScheme: .dark,
+                    locale: Locale(identifier: "en")
+                )
+            )
             guard let detailBitmap = NSBitmapImageRep(data: detailArtifact.pngData),
+                  let darkDetailBitmap = NSBitmapImageRep(data: darkDetailArtifact.pngData),
                   detailBitmap.pixelsWide == 1080,
-                  detailBitmap.pixelsHigh == 1024 else {
+                  detailBitmap.pixelsHigh == 1024,
+                  darkDetailBitmap.pixelsWide == 1080,
+                  darkDetailBitmap.pixelsHigh == 1024 else {
                 throw ShareImageError.renderingFailed
             }
 
@@ -350,12 +361,17 @@ enum SelfTest {
             let detailOutputURL = URL(fileURLWithPath: NSTemporaryDirectory())
                 .appendingPathComponent("pulse-detail-share-selftest.png")
             try detailArtifact.pngData.write(to: detailOutputURL, options: .atomic)
+            let darkDetailOutputURL = URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("pulse-detail-share-selftest-dark.png")
+            try darkDetailArtifact.pngData.write(to: darkDetailOutputURL, options: .atomic)
             print(
                 "SHARE_SELFTEST: ✅ PNG/TIFF copied to isolated pasteboard, "
                     + "images=\(shortBitmap.pixelsWide)x\(shortBitmap.pixelsHigh)..."
                     + "\(bitmap.pixelsWide)x\(bitmap.pixelsHigh), detail="
-                    + "\(detailBitmap.pixelsWide)x\(detailBitmap.pixelsHigh), outputs="
-                    + "\(shortOutputURL.path),\(outputURL.path),\(detailOutputURL.path)"
+                    + "\(detailBitmap.pixelsWide)x\(detailBitmap.pixelsHigh), darkDetail="
+                    + "\(darkDetailBitmap.pixelsWide)x\(darkDetailBitmap.pixelsHigh), outputs="
+                    + "\(shortOutputURL.path),\(outputURL.path),\(detailOutputURL.path),"
+                    + darkDetailOutputURL.path
             )
             return true
         } catch {

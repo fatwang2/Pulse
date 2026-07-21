@@ -4,6 +4,7 @@ import PulseCore
 struct PulseShareCardMetadata {
     let updatedAtText: String
     let slogan: String = "Your market, at a glance."
+    let website: String = "pulseticker.app"
 }
 
 /// Shared brand frame for every present and future Pulse share surface.
@@ -15,7 +16,11 @@ struct PulseShareCard<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            PulseShareCardHeader(
+                slogan: metadata.slogan,
+                website: metadata.website,
+                accentSurface: accentSurface
+            )
 
             Rectangle()
                 .fill(separatorColor)
@@ -32,7 +37,7 @@ struct PulseShareCard<Content: View>: View {
                 .frame(height: 1)
                 .padding(.horizontal, 24)
 
-            footer
+            PulseShareCardFooter(updatedAtText: metadata.updatedAtText)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(background)
@@ -44,43 +49,6 @@ struct PulseShareCard<Content: View>: View {
                 .offset(x: 60, y: -90)
                 .allowsHitTesting(false)
         }
-    }
-
-    private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            // Match the lightweight menu-bar brand glyph; the full AppIcon reads as a launcher tile at this size.
-            Image(systemName: "waveform.path.ecg")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.tint)
-                .frame(width: 40, height: 40)
-                .background(accentSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Pulse")
-                    .font(.system(size: 22, weight: .bold))
-                Text(metadata.slogan)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 22)
-        .padding(.bottom, 18)
-    }
-
-    private var footer: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(metadata.updatedAtText)
-            Spacer(minLength: 0)
-            Text(PulseLocalization.localizedString("share.disclaimer"))
-        }
-        .font(.system(size: 11.5))
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 24)
-        .padding(.top, 14)
-        .padding(.bottom, 24)
     }
 
     private var background: Color {
@@ -95,5 +63,59 @@ struct PulseShareCard<Content: View>: View {
 
     private var separatorColor: Color {
         Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.08)
+    }
+}
+
+private struct PulseShareCardHeader: View {
+    let slogan: String
+    let website: String
+    let accentSurface: Color
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            // Match the lightweight menu-bar brand glyph; the full AppIcon reads as a launcher tile at this size.
+            Image(systemName: "waveform.path.ecg")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.tint)
+                .frame(width: 40, height: 40)
+                .background(accentSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            HStack(alignment: .lastTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Pulse")
+                        .font(.system(size: 22, weight: .bold))
+                    Text(slogan)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 0)
+
+                Text(website)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 22)
+        .padding(.bottom, 18)
+    }
+}
+
+private struct PulseShareCardFooter: View {
+    let updatedAtText: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(updatedAtText)
+            Spacer(minLength: 0)
+            Text(PulseLocalization.localizedString("share.disclaimer"))
+        }
+        .font(.system(size: 11.5))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 24)
+        .padding(.top, 14)
+        .padding(.bottom, 24)
     }
 }

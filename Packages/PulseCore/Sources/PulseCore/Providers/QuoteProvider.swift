@@ -34,6 +34,9 @@ public protocol QuoteProvider: Sendable {
     /// Searches for instruments (by code / name)
     func search(_ query: String) async throws -> [SymbolInfo]
 
+    /// Resolves canonical localized names for already-known symbols.
+    func securityNames(for symbols: [SymbolID]) async throws -> [SecurityName]
+
     /// Batch quote snapshots
     func quotes(for symbols: [SymbolID]) async throws -> [Quote]
 
@@ -45,5 +48,9 @@ public protocol QuoteProvider: Sendable {
 }
 
 public extension QuoteProvider {
+    func securityNames(for symbols: [SymbolID]) async throws -> [SecurityName] {
+        throw ProviderError.unsupported(.referenceData)
+    }
+
     func quoteStream(for symbols: [SymbolID]) -> AsyncThrowingStream<Quote, any Error>? { nil }
 }

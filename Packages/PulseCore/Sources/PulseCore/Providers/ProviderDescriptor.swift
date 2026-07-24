@@ -2,6 +2,8 @@ import Foundation
 
 public enum Capability: String, Codable, Sendable, Hashable {
     case search
+    /// Static reference data for known symbols, including canonical localized names.
+    case referenceData
     case quotes
     case candles
     case streaming

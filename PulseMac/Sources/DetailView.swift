@@ -26,8 +26,7 @@ struct DetailView: View {
             chartSection
             sectionSeparator
             statsSection
-            sectionSeparator
-            positionSection
+            positionArea
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .scrollEdgeEffectStyle(.soft, for: .all)
@@ -125,7 +124,7 @@ struct DetailView: View {
             }
             .disabled(quote == nil || candles.isEmpty)
             .opacity(quote == nil || candles.isEmpty ? 0.45 : 1)
-            if let item {
+            if let item, item.supportsPosition {
                 ClusterIcon(
                     systemName: item.hasPosition ? "briefcase.fill" : "briefcase",
                     help: item.hasPosition
@@ -139,7 +138,7 @@ struct DetailView: View {
         .overlay(alignment: .trailing) {
             if let shareFeedback {
                 ShareFeedbackHUD(feedback: shareFeedback)
-                    .padding(.trailing, item == nil ? 30 : 58)
+                    .padding(.trailing, item?.supportsPosition == true ? 58 : 30)
                     .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .trailing)))
                     .allowsHitTesting(false)
             }
@@ -387,6 +386,23 @@ struct DetailView: View {
     // MARK: - Position
 
     @ViewBuilder
+    private var positionArea: some View {
+        if let item, item.supportsPosition {
+            sectionSeparator
+            positionSection
+        } else if let item, item.hasPosition {
+            sectionSeparator
+            legacyIndexPositionSection
+        } else {
+            // Position sections supply this inset themselves. Keep the same
+            // bottom breathing room when indices intentionally omit the section.
+            Color.clear
+                .frame(height: 12)
+                .accessibilityHidden(true)
+        }
+    }
+
+    @ViewBuilder
     private var positionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeaderText(PulseLocalization.localizedString("detail.section.position"))
@@ -421,6 +437,26 @@ struct DetailView: View {
                         .foregroundStyle(.tint)
                     }
                 }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
+    }
+
+    private var legacyIndexPositionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeaderText(PulseLocalization.localizedString("detail.section.position"))
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(PulseLocalization.localizedString("position.indexLegacyNotice"))
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Button(PulseLocalization.localizedString("action.clearPosition"), role: .destructive) {
+                    appState.watchlist.clearPosition(symbol)
+                }
+                .buttonStyle(.pressable)
+                .font(.system(size: 10.5, weight: .medium))
             }
         }
         .padding(.horizontal, 12)

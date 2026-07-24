@@ -78,6 +78,8 @@
 "metric.todayPnL" = "今日盈亏";
 "metric.totalPnL" = "持仓盈亏";
 
+"position.indexLegacyNotice" = "此指数含有旧版持仓数据。指数本身不可交易，清除后将无法再录入。";
+
 "number.compact.hundredMillion" = "%@亿";
 "number.compact.billion" = "%@B";
 "number.compact.million" = "%@M";

@@ -78,6 +78,8 @@
 "metric.todayPnL" = "Day P&L";
 "metric.totalPnL" = "Total P&L";
 
+"position.indexLegacyNotice" = "This index contains legacy position data. Indices aren’t directly tradable; once removed, it can’t be added again.";
+
 "number.compact.hundredMillion" = "%@B";
 "number.compact.billion" = "%@B";
 "number.compact.million" = "%@M";

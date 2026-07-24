@@ -50,6 +50,13 @@ private struct LBSDKSecurityQuote: Sendable {
     var overnight: LBSDKPrePostQuote?
 }
 
+private struct LBSDKSecurityName: Sendable {
+    var symbol: String
+    var nameCN: String
+    var nameEN: String
+    var nameHK: String
+}
+
 private struct LBSDKPushQuote: Sendable {
     var symbol: String
     var lastDone: Double?
@@ -174,6 +181,7 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
     let contextNew: ContextNew
     let contextRelease: ContextRelease
     let setOnQuote: SetOnQuote
+    let staticInfo: SymbolsRequest
     let quote: SymbolsRequest
     let subscribe: SubscriptionRequest
     let unsubscribe: SubscriptionRequest
@@ -226,6 +234,11 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
             handle,
             "lb_quote_context_set_on_quote",
             as: SetOnQuote.self
+        )
+        self.staticInfo = try Self.resolve(
+            handle,
+            "lb_quote_context_static_info",
+            as: SymbolsRequest.self
         )
         self.quote = try Self.resolve(handle, "lb_quote_context_quote", as: SymbolsRequest.self)
         self.subscribe = try Self.resolve(
@@ -297,6 +310,23 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
                 preMarket: copyPrePost(row.pre_market_quote),
                 postMarket: copyPrePost(row.post_market_quote),
                 overnight: copyPrePost(row.overnight_quote)
+            )
+        }
+    }
+
+    func copySecurityNames(_ result: UnsafePointer<lb_async_result_t>) -> [LBSDKSecurityName] {
+        guard let data = result.pointee.data else { return [] }
+        let rows = UnsafeBufferPointer(
+            start: data.assumingMemoryBound(to: lb_security_static_info_t.self),
+            count: Int(result.pointee.length)
+        )
+        return rows.compactMap { row in
+            guard let symbol = row.symbol else { return nil }
+            return LBSDKSecurityName(
+                symbol: String(cString: symbol),
+                nameCN: row.name_cn.map(String.init(cString:)) ?? "",
+                nameEN: row.name_en.map(String.init(cString:)) ?? "",
+                nameHK: row.name_hk.map(String.init(cString:)) ?? ""
             )
         }
     }
@@ -464,6 +494,44 @@ actor LongbridgeSDKBridge {
             }
             setStatus(.connected)
             return quotes
+        } catch {
+            recordFailure(error)
+            throw error
+        }
+    }
+
+    func securityNames(for symbols: [SymbolID]) async throws -> [SecurityName] {
+        let mapped = symbols.compactMap { symbol in
+            LongbridgeProvider.longbridgeSymbol(for: symbol).map { (symbol, $0) }
+        }
+        guard !mapped.isEmpty else { return [] }
+
+        do {
+            let context = try await ensureContext()
+            let library = try requireLibrary()
+            let snapshots = try await requestSecurityNames(
+                symbols: mapped.map(\.1),
+                context: context,
+                library: library
+            )
+            let symbolsBySDKName = Dictionary(uniqueKeysWithValues: mapped.map { ($0.1, $0.0) })
+            let localeIdentifier = PulseLocalization.currentLanguageIdentifier
+            let names = snapshots.compactMap { snapshot -> SecurityName? in
+                guard let symbol = symbolsBySDKName[snapshot.symbol],
+                      let name = Self.preferredName(
+                        from: snapshot,
+                        localeIdentifier: localeIdentifier
+                      ) else {
+                    return nil
+                }
+                return SecurityName(
+                    symbol: symbol,
+                    name: name,
+                    localeIdentifier: localeIdentifier
+                )
+            }
+            setStatus(.connected)
+            return names
         } catch {
             recordFailure(error)
             throw error
@@ -656,6 +724,39 @@ actor LongbridgeSDKBridge {
                 library: library
             )
             let right = try await requestSecurityQuotes(
+                symbols: Array(symbols[midpoint...]),
+                context: context,
+                library: library
+            )
+            return left + right
+        }
+    }
+
+    /// Static-info requests reject a mixed batch when one symbol is unknown.
+    /// Isolate that leaf so one unsupported instrument cannot block every name.
+    private func requestSecurityNames(
+        symbols: [String],
+        context: OpaquePointer,
+        library: LongbridgeSDKDynamicLibrary
+    ) async throws -> [LBSDKSecurityName] {
+        guard !symbols.isEmpty else { return [] }
+        do {
+            return try await perform(library: library) { callback, userdata in
+                Self.withCStringArray(symbols) { pointers, count in
+                    library.staticInfo(context, pointers, count, callback, userdata)
+                }
+            } decode: { result in
+                library.copySecurityNames(result)
+            }
+        } catch where LongbridgeSDKErrorClassifier.isInvalidSymbol(error) {
+            guard symbols.count > 1 else { return [] }
+            let midpoint = symbols.count / 2
+            let left = try await requestSecurityNames(
+                symbols: Array(symbols[..<midpoint]),
+                context: context,
+                library: library
+            )
+            let right = try await requestSecurityNames(
                 symbols: Array(symbols[midpoint...]),
                 context: context,
                 library: library
@@ -867,6 +968,23 @@ actor LongbridgeSDKBridge {
                 : .now,
             marketState: marketState
         )
+    }
+
+    private static func preferredName(
+        from snapshot: LBSDKSecurityName,
+        localeIdentifier: String
+    ) -> String? {
+        let candidates: [String]
+        if localeIdentifier.hasPrefix("zh-Hant") || localeIdentifier.hasPrefix("zh-HK") {
+            candidates = [snapshot.nameHK, snapshot.nameCN, snapshot.nameEN]
+        } else if localeIdentifier.hasPrefix("zh") {
+            candidates = [snapshot.nameCN, snapshot.nameHK, snapshot.nameEN]
+        } else {
+            candidates = [snapshot.nameEN, snapshot.nameCN, snapshot.nameHK]
+        }
+        return candidates
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
     }
 
     private static func marketState(forTradeSession session: Int32) -> MarketState {

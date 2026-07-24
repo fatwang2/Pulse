@@ -44,7 +44,7 @@ public actor LongbridgeProvider: QuoteProvider {
             id: Self.providerID,
             name: PulseLocalization.localizedString("provider.longbridge"),
             markets: [.us, .hk, .sh, .sz],
-            capabilities: [.quotes, .candles, .streaming],
+            capabilities: [.referenceData, .quotes, .candles, .streaming],
             delay: [.us: 0, .hk: 0, .sh: 0, .sz: 0],
             rateLimit: RateLimitPolicy(minInterval: 0.12, batchSize: 500),
             credentials: [
@@ -65,6 +65,11 @@ public actor LongbridgeProvider: QuoteProvider {
 
     public func search(_ query: String) async throws -> [SymbolInfo] {
         throw ProviderError.unsupported(.search)
+    }
+
+    public func securityNames(for symbols: [SymbolID]) async throws -> [SecurityName] {
+        guard configured else { throw LongbridgeError.notConfigured }
+        return try await sdk.securityNames(for: symbols)
     }
 
     public func quotes(for symbols: [SymbolID]) async throws -> [Quote] {

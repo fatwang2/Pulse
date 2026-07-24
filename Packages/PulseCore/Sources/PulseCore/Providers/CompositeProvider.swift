@@ -42,7 +42,13 @@ public actor CompositeProvider: QuoteProvider {
 
     /// Lets the user toggle data sources in settings
     public func setDisabled(_ ids: Set<String>) {
+        guard disabledIDs != ids else { return }
         disabledIDs = ids
+        // Cached payloads retain source provenance. A deliberate provider change
+        // must re-run routing and name ranking rather than serving the old order.
+        searchCache.removeAll()
+        quoteCache.removeAll()
+        candleCache.removeAll()
     }
 
     /// User-initiated retries should not remain trapped behind a previous circuit-breaker
@@ -114,21 +120,58 @@ public actor CompositeProvider: QuoteProvider {
         return entry.value
     }
 
-    private func preferredQuoteProvider(for market: Market, among providers: [any QuoteProvider]) -> (any QuoteProvider)? {
-        // Binance is the sole crypto source. A USD Yahoo instrument is not a valid
-        // substitute for a USDT Binance pair, even when their prices are close.
-        if market == .crypto,
-           let binance = providers.first(where: { $0.descriptor.id == BinanceProvider.providerID }) {
-            return binance
+    private nonisolated func orderedByQuotePriority(
+        _ available: [any QuoteProvider],
+        market: Market
+    ) -> [any QuoteProvider] {
+        let registrationOrder = Dictionary(
+            uniqueKeysWithValues: providers.enumerated().map { ($0.element.descriptor.id, $0.offset) }
+        )
+        func preferredWeight(_ provider: any QuoteProvider) -> Int {
+            let id = provider.descriptor.id
+            if market == .crypto, id == BinanceProvider.providerID { return 0 }
+            if market != .crypto, id == LongbridgeProvider.providerID { return 0 }
+            if market == .us, id == "yahoo" { return 1 }
+            return 100 + (registrationOrder[id] ?? 10_000)
         }
-        // A user-keyed real-time source outranks the free delayed feeds whenever it is available.
-        if let longbridge = providers.first(where: { $0.descriptor.id == "longbridge" }) {
-            return longbridge
+        return available.sorted {
+            let lhsWeight = preferredWeight($0)
+            let rhsWeight = preferredWeight($1)
+            if lhsWeight != rhsWeight { return lhsWeight < rhsWeight }
+            return (registrationOrder[$0.descriptor.id] ?? 10_000)
+                < (registrationOrder[$1.descriptor.id] ?? 10_000)
         }
-        if market == .us, let yahoo = providers.first(where: { $0.descriptor.id == "yahoo" }) {
-            return yahoo
-        }
-        return providers.first
+    }
+
+    private nonisolated func preferredQuoteProvider(
+        for market: Market,
+        among providers: [any QuoteProvider]
+    ) -> (any QuoteProvider)? {
+        orderedByQuotePriority(providers, market: market).first
+    }
+
+    /// Stable provider rank for names in a market. It deliberately ignores
+    /// transient health and enablement so a fallback can never lower a saved
+    /// name's watermark.
+    public nonisolated func namePriority(for providerID: String, market: Market) -> Int? {
+        let ordered = orderedByQuotePriority(
+            providers.filter { $0.descriptor.supports(.quotes, in: market) },
+            market: market
+        )
+        return ordered.firstIndex { $0.descriptor.id == providerID }
+    }
+
+    public nonisolated func displayNameSource(
+        for providerID: String,
+        market: Market,
+        localeIdentifier: String? = nil
+    ) -> DisplayNameSource? {
+        guard let priority = namePriority(for: providerID, market: market) else { return nil }
+        return DisplayNameSource(
+            providerID: providerID,
+            priority: priority,
+            localeIdentifier: localeIdentifier ?? Self.nameLocaleIdentifier(for: providerID)
+        )
     }
 
     /// Only infrastructure-level errors (network down / 5xx / rate limiting) trip the circuit breaker;
@@ -287,6 +330,71 @@ public actor CompositeProvider: QuoteProvider {
         return candles
     }
 
+    /// Resolves the best currently available static names without changing quote
+    /// routing health. A metadata failure must not make prices fall back.
+    public func preferredSecurityNames(for symbols: [SymbolID]) async throws -> [SourcedSecurityName] {
+        let requested = symbols.filter { $0.indexID == nil }
+        guard !requested.isEmpty else { return [] }
+
+        var resolved: [SymbolID: SourcedSecurityName] = [:]
+        var lastError: (any Error)?
+
+        for (market, marketSymbols) in Dictionary(grouping: requested, by: \.market) {
+            let available = orderedByQuotePriority(
+                providers.filter {
+                    $0.descriptor.supports(.referenceData, in: market)
+                        && !disabledIDs.contains($0.descriptor.id)
+                        && isHealthy($0.descriptor.id)
+                },
+                market: market
+            )
+            var remaining = marketSymbols
+            for provider in available where !remaining.isEmpty {
+                do {
+                    try await waitForProviderBudget(provider)
+                    let names = try await provider.securityNames(for: remaining)
+                    let priority = namePriority(
+                        for: provider.descriptor.id,
+                        market: market
+                    ) ?? Int.max
+                    for name in names {
+                        let trimmed = name.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty else { continue }
+                        resolved[name.symbol] = SourcedSecurityName(
+                            symbol: name.symbol,
+                            name: trimmed,
+                            source: DisplayNameSource(
+                                providerID: provider.descriptor.id,
+                                priority: priority,
+                                localeIdentifier: name.localeIdentifier
+                            )
+                        )
+                    }
+                    remaining.removeAll { resolved[$0] != nil }
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    // Reference data is best-effort and must not trip the quote
+                    // circuit. Actual quote/stream failures still own health.
+                    lastError = error
+                }
+            }
+        }
+
+        if resolved.isEmpty, let lastError { throw lastError }
+        return symbols.compactMap { resolved[$0] }
+    }
+
+    public func securityNames(for symbols: [SymbolID]) async throws -> [SecurityName] {
+        try await preferredSecurityNames(for: symbols).map {
+            SecurityName(
+                symbol: $0.symbol,
+                name: $0.name,
+                localeIdentifier: $0.source.localeIdentifier
+            )
+        }
+    }
+
     /// Real-time push is routed per market and then merged. This lets Longbridge stream
     /// securities while Binance streams crypto over the same app-level subscription.
     public nonisolated func quoteStream(for symbols: [SymbolID]) -> AsyncThrowingStream<Quote, any Error>? {
@@ -440,12 +548,29 @@ public actor CompositeProvider: QuoteProvider {
         for (index, outcome) in aggregation.outcomes {
             switch outcome {
             case .success(let infos):
-                for info in infos {
+                let sourceProviderID = capable[index].descriptor.id
+                for var info in infos {
+                    info.displayNameSource = displayNameSource(
+                        for: sourceProviderID,
+                        market: info.symbol.market
+                    )
                     if let existingIndex = indexBySymbol[info.symbol] {
                         let existing = merged[existingIndex]
-                        if Self.isPlaceholderName(existing.name, for: existing.symbol),
-                           !Self.isPlaceholderName(info.name, for: info.symbol) {
+                        let existingIsPlaceholder = Self.isPlaceholderName(
+                            existing.name,
+                            for: existing.symbol
+                        )
+                        let candidateIsPlaceholder = Self.isPlaceholderName(
+                            info.name,
+                            for: info.symbol
+                        )
+                        let candidateOutranksExisting =
+                            (info.displayNameSource?.priority ?? Int.max)
+                            < (existing.displayNameSource?.priority ?? Int.max)
+                        if !candidateIsPlaceholder
+                            && (existingIsPlaceholder || candidateOutranksExisting) {
                             merged[existingIndex].name = info.name
+                            merged[existingIndex].displayNameSource = info.displayNameSource
                         }
                     } else {
                         indexBySymbol[info.symbol] = merged.count
@@ -494,6 +619,14 @@ public actor CompositeProvider: QuoteProvider {
         return normalized == symbol.code.uppercased()
             || normalized == symbol.displayCode.uppercased()
             || normalized == symbol.cryptoPair?.baseAsset
+    }
+
+    private nonisolated static func nameLocaleIdentifier(for providerID: String) -> String {
+        switch providerID {
+        case "tencent": "zh-Hans"
+        case "yahoo": "en"
+        default: PulseLocalization.currentLanguageIdentifier
+        }
     }
 
     private func failover<T>(_ capability: Capability, market: Market,

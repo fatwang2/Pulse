@@ -21,12 +21,27 @@ public struct WatchItem: Codable, Sendable, Hashable, Identifiable {
     /// Stable name captured when the item was added. Quote-source failover does
     /// not replace it.
     public var displayName: String
+    /// Provider and priority watermark that supplied `displayName`. Missing on
+    /// watchlists written by older Pulse versions and upgraded on first refresh.
+    public var displayNameSource: DisplayNameSource?
+    /// Search/reference-data classification captured independently from the
+    /// provider-specific quote symbol. Older watchlists may not have this field.
+    public var instrumentType: InstrumentType?
     public var addedAt: Date
     public var lots: [CostLot]
 
-    public init(symbol: SymbolID, displayName: String, addedAt: Date = .now, lots: [CostLot] = []) {
+    public init(
+        symbol: SymbolID,
+        displayName: String,
+        displayNameSource: DisplayNameSource? = nil,
+        instrumentType: InstrumentType? = nil,
+        addedAt: Date = .now,
+        lots: [CostLot] = []
+    ) {
         self.symbol = symbol
         self.displayName = displayName
+        self.displayNameSource = displayNameSource
+        self.instrumentType = Self.normalizedInstrumentType(instrumentType, for: symbol)
         self.addedAt = addedAt
         self.lots = lots
     }
@@ -40,6 +55,25 @@ public struct WatchItem: Codable, Sendable, Hashable, Identifiable {
         if let index = symbol.indexID { return index.displayName }
         let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? symbol.displayCode : displayName
+    }
+
+    public var resolvedInstrumentType: InstrumentType? {
+        Self.normalizedInstrumentType(instrumentType, for: symbol)
+    }
+
+    /// An index is a calculated benchmark rather than a directly held security.
+    /// ETFs and other exchange-traded products remain position-eligible.
+    public var supportsPosition: Bool {
+        resolvedInstrumentType != .index
+    }
+
+    static func normalizedInstrumentType(
+        _ instrumentType: InstrumentType?,
+        for symbol: SymbolID
+    ) -> InstrumentType? {
+        if symbol.indexID != nil { return .index }
+        if symbol.cryptoPair != nil { return .crypto }
+        return instrumentType
     }
 
     public var positionQuantity: Double {
@@ -72,6 +106,7 @@ public struct PositionMetrics: Sendable, Hashable {
     public var todayReturnPercent: Double
 
     public init?(item: WatchItem, quote: Quote) {
+        guard item.supportsPosition else { return nil }
         let quantity = item.positionQuantity
         guard quantity > 0, let averageCost = item.averageCost else { return nil }
 

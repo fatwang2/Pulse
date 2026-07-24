@@ -23,6 +23,7 @@ public final class RefreshEngine {
     @ObservationIgnored private var loopTask: Task<Void, Never>?
     @ObservationIgnored private var lastSparklineAt: [SymbolID: Date] = [:]
     @ObservationIgnored private var lastPollAt: [String: Date] = [:]
+    @ObservationIgnored private var lastNameRefreshAt: Date = .distantPast
     @ObservationIgnored private var pollOverrides: [String: TimeInterval]
     @ObservationIgnored private lazy var suggestedIntervals: [String: TimeInterval] = {
         Dictionary(uniqueKeysWithValues: provider.registeredDescriptors.compactMap { descriptor in
@@ -31,6 +32,7 @@ public final class RefreshEngine {
     }()
 
     private static let fallbackPollInterval: TimeInterval = 15
+    private static let nameRefreshInterval: TimeInterval = 15 * 60
     /// Scheduler resolution while any covered market trades; also the fastest selectable cadence
     private static let baseTick: TimeInterval = 5
 
@@ -81,6 +83,7 @@ public final class RefreshEngine {
         loopTask?.cancel()
         loopTask = nil
         lastPollAt = [:] // a poke means "refresh everything now", regardless of cadence
+        lastNameRefreshAt = .distantPast
         start()
     }
 
@@ -102,12 +105,48 @@ public final class RefreshEngine {
             do {
                 let quotes = try await provider.quotes(for: quoteSymbols)
                 store.apply(quotes: quotes)
+                applyQuoteNameUpgrades(quotes)
             } catch {
                 store.reportError(String(describing: error))
             }
         }
 
+        await refreshDisplayNamesIfDue(symbols: symbols)
         await refreshSparklinesIfDue(symbols: symbols)
+    }
+
+    private func applyQuoteNameUpgrades(_ quotes: [Quote]) {
+        for quote in quotes {
+            guard let name = quote.name,
+                  let providerID = quote.sourceID,
+                  let source = provider.displayNameSource(
+                    for: providerID,
+                    market: quote.symbol.market
+                  ) else {
+                continue
+            }
+            watchlist.upgradeDisplayName(
+                for: quote.symbol,
+                to: name,
+                source: source
+            )
+        }
+    }
+
+    private func refreshDisplayNamesIfDue(symbols: [SymbolID]) async {
+        guard Date.now.timeIntervalSince(lastNameRefreshAt) >= Self.nameRefreshInterval else {
+            return
+        }
+        lastNameRefreshAt = .now
+        guard let names = try? await provider.preferredSecurityNames(for: symbols) else { return }
+        for candidate in names {
+            watchlist.upgradeDisplayName(
+                for: candidate.symbol,
+                to: candidate.name,
+                source: candidate.source,
+                allowSameProviderRefresh: true
+            )
+        }
     }
 
     private func symbolsWorthRefreshing(_ symbols: [SymbolID], overnightMarkets: Set<Market>) -> [SymbolID] {

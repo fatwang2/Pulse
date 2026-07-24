@@ -564,8 +564,10 @@ struct WatchlistView: View {
                             appState.settings.menuBarMode = .single
                             appState.settings.showPriceInMenuBar = true
                         }
-                        Button(PulseLocalization.localizedString("action.editPosition")) {
-                            route = .position(item.symbol, .list)
+                        if item.supportsPosition {
+                            Button(PulseLocalization.localizedString("action.editPosition")) {
+                                route = .position(item.symbol, .list)
+                            }
                         }
                         Menu(PulseLocalization.localizedString("watchlist.group.membership")) {
                             ForEach(appState.watchlist.groups) { group in
@@ -954,9 +956,7 @@ struct WatchRow: View {
             HStack(spacing: 8) {
                 // The list's widest required title establishes one shared column; the aligned remainder goes to every sparkline.
                 VStack(alignment: .leading, spacing: 2.5) {
-                    Text(item.resolvedDisplayName)
-                        .font(.system(size: 12.5, weight: .medium))
-                        .lineLimit(1)
+                    titleLabel
                     HStack(spacing: 4) {
                         MarketBadge(market: item.symbol.market)
                         Text(item.symbol.displayCode)
@@ -1024,6 +1024,24 @@ struct WatchRow: View {
         )
         .contentShape(RoundedRectangle(cornerRadius: 7))
         .onHover { hovering = $0 }
+    }
+
+    @ViewBuilder
+    private var titleLabel: some View {
+        let label = Text(item.resolvedDisplayName)
+            .font(.system(size: 12.5, weight: .medium))
+            .lineLimit(1)
+            .truncationMode(.tail)
+
+        if WatchRowColumnLayout.nameIsTruncated(
+            item.resolvedDisplayName,
+            availableWidth: titleColumnWidth,
+            presentation: .popover
+        ) {
+            label.help(item.resolvedDisplayName)
+        } else {
+            label
+        }
     }
 
     @ViewBuilder

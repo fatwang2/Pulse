@@ -98,8 +98,14 @@ struct PositionEditorView: View {
 
     private var metrics: PositionMetrics? {
         guard let quote, let quantity = parsedQuantity, let cost = parsedCost else { return nil }
-        let draft = WatchItem(symbol: item.symbol, displayName: item.displayName,
-                              addedAt: item.addedAt, lots: [CostLot(price: cost, quantity: quantity)])
+        let draft = WatchItem(
+            symbol: item.symbol,
+            displayName: item.displayName,
+            displayNameSource: item.displayNameSource,
+            instrumentType: item.instrumentType,
+            addedAt: item.addedAt,
+            lots: [CostLot(price: cost, quantity: quantity)]
+        )
         return PositionMetrics(item: draft, quote: quote)
     }
 

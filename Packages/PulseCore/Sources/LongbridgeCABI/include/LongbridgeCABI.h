@@ -51,6 +51,25 @@ typedef struct lb_security_quote_t {
     const lb_prepost_quote_t *overnight_quote;
 } lb_security_quote_t;
 
+typedef struct lb_security_static_info_t {
+    const char *symbol;
+    const char *name_cn;
+    const char *name_en;
+    const char *name_hk;
+    const char *exchange;
+    const char *currency;
+    int32_t lot_size;
+    int64_t total_shares;
+    int64_t circulating_shares;
+    int64_t hk_shares;
+    const lb_decimal_t *eps;
+    const lb_decimal_t *eps_ttm;
+    const lb_decimal_t *bps;
+    const lb_decimal_t *dividend_yield;
+    uint8_t stock_derivatives;
+    int32_t board;
+} lb_security_static_info_t;
+
 typedef struct lb_push_quote_t {
     const char *symbol;
     const lb_decimal_t *last_done;

@@ -87,4 +87,45 @@ struct SymbolDisplayNameTests {
         #expect(watchlist.item(for: pdd)?.displayName == "拼多多")
         #expect(watchlist.item(for: pdd)?.resolvedDisplayName == "拼多多")
     }
+
+    @MainActor
+    @Test("Persisted names only move to a higher-priority provider")
+    func displayNameSourceOnlyUpgrades() throws {
+        let suiteName = "SymbolNamePriorityTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let pdd = SymbolID(market: .us, code: "PDD")
+        let yahoo = DisplayNameSource(providerID: "yahoo", priority: 1, localeIdentifier: "en")
+        let tencent = DisplayNameSource(providerID: "tencent", priority: 2, localeIdentifier: "zh-Hans")
+        let longbridge = DisplayNameSource(
+            providerID: LongbridgeProvider.providerID,
+            priority: 0,
+            localeIdentifier: "en"
+        )
+        let watchlist = WatchlistStore(defaults: defaults, defaultGroupName: "Watchlist")
+        watchlist.add(SymbolInfo(
+            symbol: pdd,
+            name: "PDD Holdings Inc.",
+            displayNameSource: yahoo
+        ))
+
+        #expect(!watchlist.upgradeDisplayName(for: pdd, to: "拼多多", source: tencent))
+        #expect(watchlist.item(for: pdd)?.displayName == "PDD Holdings Inc.")
+        #expect(watchlist.upgradeDisplayName(
+            for: pdd,
+            to: "PDD",
+            source: longbridge,
+            allowSameProviderRefresh: true
+        ))
+        #expect(!watchlist.upgradeDisplayName(
+            for: pdd,
+            to: "PDD Holdings Inc.",
+            source: yahoo
+        ))
+
+        let reloaded = WatchlistStore(defaults: defaults, defaultGroupName: "Watchlist")
+        #expect(reloaded.item(for: pdd)?.displayName == "PDD")
+        #expect(reloaded.item(for: pdd)?.displayNameSource == longbridge)
+    }
 }

@@ -22,6 +22,15 @@ enum WatchRowColumnLayout {
         return min(max(max(nameWidth, symbolWidth), metrics.minimumTitleWidth), metrics.maximumTitleWidth)
     }
 
+    static func nameIsTruncated(
+        _ name: String,
+        availableWidth: CGFloat,
+        presentation: WatchRowPresentation
+    ) -> Bool {
+        let metrics = Metrics(presentation)
+        return measure(name, font: metrics.nameFont) > availableWidth
+    }
+
     static func metricWidth(
         priceText: String,
         metricText: String,

@@ -17,11 +17,15 @@ struct MockProvider: QuoteProvider {
     var delay: [Market: TimeInterval] = [:]
     var markets: Set<Market> = Set(Market.allCases)
     var supportsStreaming = false
+    var supportsReferenceData = false
+    var referenceNames: [SecurityName] = []
+    var referenceError: ProviderError?
     var omittedQuoteCodes: Set<String> = []
 
     var descriptor: ProviderDescriptor {
         var capabilities: Set<Capability> = [.search, .quotes, .candles]
         if supportsStreaming { capabilities.insert(.streaming) }
+        if supportsReferenceData { capabilities.insert(.referenceData) }
         return ProviderDescriptor(id: id, name: id, markets: markets,
                            capabilities: capabilities,
                            candleMarkets: candleMarkets,
@@ -43,6 +47,12 @@ struct MockProvider: QuoteProvider {
         return symbols
             .filter { !omittedQuoteCodes.contains($0.code) }
             .map { Quote(symbol: $0, price: quotePrice, previousClose: 99) }
+    }
+
+    func securityNames(for symbols: [SymbolID]) async throws -> [SecurityName] {
+        if let referenceError { throw referenceError }
+        let requested = Set(symbols)
+        return referenceNames.filter { requested.contains($0.symbol) }
     }
 
     func candles(for symbol: SymbolID, period: CandlePeriod, count: Int) async throws -> [Candle] {
@@ -76,7 +86,9 @@ struct CompositeProviderTests {
         let results = try await composite.search("tech")
         let elapsed = startedAt.duration(to: clock.now)
 
-        #expect(results == [Self.apple, tencent])
+        #expect(results.map(\.symbol) == [Self.apple.symbol, tencent.symbol])
+        #expect(results.map(\.name) == [Self.apple.name, tencent.name])
+        #expect(results.map(\.displayNameSource?.providerID) == ["first", "second"])
         #expect(elapsed < .milliseconds(500))
     }
 
@@ -99,7 +111,8 @@ struct CompositeProviderTests {
         let results = try await composite.search("apple")
         let elapsed = startedAt.duration(to: clock.now)
 
-        #expect(results == [Self.apple])
+        #expect(results.map(\.symbol) == [Self.apple.symbol])
+        #expect(results.first?.displayNameSource?.providerID == "fast")
         #expect(elapsed < .milliseconds(180))
     }
 
@@ -179,7 +192,8 @@ struct CompositeProviderTests {
 
         // Concurrent merged search: dead fails but backup has results
         let results = try await composite.search("apple")
-        #expect(results == [Self.apple])
+        #expect(results.map(\.symbol) == [Self.apple.symbol])
+        #expect(results.first?.displayNameSource?.providerID == "backup")
 
         // dead is now tripped: candles should come from backup (a normal backup response proves the failover routing works)
         let candles = try await composite.candles(
@@ -216,7 +230,30 @@ struct CompositeProviderTests {
         // Recovers after re-enabling
         await composite.setDisabled([])
         let results = try await composite.search("apple")
-        #expect(results == [Self.apple])
+        #expect(results.map(\.symbol) == [Self.apple.symbol])
+        #expect(results.first?.displayNameSource?.providerID == "only")
+    }
+
+    @Test("Changing providers invalidates cached name provenance")
+    func providerToggleInvalidatesSearchCache() async throws {
+        let symbol = SymbolID(market: .us, code: "PDD")
+        let tencent = MockProvider(
+            id: "tencent",
+            searchResults: [SymbolInfo(symbol: symbol, name: "拼多多")]
+        )
+        let yahoo = MockProvider(
+            id: "yahoo",
+            searchResults: [SymbolInfo(symbol: symbol, name: "PDD Holdings Inc.")]
+        )
+        let composite = CompositeProvider(providers: [tencent, yahoo])
+
+        let initial = try #require(try await composite.search("PDD").first)
+        #expect(initial.displayNameSource?.providerID == "yahoo")
+
+        await composite.setDisabled(["yahoo"])
+        let rerouted = try #require(try await composite.search("PDD").first)
+        #expect(rerouted.name == "拼多多")
+        #expect(rerouted.displayNameSource?.providerID == "tencent")
     }
 
     @Test("US quotes prefer Yahoo while other markets keep provider order")
@@ -231,6 +268,81 @@ struct CompositeProviderTests {
 
         #expect(quotes.first(where: { $0.symbol == apple })?.price == 200)
         #expect(quotes.first(where: { $0.symbol == tencentHK })?.price == 100)
+    }
+
+    @Test("Name priorities match quote routing and do not depend on health")
+    func namesUseQuoteProviderPriority() {
+        let longbridge = MockProvider(id: LongbridgeProvider.providerID)
+        let tencent = MockProvider(id: "tencent")
+        let yahoo = MockProvider(id: "yahoo")
+        let composite = CompositeProvider(providers: [longbridge, tencent, yahoo])
+
+        #expect(composite.namePriority(for: LongbridgeProvider.providerID, market: .us) == 0)
+        #expect(composite.namePriority(for: "yahoo", market: .us) == 1)
+        #expect(composite.namePriority(for: "tencent", market: .us) == 2)
+        #expect(composite.namePriority(for: LongbridgeProvider.providerID, market: .hk) == 0)
+        #expect(composite.namePriority(for: "tencent", market: .hk) == 1)
+        #expect(composite.namePriority(for: "yahoo", market: .hk) == 2)
+    }
+
+    @Test("Search keeps the name from the higher-priority quote provider")
+    func searchNamesUseQuotePriority() async throws {
+        let symbol = SymbolID(market: .us, code: "PDD")
+        let tencent = MockProvider(
+            id: "tencent",
+            searchResults: [SymbolInfo(symbol: symbol, name: "拼多多")]
+        )
+        let yahoo = MockProvider(
+            id: "yahoo",
+            searchResults: [SymbolInfo(symbol: symbol, name: "PDD Holdings Inc.")]
+        )
+        let composite = CompositeProvider(providers: [tencent, yahoo])
+
+        let result = try #require(try await composite.search("PDD").first)
+
+        #expect(result.name == "PDD Holdings Inc.")
+        #expect(result.displayNameSource?.providerID == "yahoo")
+        #expect(result.displayNameSource?.priority == 0)
+    }
+
+    @Test("Static names use the highest available provider without changing quote health")
+    func staticNamesAreRankedIndependentlyFromFallback() async throws {
+        let symbol = SymbolID(market: .us, code: "PDD")
+        let longbridge = MockProvider(
+            id: LongbridgeProvider.providerID,
+            supportsReferenceData: true,
+            referenceNames: [
+                SecurityName(symbol: symbol, name: "PDD", localeIdentifier: "en"),
+            ]
+        )
+        let yahoo = MockProvider(
+            id: "yahoo",
+            supportsReferenceData: true,
+            referenceNames: [
+                SecurityName(
+                    symbol: symbol,
+                    name: "PDD Holdings Inc.",
+                    localeIdentifier: "en"
+                ),
+            ]
+        )
+        let composite = CompositeProvider(providers: [longbridge, yahoo])
+
+        let preferred = try #require(
+            try await composite.preferredSecurityNames(for: [symbol]).first
+        )
+        #expect(preferred.name == "PDD")
+        #expect(preferred.source.providerID == LongbridgeProvider.providerID)
+        #expect(preferred.source.priority == 0)
+
+        await composite.setDisabled([LongbridgeProvider.providerID])
+        let fallback = try #require(
+            try await composite.preferredSecurityNames(for: [symbol]).first
+        )
+        #expect(fallback.name == "PDD Holdings Inc.")
+        #expect(fallback.source.providerID == "yahoo")
+        #expect(fallback.source.priority == 1)
+        #expect(await composite.healthReport()[LongbridgeProvider.providerID] == "disabled")
     }
 
     @Test("Crypto quotes use Binance")

@@ -54,6 +54,7 @@ struct WatchlistMigrationTests {
         #expect(store.selectedGroup?.name == "自选")
         #expect(migrated.symbol == SymbolID(cryptoBase: "BTC", quote: "USDT"))
         #expect(migrated.displayName == "Bitcoin USD")
+        #expect(migrated.displayNameSource == nil)
         #expect(migrated.lots == [lot])
         #expect(store.restoreManualOrder())
 
@@ -123,6 +124,14 @@ struct WatchlistMigrationTests {
         let reloaded = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
         #expect(reloaded.allItems.first?.symbol.indexID == .sp500)
         #expect(reloaded.allItems.first?.lots.count == 2)
+        #expect(reloaded.allItems.first?.supportsPosition == false)
+
+        let replacementLot = CostLot(price: 7_000, quantity: 3)
+        reloaded.updateLots(SymbolID(index: .sp500), lots: [replacementLot])
+        #expect(reloaded.allItems.first?.lots.count == 2)
+
+        reloaded.clearPosition(SymbolID(index: .sp500))
+        #expect(reloaded.allItems.first?.lots.isEmpty == true)
     }
 
     @MainActor
@@ -195,6 +204,46 @@ struct WatchlistMigrationTests {
         #expect(store.contains(apple.symbol, in: usGroupID))
         #expect(!store.contains(apple.symbol, in: defaultGroupID))
         #expect(store.selectedGroupID == usGroupID)
+    }
+
+    @MainActor
+    @Test("Instrument type persists and only indices reject positions")
+    func instrumentTypeControlsPositions() throws {
+        let suiteName = "WatchlistInstrumentTypeTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        let index = SymbolInfo(
+            symbol: SymbolID(market: .us, code: "^EXAMPLE"),
+            name: "Example Index",
+            type: .index
+        )
+        let etf = SymbolInfo(
+            symbol: SymbolID(market: .us, code: "SPY"),
+            name: "SPDR S&P 500 ETF Trust",
+            type: .etf
+        )
+        store.add(index)
+        store.add(etf)
+
+        let indexItem = try #require(store.item(for: index.symbol))
+        #expect(indexItem.instrumentType == .index)
+        #expect(indexItem.supportsPosition == false)
+        store.updateLots(index.symbol, lots: [CostLot(price: 100, quantity: 2)])
+        #expect(store.item(for: index.symbol)?.lots.isEmpty == true)
+
+        let etfLot = CostLot(price: 600, quantity: 4)
+        #expect(store.item(for: etf.symbol)?.instrumentType == .etf)
+        #expect(store.item(for: etf.symbol)?.supportsPosition == true)
+        store.updateLots(etf.symbol, lots: [etfLot])
+        #expect(store.item(for: etf.symbol)?.lots == [etfLot])
+
+        let reloaded = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        #expect(reloaded.item(for: index.symbol)?.instrumentType == .index)
+        #expect(reloaded.item(for: index.symbol)?.supportsPosition == false)
+        #expect(reloaded.item(for: etf.symbol)?.instrumentType == .etf)
+        #expect(reloaded.item(for: etf.symbol)?.lots == [etfLot])
     }
 
     @MainActor

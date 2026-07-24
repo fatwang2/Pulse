@@ -20,6 +20,7 @@ enum LongbridgePluginDebugProbe {
         "lb_config_disable_print_quote_packages",
         "lb_config_free",
         "lb_quote_context_new",
+        "lb_quote_context_static_info",
         "lb_quote_context_quote",
         "lb_quote_context_candlesticks",
         "lb_quote_context_set_on_quote",

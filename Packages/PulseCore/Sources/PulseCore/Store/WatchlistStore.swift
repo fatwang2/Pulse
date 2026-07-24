@@ -127,10 +127,34 @@ public final class WatchlistStore {
     public func add(_ info: SymbolInfo, to groupID: UUID? = nil) {
         guard let targetID = group(for: groupID ?? selectedGroupID)?.id,
               let groupIndex = groups.firstIndex(where: { $0.id == targetID }) else { return }
-        if item(for: info.symbol) == nil {
-            allItems.append(WatchItem(symbol: info.symbol, displayName: info.resolvedDisplayName))
+        var didUpdateItem = false
+        if let itemIndex = allItems.firstIndex(where: { $0.symbol == info.symbol }) {
+            if let source = info.displayNameSource,
+               shouldAcceptDisplayName(source, over: allItems[itemIndex].displayNameSource) {
+                allItems[itemIndex].displayName = info.resolvedDisplayName
+                allItems[itemIndex].displayNameSource = source
+                didUpdateItem = true
+            }
+            let candidateType = WatchItem.normalizedInstrumentType(info.type, for: info.symbol)
+            if shouldAcceptInstrumentType(
+                candidateType,
+                over: allItems[itemIndex].instrumentType
+            ) {
+                allItems[itemIndex].instrumentType = candidateType
+                didUpdateItem = true
+            }
+        } else {
+            allItems.append(WatchItem(
+                symbol: info.symbol,
+                displayName: info.resolvedDisplayName,
+                displayNameSource: info.displayNameSource,
+                instrumentType: info.type
+            ))
         }
-        guard !groups[groupIndex].symbols.contains(info.symbol) else { return }
+        guard !groups[groupIndex].symbols.contains(info.symbol) else {
+            if didUpdateItem { save() }
+            return
+        }
         groups[groupIndex].symbols.append(info.symbol)
         if groups[groupIndex].manualOrder != nil {
             groups[groupIndex].manualOrder?.append(info.symbol)
@@ -214,12 +238,54 @@ public final class WatchlistStore {
 
     public func updateLots(_ symbol: SymbolID, lots: [CostLot]) {
         guard let index = allItems.firstIndex(where: { $0.symbol == symbol }) else { return }
+        // Preserve legacy index data until the user explicitly removes it, but
+        // never create or replace a position for a non-tradable index.
+        guard allItems[index].supportsPosition || lots.isEmpty else { return }
         allItems[index].lots = lots
         save()
     }
 
     public func clearPosition(_ symbol: SymbolID) {
         updateLots(symbol, lots: [])
+    }
+
+    /// Replaces a persisted name only when its provider outranks the saved source.
+    /// Static reference data may refresh a name from the same provider (for a
+    /// locale change or an official rename); quote ticks never need that privilege.
+    @discardableResult
+    public func upgradeDisplayName(
+        for symbol: SymbolID,
+        to rawName: String,
+        source: DisplayNameSource,
+        allowSameProviderRefresh: Bool = false
+    ) -> Bool {
+        guard symbol.indexID == nil,
+              let index = allItems.firstIndex(where: { $0.symbol == symbol }) else {
+            return false
+        }
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return false }
+
+        let currentSource = allItems[index].displayNameSource
+        let currentName = allItems[index].displayName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasPlaceholderName = currentName.isEmpty
+            || currentName.caseInsensitiveCompare(symbol.code) == .orderedSame
+            || currentName.caseInsensitiveCompare(symbol.displayCode) == .orderedSame
+        // Legacy watchlists have no provenance. Preserve a real saved name
+        // against quote ticks; authoritative static data may adopt and rank it.
+        let isUpgrade = currentSource.map { source.priority < $0.priority }
+            ?? (allowSameProviderRefresh || hasPlaceholderName)
+        let isSameProviderRefresh = allowSameProviderRefresh
+            && currentSource?.providerID == source.providerID
+            && currentSource?.priority == source.priority
+        guard isUpgrade || isSameProviderRefresh else { return false }
+        guard allItems[index].displayName != name || currentSource != source else { return false }
+
+        allItems[index].displayName = name
+        allItems[index].displayNameSource = source
+        save()
+        return true
     }
 
     private struct Snapshot: Codable {
@@ -277,7 +343,11 @@ public final class WatchlistStore {
         // silently losing any position lots attached to it.
         var normalizedItems: [WatchItem] = []
         var itemIndexBySymbol: [SymbolID: Int] = [:]
-        for item in allItems {
+        for var item in allItems {
+            item.instrumentType = WatchItem.normalizedInstrumentType(
+                item.instrumentType,
+                for: item.symbol
+            )
             if let existingIndex = itemIndexBySymbol[item.symbol] {
                 var existingLotIDs = Set(normalizedItems[existingIndex].lots.map(\.id))
                 normalizedItems[existingIndex].lots.append(
@@ -287,6 +357,20 @@ public final class WatchlistStore {
                     normalizedItems[existingIndex].addedAt,
                     item.addedAt
                 )
+                if let source = item.displayNameSource,
+                   shouldAcceptDisplayName(
+                       source,
+                       over: normalizedItems[existingIndex].displayNameSource
+                   ) {
+                    normalizedItems[existingIndex].displayName = item.displayName
+                    normalizedItems[existingIndex].displayNameSource = source
+                }
+                if shouldAcceptInstrumentType(
+                    item.instrumentType,
+                    over: normalizedItems[existingIndex].instrumentType
+                ) {
+                    normalizedItems[existingIndex].instrumentType = item.instrumentType
+                }
             } else {
                 itemIndexBySymbol[item.symbol] = normalizedItems.count
                 normalizedItems.append(item)
@@ -330,6 +414,22 @@ public final class WatchlistStore {
         groups.contains {
             $0.id != excludedID && $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame
         }
+    }
+
+    private func shouldAcceptDisplayName(
+        _ candidate: DisplayNameSource,
+        over current: DisplayNameSource?
+    ) -> Bool {
+        guard let current else { return true }
+        return candidate.priority < current.priority
+    }
+
+    private func shouldAcceptInstrumentType(
+        _ candidate: InstrumentType?,
+        over current: InstrumentType?
+    ) -> Bool {
+        guard let candidate, candidate != .other else { return false }
+        return current == nil || current == .other
     }
 
     private static var localizedDefaultGroupName: String {

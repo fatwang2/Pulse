@@ -393,7 +393,26 @@ final class AppState {
         guard menuTrackingDepth == 0, !pendingPushes.isEmpty else { return }
         let batch = Array(pendingPushes.values)
         pendingPushes = [:]
+        applyQuoteNameUpgrades(batch)
         market.applyStreamed(batch)
+    }
+
+    private func applyQuoteNameUpgrades(_ quotes: [Quote]) {
+        for quote in quotes {
+            guard let name = quote.name,
+                  let providerID = quote.sourceID,
+                  let source = provider.displayNameSource(
+                    for: providerID,
+                    market: quote.symbol.market
+                  ) else {
+                continue
+            }
+            watchlist.upgradeDisplayName(
+                for: quote.symbol,
+                to: name,
+                source: source
+            )
+        }
     }
 
     @ObservationIgnored private var menuTrackingDepth = 0
@@ -463,6 +482,24 @@ final class AppState {
     /// Errors are surfaced by the UI (to distinguish "no results" from "provider error")
     func search(_ query: String) async throws -> [SymbolInfo] {
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
-        return try await provider.search(query)
+        var results = try await provider.search(query)
+        guard !results.isEmpty,
+              let preferredNames = try? await provider.preferredSecurityNames(
+                for: results.map(\.symbol)
+              ) else {
+            return results
+        }
+        let namesBySymbol = Dictionary(
+            uniqueKeysWithValues: preferredNames.map { ($0.symbol, $0) }
+        )
+        for index in results.indices {
+            guard let preferred = namesBySymbol[results[index].symbol] else { continue }
+            let currentPriority = results[index].displayNameSource?.priority ?? Int.max
+            if preferred.source.priority <= currentPriority {
+                results[index].name = preferred.name
+                results[index].displayNameSource = preferred.source
+            }
+        }
+        return results
     }
 }

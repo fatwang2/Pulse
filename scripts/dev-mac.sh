@@ -5,12 +5,48 @@ set -euo pipefail
 MODE="${1:-run}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DERIVED_DATA="$ROOT_DIR/build/DerivedData"
-APP_NAME="Pulse Dev"
-APP_BUNDLE="$DERIVED_DATA/Build/Products/Debug/$APP_NAME.app"
-APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 BUNDLE_ID="app.pulse.mac.dev"
+CONFIGURATION="Debug"
+APP_NAME="Pulse Dev"
+RELEASE_BUILD=0
 
-pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+# Use a complete Xcode for project builds without changing the machine-wide
+# xcode-select setting. CommandLineTools alone exposes xcodebuild but cannot run it.
+if [[ -z "${DEVELOPER_DIR:-}" ]]; then
+  ACTIVE_DEVELOPER_DIR="$(xcode-select -p 2>/dev/null || true)"
+  if [[ ! -d "$ACTIVE_DEVELOPER_DIR/Platforms/MacOSX.platform" ]]; then
+    for XCODE_DEVELOPER_DIR in \
+      "/Applications/Xcode.app/Contents/Developer" \
+      "/Applications/Xcode-beta.app/Contents/Developer"
+    do
+      if [[ -x "$XCODE_DEVELOPER_DIR/usr/bin/xcodebuild" ]]; then
+        export DEVELOPER_DIR="$XCODE_DEVELOPER_DIR"
+        break
+      fi
+    done
+  fi
+fi
+
+case "$MODE" in
+  --release|release|--release-verify|--release-sdk|release-sdk|--release-sdk-verify|--release-sdk-live-selftest|--release-sdk-watchlist-selftest|--release-sdk-stability-selftest)
+    CONFIGURATION="Release"
+    APP_NAME="Pulse"
+    BUNDLE_ID="app.pulse.mac"
+    RELEASE_BUILD=1
+    ;;
+esac
+
+APP_BUNDLE="$DERIVED_DATA/Build/Products/$CONFIGURATION/$APP_NAME.app"
+APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+
+if [[ "$RELEASE_BUILD" == "1" ]]; then
+  # Avoid running Debug and Release simultaneously with the same Longbridge
+  # credentials, which could consume multiple quote connections.
+  pkill -x "Pulse" >/dev/null 2>&1 || true
+  pkill -x "Pulse Dev" >/dev/null 2>&1 || true
+else
+  pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+fi
 
 signing_arguments() {
   local identity_line identity certificate_subject team_id
@@ -47,13 +83,24 @@ done < <(signing_arguments)
 
 cd "$ROOT_DIR"
 xcodegen generate
+
+XCODE_ARGS=(
+  "ENABLE_USER_SCRIPT_SANDBOXING=NO"
+)
+if [[ "$RELEASE_BUILD" == "1" ]]; then
+  XCODE_ARGS+=(
+    "ENABLE_HARDENED_RUNTIME=YES"
+  )
+fi
+
 xcodebuild \
   -project Pulse.xcodeproj \
   -scheme PulseMac \
-  -configuration Debug \
+  -configuration "$CONFIGURATION" \
   -derivedDataPath "$DERIVED_DATA" \
   TELEMETRYDECK_APP_ID="${TELEMETRYDECK_APP_ID:-}" \
   "${SIGNING_ARGS[@]}" \
+  "${XCODE_ARGS[@]}" \
   build
 
 open_app() {
@@ -63,6 +110,23 @@ open_app() {
 case "$MODE" in
   run)
     open_app
+    ;;
+  --release|release|--release-sdk|release-sdk)
+    open_app
+    ;;
+  --release-verify|--release-sdk-verify)
+    open_app
+    sleep 1
+    pgrep -x "$APP_NAME" >/dev/null
+    ;;
+  --release-sdk-live-selftest)
+    "$APP_BINARY" --longbridge-sdk-live-selftest
+    ;;
+  --release-sdk-watchlist-selftest)
+    "$APP_BINARY" --longbridge-sdk-watchlist-selftest
+    ;;
+  --release-sdk-stability-selftest)
+    "$APP_BINARY" --longbridge-sdk-stability-selftest
     ;;
   --debug|debug)
     lldb -- "$APP_BINARY"
@@ -75,13 +139,28 @@ case "$MODE" in
     open_app
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
+  --longbridge-plugin-state-selftest)
+    "$APP_BINARY" --longbridge-plugin-state-selftest
+    ;;
+  --longbridge-plugin-selftest)
+    "$APP_BINARY" --longbridge-plugin-selftest
+    ;;
+  --longbridge-sdk-live-selftest)
+    "$APP_BINARY" --longbridge-sdk-live-selftest
+    ;;
+  --longbridge-sdk-watchlist-selftest)
+    "$APP_BINARY" --longbridge-sdk-watchlist-selftest
+    ;;
+  --longbridge-sdk-stability-selftest)
+    "$APP_BINARY" --longbridge-sdk-stability-selftest
+    ;;
   --verify|verify)
     open_app
     sleep 1
     pgrep -x "$APP_NAME" >/dev/null
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--release|--release-verify|--release-sdk-live-selftest|--release-sdk-watchlist-selftest|--release-sdk-stability-selftest|--longbridge-plugin-state-selftest|--longbridge-plugin-selftest|--longbridge-sdk-live-selftest|--longbridge-sdk-watchlist-selftest|--longbridge-sdk-stability-selftest]" >&2
     exit 2
     ;;
 esac

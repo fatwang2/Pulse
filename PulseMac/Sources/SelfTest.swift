@@ -1,4 +1,5 @@
 import AppKit
+import Dispatch
 import Foundation
 import SwiftUI
 import PulseCore
@@ -6,7 +7,296 @@ import PulseCore
 /// In-sandbox data pipeline self-test: `./Pulse.app/Contents/MacOS/Pulse --selftest`
 /// Unlike the CLI unit tests, this runs in the app's real sandbox/signing/network environment.
 enum SelfTest {
+    private actor LongbridgeSDKStabilityMetrics {
+        private var seedCount = 0
+        private var pushCount = 0
+        private var latestPushPrice: Double?
+        private var streamError: String?
+
+        func recordSeed() {
+            seedCount += 1
+        }
+
+        func recordPush(_ quote: Quote) {
+            pushCount += 1
+            latestPushPrice = quote.price
+        }
+
+        func recordStreamError(_ error: any Error) {
+            streamError = String(describing: error)
+        }
+
+        func snapshot() -> (seeds: Int, pushes: Int, latestPushPrice: Double?, streamError: String?) {
+            (seedCount, pushCount, latestPushPrice, streamError)
+        }
+    }
+
+    private static func longbridgeSelfTestAuth() throws -> LongbridgeAuth {
+        if let tokens = LongbridgeCredentialStore.loadOAuthTokens() {
+            let session = LongbridgeOAuthSession(tokens: tokens) { rotated in
+                try? LongbridgeCredentialStore.saveOAuthTokens(rotated)
+            }
+            return .oauth(session)
+        }
+        if let credentials = LongbridgeCredentialStore.load(), credentials.isComplete {
+            return .apiKey(credentials)
+        }
+        throw LongbridgeError.notConfigured
+    }
     static func runIfRequested() {
+        if CommandLine.arguments.contains("--longbridge-sdk-live-selftest") {
+            Task.detached {
+                do {
+                    let auth = try longbridgeSelfTestAuth()
+                    let provider = LongbridgeProvider(auth: auth)
+                    await provider.updateAuth(auth)
+                    let routedProvider = CompositeProvider(
+                        providers: [provider, TencentProvider(), YahooProvider()]
+                    )
+                    let symbols = [
+                        SymbolID(market: .hk, code: "700"),
+                        SymbolID(market: .us, code: "AAPL"),
+                    ]
+                    let quotes = try await routedProvider.quotes(for: symbols)
+                    let candles = try await provider.candles(
+                        for: symbols[0],
+                        period: .minute1,
+                        count: 5
+                    )
+                    let health = await routedProvider.healthReport()
+                    let routedThroughLongbridge = quotes.allSatisfy {
+                        $0.sourceID == LongbridgeProvider.providerID
+                    }
+                    guard quotes.count == symbols.count,
+                          !candles.isEmpty,
+                          routedThroughLongbridge,
+                          health[LongbridgeProvider.providerID] == "healthy" else {
+                        throw ProviderError.badResponse(
+                            "SDK routing check failed: quotes=\(quotes.count)/\(symbols.count), " +
+                            "candles=\(candles.count), sources=\(quotes.compactMap(\.sourceID)), " +
+                            "health=\(health)"
+                        )
+                    }
+                    let quoteSummary = quotes
+                        .map { "\($0.symbol)=\(String(format: "%.4f", $0.price))" }
+                        .joined(separator: ",")
+                    print(
+                        "PULSE_LONGBRIDGE_SDK_LIVE_SELFTEST ok " +
+                        "transport=official-sdk-v4.4.1 quotes=\(quoteSummary) " +
+                        "candles=\(candles.count) routing=longbridge health=healthy"
+                    )
+                    fflush(stdout)
+                    exit(0)
+                } catch {
+                    print("PULSE_LONGBRIDGE_SDK_LIVE_SELFTEST failed error=\(error)")
+                    fflush(stdout)
+                    exit(1)
+                }
+            }
+            dispatchMain()
+        }
+
+        if CommandLine.arguments.contains("--longbridge-sdk-watchlist-selftest") {
+            Task.detached {
+                do {
+                    let auth = try longbridgeSelfTestAuth()
+                    let provider = LongbridgeProvider(auth: auth)
+                    await provider.updateAuth(auth)
+                    let routedProvider = CompositeProvider(
+                        providers: [provider, TencentProvider(), YahooProvider()]
+                    )
+
+                    let storedSymbols = await MainActor.run { WatchlistStore().symbols }
+                    let probes = [
+                        SymbolID(index: .nasdaqComposite),
+                        SymbolID(index: .dowJonesIndustrial),
+                        SymbolID(index: .sp500),
+                        SymbolID(index: .russell1000),
+                        SymbolID(index: .hangSengTech),
+                        SymbolID(index: .chiNext),
+                        SymbolID(market: .us, code: "COLO"),
+                        SymbolID(market: .us, code: "USO"),
+                    ]
+                    var symbols = storedSymbols.filter { $0.market != .crypto }
+                    for symbol in probes where !symbols.contains(symbol) {
+                        symbols.append(symbol)
+                    }
+
+                    let quotes = try await routedProvider.quotes(for: symbols)
+                    try await provider.debugSDKSubscriptionRoundTrip(for: symbols)
+
+                    var candleCounts: [String: Int] = [:]
+                    for symbol in probes {
+                        candleCounts[symbol.description] = try await routedProvider.candles(
+                            for: symbol,
+                            period: .day,
+                            count: 2
+                        ).count
+                    }
+
+                    let quoteBySymbol = Dictionary(uniqueKeysWithValues: quotes.map { ($0.symbol, $0) })
+                    let expectedLongbridge = probes.filter {
+                        $0.indexID != .russell1000 && $0.indexID != .russell2000
+                    }
+                    let incorrectlyRouted = expectedLongbridge.filter {
+                        quoteBySymbol[$0]?.sourceID != LongbridgeProvider.providerID
+                    }
+                    let unsupportedIndex = SymbolID(index: .russell1000)
+                    let health = await routedProvider.healthReport()
+                    let statusUpdates = await provider.connectionStatusUpdates()
+                    var statusIterator = statusUpdates.makeAsyncIterator()
+                    let connectionStatus = await statusIterator.next()
+
+                    guard incorrectlyRouted.isEmpty,
+                          quoteBySymbol[unsupportedIndex]?.sourceID == "yahoo",
+                          candleCounts.values.allSatisfy({ $0 > 0 }),
+                          health[LongbridgeProvider.providerID] == "healthy",
+                          connectionStatus == .connected else {
+                        throw ProviderError.badResponse(
+                            "SDK watchlist check failed: quotes=\(quotes.count)/\(symbols.count), " +
+                            "wrongRoutes=\(incorrectlyRouted), ruiSource=" +
+                            "\(quoteBySymbol[unsupportedIndex]?.sourceID ?? "none"), " +
+                            "candles=\(candleCounts), health=\(health), " +
+                            "connection=\(String(describing: connectionStatus))"
+                        )
+                    }
+
+                    let fallbackSymbols = quotes
+                        .filter { $0.sourceID != LongbridgeProvider.providerID }
+                        .map { $0.symbol.description }
+                        .sorted()
+                    print(
+                        "PULSE_LONGBRIDGE_SDK_WATCHLIST_SELFTEST ok " +
+                        "stored=\(storedSymbols.count) tested=\(symbols.count) " +
+                        "quotes=\(quotes.count) longbridgeHealth=healthy connection=connected " +
+                        "fallbackOnly=\(fallbackSymbols.joined(separator: ",")) " +
+                        "candles=\(candleCounts)"
+                    )
+                    fflush(stdout)
+                    exit(0)
+                } catch {
+                    print("PULSE_LONGBRIDGE_SDK_WATCHLIST_SELFTEST failed error=\(error)")
+                    fflush(stdout)
+                    exit(1)
+                }
+            }
+            dispatchMain()
+        }
+
+        if CommandLine.arguments.contains("--longbridge-sdk-stability-selftest") {
+            Task.detached {
+                do {
+                    let auth = try longbridgeSelfTestAuth()
+                    let provider = LongbridgeProvider(auth: auth)
+                    await provider.updateAuth(auth)
+
+                    let symbol = SymbolID(market: .hk, code: "700")
+                    try await provider.debugSDKSubscriptionRoundTrip(for: [symbol])
+                    guard let stream = provider.quoteStream(for: [symbol]) else {
+                        throw ProviderError.unsupported(.streaming)
+                    }
+
+                    let metrics = LongbridgeSDKStabilityMetrics()
+                    let streamTask = Task {
+                        var isSeed = true
+                        do {
+                            for try await quote in stream {
+                                if isSeed {
+                                    await metrics.recordSeed()
+                                    isSeed = false
+                                } else {
+                                    await metrics.recordPush(quote)
+                                }
+                            }
+                        } catch is CancellationError {
+                            // Expected when the bounded stability window ends.
+                        } catch {
+                            await metrics.recordStreamError(error)
+                        }
+                    }
+
+                    var latestPullPrice = 0.0
+                    var candleCount = 0
+                    let sampleCount = 12
+                    for sample in 1...sampleCount {
+                        guard let quote = try await provider.quotes(for: [symbol]).first else {
+                            throw ProviderError.badResponse("SDK returned no quote for \(symbol)")
+                        }
+                        latestPullPrice = quote.price
+                        if sample == 1 {
+                            candleCount = try await provider.candles(
+                                for: symbol,
+                                period: .minute1,
+                                count: 5
+                            ).count
+                        }
+                        print(
+                            "PULSE_LONGBRIDGE_SDK_STABILITY sample=\(sample)/\(sampleCount) " +
+                            "price=\(String(format: "%.4f", quote.price))"
+                        )
+                        fflush(stdout)
+                        if sample < sampleCount {
+                            try await Task.sleep(for: .seconds(5))
+                        }
+                    }
+
+                    streamTask.cancel()
+                    await streamTask.value
+                    let result = await metrics.snapshot()
+                    if let streamError = result.streamError {
+                        throw ProviderError.badResponse("SDK stream failed: \(streamError)")
+                    }
+                    guard result.seeds == 1, result.pushes > 0, candleCount > 0 else {
+                        throw ProviderError.badResponse(
+                            "SDK stability incomplete: seeds=\(result.seeds), " +
+                            "pushes=\(result.pushes), candles=\(candleCount)"
+                        )
+                    }
+
+                    print(
+                        "PULSE_LONGBRIDGE_SDK_STABILITY ok transport=official-sdk-v4.4.1 " +
+                        "duration=55s pulls=\(sampleCount) pushes=\(result.pushes) " +
+                        "pullPrice=\(String(format: "%.4f", latestPullPrice)) " +
+                        "pushPrice=\(String(format: "%.4f", result.latestPushPrice ?? 0)) " +
+                        "candles=\(candleCount)"
+                    )
+                    fflush(stdout)
+                    exit(0)
+                } catch {
+                    print("PULSE_LONGBRIDGE_SDK_STABILITY failed error=\(error)")
+                    fflush(stdout)
+                    exit(1)
+                }
+            }
+            dispatchMain()
+        }
+
+        if CommandLine.arguments.contains("--longbridge-plugin-state-selftest") {
+            let loaded = LongbridgePluginDebugProbe.isLoaded()
+            print("PULSE_LONGBRIDGE_PLUGIN_STATE loaded=\(loaded)")
+            fflush(stdout)
+            exit(loaded ? 1 : 0)
+        }
+
+        if CommandLine.arguments.contains("--longbridge-plugin-selftest") {
+            do {
+                let result = try LongbridgePluginDebugProbe.loadAndValidate()
+                print(
+                    "PULSE_LONGBRIDGE_PLUGIN_SELFTEST ok " +
+                    "sdk=\(result.sdkVersion) commit=\(result.sdkCommit) " +
+                    "initiallyLoaded=\(result.wasLoadedBeforeProbe) " +
+                    "nowLoaded=\(result.isLoadedAfterProbe) " +
+                    "symbols=\(result.symbols.joined(separator: ",")) " +
+                    "path=\(result.executablePath)"
+                )
+                fflush(stdout)
+                exit(0)
+            } catch {
+                print("PULSE_LONGBRIDGE_PLUGIN_SELFTEST failed error=\(error.localizedDescription)")
+                fflush(stdout)
+                exit(1)
+            }
+        }
         if CommandLine.arguments.contains("--share-selftest") {
             Task { @MainActor in
                 exit(runShareImageTest() ? 0 : 1)

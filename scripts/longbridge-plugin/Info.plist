@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>PulseLongbridgePlugin</string>
+	<key>CFBundleIdentifier</key>
+	<string>app.pulse.longbridge-plugin</string>
+	<key>CFBundleName</key>
+	<string>Pulse Longbridge Plugin</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>4.4.1</string>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>MacOSX</string>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+	<key>LongbridgeSDKCommit</key>
+	<string>bc33287274d69a4617ab7a78167625e44ad83eb2</string>
+	<key>LongbridgeSDKVersion</key>
+	<string>4.4.1</string>
+	<key>PulsePluginAPIVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>

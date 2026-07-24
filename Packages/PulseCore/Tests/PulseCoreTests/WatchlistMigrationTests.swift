@@ -16,6 +16,19 @@ struct WatchlistMigrationTests {
         var lots: [CostLot]
     }
 
+    private struct LegacyWatchlistGroup: Codable {
+        var id: UUID
+        var name: String
+        var symbols: [LegacySymbol]
+        var manualOrder: [LegacySymbol]?
+    }
+
+    private struct LegacySnapshot: Codable {
+        var items: [LegacyWatchItem]
+        var groups: [LegacyWatchlistGroup]
+        var selectedGroupID: UUID?
+    }
+
     @MainActor
     @Test("Legacy BTC-USD watchlist and manual order migrate without losing positions")
     func legacyCryptoWatchlist() throws {
@@ -57,6 +70,59 @@ struct WatchlistMigrationTests {
         #expect(reloaded.groups.count == 1)
         #expect(reloaded.items.first?.lots == [lot])
         #expect(reloaded.selectedGroup?.name == "自选")
+    }
+
+    @MainActor
+    @Test("Legacy provider aliases merge into one canonical index without losing lots")
+    func legacyIndexAliasesMerge() throws {
+        let suiteName = "WatchlistIndexMigrationTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let yahooAlias = LegacySymbol(market: .us, code: "^GSPC")
+        let longbridgeAlias = LegacySymbol(market: .us, code: "^SPX")
+        let firstLot = CostLot(price: 6_000, quantity: 1)
+        let secondLot = CostLot(price: 6_500, quantity: 2)
+        let groupID = UUID()
+        let snapshot = LegacySnapshot(
+            items: [
+                LegacyWatchItem(
+                    symbol: yahooAlias,
+                    displayName: "S&P 500",
+                    addedAt: Date(timeIntervalSince1970: 100),
+                    lots: [firstLot]
+                ),
+                LegacyWatchItem(
+                    symbol: longbridgeAlias,
+                    displayName: "标普500",
+                    addedAt: Date(timeIntervalSince1970: 200),
+                    lots: [secondLot]
+                ),
+            ],
+            groups: [
+                LegacyWatchlistGroup(
+                    id: groupID,
+                    name: "指数",
+                    symbols: [yahooAlias, longbridgeAlias],
+                    manualOrder: [longbridgeAlias, yahooAlias]
+                ),
+            ],
+            selectedGroupID: groupID
+        )
+        defaults.set(try JSONEncoder().encode(snapshot), forKey: "pulse.watchlists.v2")
+
+        let store = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        let item = try #require(store.allItems.first)
+
+        #expect(store.allItems.count == 1)
+        #expect(item.symbol == SymbolID(index: .sp500))
+        #expect(Set(item.lots.map(\.id)) == Set([firstLot.id, secondLot.id]))
+        #expect(store.selectedGroup?.symbols == [SymbolID(index: .sp500)])
+        #expect(store.selectedGroup?.manualOrder == [SymbolID(index: .sp500)])
+
+        let reloaded = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        #expect(reloaded.allItems.first?.symbol.indexID == .sp500)
+        #expect(reloaded.allItems.first?.lots.count == 2)
     }
 
     @MainActor

@@ -292,9 +292,8 @@ public actor LongbridgeOAuthAuthenticator {
     }
 }
 
-/// Owns live OAuth tokens for the quote connection: refreshes ahead of expiry and pushes
-/// every rotation to the persistence hook before use, then mints socket OTPs with the
-/// fresh bearer.
+/// Owns live OAuth tokens for the official SDK: refreshes ahead of expiry and
+/// persists every rotation before the SDK creates a new quote context.
 public actor LongbridgeOAuthSession {
     private var tokens: LongbridgeOAuthTokens
     private let persist: @Sendable (LongbridgeOAuthTokens) -> Void
@@ -304,33 +303,14 @@ public actor LongbridgeOAuthSession {
         self.persist = persist
     }
 
-    public func fetchSocketOTP() async throws -> String {
-        let bearer = try await freshAccessToken()
-        var request = URLRequest(url: LongbridgeOAuthAuthenticator.host.appending(path: "/v1/socket/token"))
-        request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
-        let (data, response): (Data, URLResponse)
-        do {
-            (data, response) = try await URLSession.shared.data(for: request)
-        } catch {
-            throw ProviderError.network(underlying: error.localizedDescription)
-        }
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw ProviderError.badResponse("OTP request failed (HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1))")
-        }
-        struct Envelope: Decodable {
-            struct Payload: Decodable { var otp: String }
-            var code: Int
-            var data: Payload?
-        }
-        let envelope = try JSONDecoder().decode(Envelope.self, from: data)
-        guard envelope.code == 0, let otp = envelope.data?.otp else {
-            throw LongbridgeError.api(code: envelope.code, message: "socket token rejected")
-        }
-        return otp
+    /// Supplies the official SDK with a token that will not expire while its quote
+    /// context is being established.
+    public func accessTokenForSDK() async throws -> String {
+        try await freshAccessToken(refreshLeeway: 300)
     }
 
-    private func freshAccessToken() async throws -> String {
-        if tokens.expiresAt.timeIntervalSinceNow > 60 {
+    private func freshAccessToken(refreshLeeway: TimeInterval = 60) async throws -> String {
+        if tokens.expiresAt.timeIntervalSinceNow > refreshLeeway {
             return tokens.accessToken
         }
         let refreshed = try await LongbridgeOAuthAuthenticator.refresh(tokens)

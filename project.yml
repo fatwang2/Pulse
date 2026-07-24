@@ -63,6 +63,12 @@ targets:
         com.apple.security.temporary-exception.mach-lookup.global-name:
           - $(PRODUCT_BUNDLE_IDENTIFIER)-spks
           - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
+    postBuildScripts:
+      - name: Embed Longbridge SDK Plugin
+        shell: /bin/bash
+        basedOnDependencyAnalysis: false
+        script: |
+          "$SRCROOT/scripts/build-longbridge-plugin.sh"
     settings:
       base:
         MARKETING_VERSION: "0.5.1"
@@ -83,6 +89,7 @@ targets:
           BUNDLE_DISPLAY_NAME: Pulse Dev
           PRODUCT_BUNDLE_IDENTIFIER: app.pulse.mac.dev
           ENABLE_HARDENED_RUNTIME: false
+          ENABLE_USER_SCRIPT_SANDBOXING: false
         Release:
           PRODUCT_NAME: Pulse
           BUNDLE_DISPLAY_NAME: Pulse

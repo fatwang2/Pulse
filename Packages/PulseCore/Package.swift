@@ -8,7 +8,13 @@ let package = Package(
         .library(name: "PulseCore", targets: ["PulseCore"])
     ],
     targets: [
-        .target(name: "PulseCore"),
+        .target(name: "LongbridgeCABI"),
+        .target(
+            name: "PulseCore",
+            dependencies: [
+                .target(name: "LongbridgeCABI", condition: .when(platforms: [.macOS]))
+            ]
+        ),
         .testTarget(name: "PulseCoreTests", dependencies: ["PulseCore"])
     ]
 )

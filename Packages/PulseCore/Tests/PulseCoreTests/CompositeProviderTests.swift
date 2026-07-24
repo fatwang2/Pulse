@@ -17,6 +17,7 @@ struct MockProvider: QuoteProvider {
     var delay: [Market: TimeInterval] = [:]
     var markets: Set<Market> = Set(Market.allCases)
     var supportsStreaming = false
+    var omittedQuoteCodes: Set<String> = []
 
     var descriptor: ProviderDescriptor {
         var capabilities: Set<Capability> = [.search, .quotes, .candles]
@@ -39,7 +40,9 @@ struct MockProvider: QuoteProvider {
 
     func quotes(for symbols: [SymbolID]) async throws -> [Quote] {
         if let quoteError { throw quoteError }
-        return symbols.map { Quote(symbol: $0, price: quotePrice, previousClose: 99) }
+        return symbols
+            .filter { !omittedQuoteCodes.contains($0.code) }
+            .map { Quote(symbol: $0, price: quotePrice, previousClose: 99) }
     }
 
     func candles(for symbol: SymbolID, period: CandlePeriod, count: Int) async throws -> [Candle] {
@@ -257,6 +260,57 @@ struct CompositeProviderTests {
         await #expect(throws: ProviderError.self) {
             _ = try await composite.quotes(for: [bitcoin])
         }
+    }
+
+    @Test("A symbol omitted by Longbridge falls back alone without cooling the provider")
+    func partialLongbridgeQuotesFallBackPerSymbol() async throws {
+        let longbridge = MockProvider(
+            id: LongbridgeProvider.providerID,
+            quotePrice: 100,
+            markets: [.us, .hk, .sh, .sz],
+            omittedQuoteCodes: ["RUI"]
+        )
+        let yahoo = MockProvider(id: "yahoo", quotePrice: 200)
+        let composite = CompositeProvider(providers: [longbridge, yahoo])
+        let apple = SymbolID(market: .us, code: "AAPL")
+        let russell = SymbolID(market: .us, code: "^RUI")
+
+        let quotes = try await composite.quotes(for: [apple, russell])
+        let health = await composite.healthReport()
+
+        #expect(quotes.first(where: { $0.symbol == apple })?.sourceID == LongbridgeProvider.providerID)
+        #expect(quotes.first(where: { $0.symbol == russell })?.sourceID == "yahoo")
+        #expect(health[LongbridgeProvider.providerID] == "healthy")
+    }
+
+    @Test("Search deduplicates provider-specific aliases for the same index")
+    func searchDeduplicatesCanonicalIndexAliases() async throws {
+        let tencent = MockProvider(
+            id: "tencent",
+            searchResults: [
+                SymbolInfo(
+                    symbol: SymbolID(market: .us, code: "INX"),
+                    name: "标普500",
+                    type: .index
+                ),
+            ]
+        )
+        let yahoo = MockProvider(
+            id: "yahoo",
+            searchResults: [
+                SymbolInfo(
+                    symbol: SymbolID(market: .us, code: "^GSPC"),
+                    name: "S&P 500",
+                    type: .index
+                ),
+            ]
+        )
+        let composite = CompositeProvider(providers: [tencent, yahoo])
+
+        let results = try await composite.search("S&P 500")
+
+        #expect(results.count == 1)
+        #expect(results.first?.symbol == SymbolID(index: .sp500))
     }
 
     @Test("Streaming sources are merged by market")

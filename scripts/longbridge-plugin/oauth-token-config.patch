@@ -1,0 +1,33 @@
+diff --git a/c/src/config.rs b/c/src/config.rs
+index 0b7f20c..d16930b 100644
+--- a/c/src/config.rs
++++ b/c/src/config.rs
+@@ -6,3 +6,3 @@ use std::{
+-
+-use longbridge::Config;
++
++use longbridge::{Config, oauth::OAuth};
+ use time::OffsetDateTime;
+@@ -90,2 +90,21 @@ pub unsafe extern "C" fn lb_config_from_oauth(oauth: *const COAuth) -> *mut CCon
+-
++
++/// Create a new `Config` from an OAuth access token obtained by the host app.
++///
++/// This Pulse Debug bridge keeps the official SDK responsible for endpoint
++/// selection, quote transport, reconnect, and resubscription while allowing
++/// Pulse's existing Keychain-backed OAuth flow to remain the token owner.
++///
++/// @param access_token  OAuth 2.0 bearer access token
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn lb_config_from_oauth_token(
++    access_token: *const c_char,
++) -> *mut CConfig {
++    let access_token = CStr::from_ptr(access_token)
++        .to_str()
++        .expect("invalid OAuth access token");
++    let oauth = OAuth::from_token(access_token);
++    let config = Config::from_oauth(oauth);
++    Box::into_raw(Box::new(CConfig(config)))
++}
++
+ // ── Config setters

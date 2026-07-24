@@ -26,13 +26,28 @@ public struct TencentProvider: QuoteProvider {
 
     // MARK: - Symbol mapping
 
-    static func tencentSymbol(for id: SymbolID) -> String {
+    static func tencentSymbol(for id: SymbolID) -> String? {
+        if let index = id.indexID {
+            return switch index {
+            case .sp500: "usINX"
+            case .nasdaqComposite: "usIXIC"
+            case .dowJonesIndustrial: "usDJI"
+            case .nasdaq100: "usNDX"
+            case .vix: "usVIX"
+            case .russell1000, .russell2000: nil
+            case .hangSeng: "hkHSI"
+            case .hangSengTech: "hkHSTECH"
+            case .shanghaiComposite: "sh000001"
+            case .shenzhenComponent: "sz399001"
+            case .chiNext: "sz399006"
+            }
+        }
         switch id.market {
-        case .us: "us" + id.code
-        case .hk: "hk" + id.paddedCode(width: 5)
-        case .sh: "sh" + id.code
-        case .sz: "sz" + id.code
-        case .crypto: id.code
+        case .us: return "us" + id.code
+        case .hk: return "hk" + id.paddedCode(width: 5)
+        case .sh: return "sh" + id.code
+        case .sz: return "sz" + id.code
+        case .crypto: return id.code
         }
     }
 
@@ -107,7 +122,9 @@ public struct TencentProvider: QuoteProvider {
             throw ProviderError.unsupported(.candles)
         }
 
-        let tencentSymbol = Self.tencentSymbol(for: symbol)
+        guard let tencentSymbol = Self.tencentSymbol(for: symbol) else {
+            throw ProviderError.symbolNotFound(symbol)
+        }
         var components = URLComponents(string: "https://web.ifzq.gtimg.cn/appstock/app/minute/query")!
         components.queryItems = [.init(name: "code", value: tencentSymbol)]
         let data = try await http.get(components.url!, headers: ["Referer": "https://gu.qq.com/"])
@@ -138,7 +155,10 @@ public struct TencentProvider: QuoteProvider {
         let batchSize = descriptor.rateLimit?.batchSize ?? 60
         var quotes: [Quote] = []
         for chunk in symbols.chunked(into: batchSize) {
-            let mapping = Dictionary(uniqueKeysWithValues: chunk.map { (Self.tencentSymbol(for: $0), $0) })
+            let mapping = Dictionary(uniqueKeysWithValues: chunk.compactMap { symbol in
+                Self.tencentSymbol(for: symbol).map { ($0, symbol) }
+            })
+            guard !mapping.isEmpty else { continue }
             let list = mapping.keys.sorted().joined(separator: ",")
             let url = URL(string: "https://qt.gtimg.cn/q=\(list)")!
             let data = try await http.get(url, headers: ["Referer": "https://gu.qq.com/"])

@@ -279,8 +279,27 @@ public final class WatchlistStore {
     }
 
     private func normalizeLoadedState() {
-        var seenSymbols: Set<SymbolID> = []
-        allItems = allItems.filter { seenSymbols.insert($0.symbol).inserted }
+        // Provider-specific legacy index aliases can now decode to the same
+        // canonical SymbolID. Merge them instead of dropping the later entry and
+        // silently losing any position lots attached to it.
+        var normalizedItems: [WatchItem] = []
+        var itemIndexBySymbol: [SymbolID: Int] = [:]
+        for item in allItems {
+            if let existingIndex = itemIndexBySymbol[item.symbol] {
+                var existingLotIDs = Set(normalizedItems[existingIndex].lots.map(\.id))
+                normalizedItems[existingIndex].lots.append(
+                    contentsOf: item.lots.filter { existingLotIDs.insert($0.id).inserted }
+                )
+                normalizedItems[existingIndex].addedAt = min(
+                    normalizedItems[existingIndex].addedAt,
+                    item.addedAt
+                )
+            } else {
+                itemIndexBySymbol[item.symbol] = normalizedItems.count
+                normalizedItems.append(item)
+            }
+        }
+        allItems = normalizedItems
         if groups.isEmpty {
             groups = [WatchlistGroup(name: initialGroupName, symbols: allItems.map(\.symbol))]
         }

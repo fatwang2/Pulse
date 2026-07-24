@@ -26,6 +26,22 @@ public struct YahooProvider: QuoteProvider {
     // MARK: - Symbol mapping
 
     static func yahooSymbol(for id: SymbolID) -> String {
+        if let index = id.indexID {
+            return switch index {
+            case .sp500: "^GSPC"
+            case .nasdaqComposite: "^IXIC"
+            case .dowJonesIndustrial: "^DJI"
+            case .nasdaq100: "^NDX"
+            case .vix: "^VIX"
+            case .russell1000: "^RUI"
+            case .russell2000: "^RUT"
+            case .hangSeng: "^HSI"
+            case .hangSengTech: "^HSTECH"
+            case .shanghaiComposite: "000001.SS"
+            case .shenzhenComponent: "399001.SZ"
+            case .chiNext: "399006.SZ"
+            }
+        }
         switch id.market {
         case .us: return id.code
         case .hk: return id.paddedCode(width: 4) + ".HK"
@@ -37,6 +53,22 @@ public struct YahooProvider: QuoteProvider {
 
     static func symbolID(fromYahoo raw: String) -> SymbolID? {
         let upper = raw.uppercased()
+        let index: MarketIndexID? = switch upper {
+        case "^GSPC": .sp500
+        case "^IXIC": .nasdaqComposite
+        case "^DJI": .dowJonesIndustrial
+        case "^NDX": .nasdaq100
+        case "^VIX": .vix
+        case "^RUI": .russell1000
+        case "^RUT": .russell2000
+        case "^HSI": .hangSeng
+        case "^HSTECH": .hangSengTech
+        case "000001.SS": .shanghaiComposite
+        case "399001.SZ": .shenzhenComponent
+        case "399006.SZ": .chiNext
+        default: nil
+        }
+        if let index { return SymbolID(index: index) }
         if upper.hasSuffix(".HK") { return SymbolID(market: .hk, code: String(upper.dropLast(3))) }
         if upper.hasSuffix(".SS") { return SymbolID(market: .sh, code: String(upper.dropLast(3))) }
         if upper.hasSuffix(".SZ") { return SymbolID(market: .sz, code: String(upper.dropLast(3))) }

@@ -122,7 +122,7 @@ public actor CompositeProvider: QuoteProvider {
             return binance
         }
         // A user-keyed real-time source outranks the free delayed feeds whenever it is available.
-        if let longbridge = providers.first(where: { $0.descriptor.id == LongbridgeProvider.providerID }) {
+        if let longbridge = providers.first(where: { $0.descriptor.id == "longbridge" }) {
             return longbridge
         }
         if market == .us, let yahoo = providers.first(where: { $0.descriptor.id == "yahoo" }) {
@@ -221,19 +221,36 @@ public actor CompositeProvider: QuoteProvider {
             } catch {
                 noteFailure(id, error)
                 lastError = error
-                // Fall back per market to the next available provider for this group
-                for (market, marketSymbols) in Dictionary(grouping: group, by: \.market) {
-                    guard let fallback = candidates(.quotes, market: market)
-                        .first(where: { $0.descriptor.id != id }) else { continue }
-                    if let recovered = try? await fallbackQuotes(
-                        from: fallback,
-                        for: marketSymbols
-                    ) {
+            }
+
+            // A provider may legally return a partial batch (for example Longbridge
+            // does not carry every Yahoo index). Recover only the omitted symbols,
+            // keeping successful Longbridge quotes and its circuit healthy.
+            let unresolved = group.filter { quotesBySymbol[$0] == nil }
+            for (market, marketSymbols) in Dictionary(grouping: unresolved, by: \.market) {
+                var remaining = marketSymbols
+                var attemptedIDs: Set<String> = [id]
+                while !remaining.isEmpty {
+                    let available = candidates(.quotes, market: market)
+                        .filter { !attemptedIDs.contains($0.descriptor.id) }
+                    guard let fallback = preferredQuoteProvider(for: market, among: available) else {
+                        break
+                    }
+                    let fallbackID = fallback.descriptor.id
+                    attemptedIDs.insert(fallbackID)
+                    do {
+                        let recovered = try await fallbackQuotes(from: fallback, for: remaining)
                         for quote in recovered {
                             quoteCache[quote.symbol] = CacheEntry(value: quote)
                             quotesBySymbol[quote.symbol] = quote
                         }
                         result += recovered
+                        remaining.removeAll { quotesBySymbol[$0] != nil }
+                    } catch is CancellationError {
+                        throw CancellationError()
+                    } catch {
+                        noteFailure(fallbackID, error)
+                        lastError = error
                     }
                 }
             }

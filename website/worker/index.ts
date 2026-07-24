@@ -3,13 +3,13 @@ import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } fr
 import handler from "vinext/server/app-router-entry";
 
 const latestDownload = {
-  version: "0.6.0",
-  fileName: "Pulse-0.6.0.dmg",
-  key: "releases/v0.6.0/Pulse-0.6.0.dmg",
+  version: "0.6.1",
+  fileName: "Pulse-0.6.1.dmg",
+  key: "releases/v0.6.1/Pulse-0.6.1.dmg",
   sourceUrl:
-    "https://github.com/fatwang2/Pulse/releases/download/v0.6.0/Pulse-0.6.0.dmg",
-  size: 11_672_238,
-  sha256: "e94fdba7f8176a8a8bb6f2b3330abf83b6238aadd4f6cc7b5d90ccfa21e8a798",
+    "https://github.com/fatwang2/Pulse/releases/download/v0.6.1/Pulse-0.6.1.dmg",
+  size: 11_671_727,
+  sha256: "917fe6729f4e46394bb0b8eba329370295908d1829d916f8d05146db15d7018e",
 } as const;
 
 interface DownloadObject {

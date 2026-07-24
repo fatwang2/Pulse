@@ -43,7 +43,41 @@ enum SelfTest {
         }
         throw LongbridgeError.notConfigured
     }
+    @MainActor
     static func runIfRequested() {
+        if CommandLine.arguments.contains("--settings-persistence-selftest") {
+            let suiteName = "app.pulse.mac.settings-persistence-selftest"
+            guard let defaults = UserDefaults(suiteName: suiteName) else {
+                print("PULSE_SETTINGS_PERSISTENCE_SELFTEST failed error=unable-to-create-defaults")
+                fflush(stdout)
+                exit(1)
+            }
+            defaults.removePersistentDomain(forName: suiteName)
+
+            let configured = AppSettings(defaults: defaults)
+            configured.redUp = false
+            configured.watchRowMetricMode = .changePercent
+
+            let reloaded = AppSettings(defaults: defaults)
+            let passed = !reloaded.redUp && reloaded.watchRowMetricMode == .changePercent
+            defaults.removePersistentDomain(forName: suiteName)
+
+            guard passed else {
+                print(
+                    "PULSE_SETTINGS_PERSISTENCE_SELFTEST failed " +
+                    "redUp=\(reloaded.redUp) metric=\(reloaded.watchRowMetricMode.rawValue)"
+                )
+                fflush(stdout)
+                exit(1)
+            }
+            print(
+                "PULSE_SETTINGS_PERSISTENCE_SELFTEST ok " +
+                "redUp=false metric=changePercent"
+            )
+            fflush(stdout)
+            exit(0)
+        }
+
         if CommandLine.arguments.contains("--longbridge-sdk-live-selftest") {
             Task.detached {
                 do {

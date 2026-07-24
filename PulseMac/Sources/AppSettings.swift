@@ -129,16 +129,23 @@ final class AppSettings {
     }
 
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let storageKey = "pulse.settings.v1"
+    @ObservationIgnored private let storageKey: String
+    /// `@Observable` turns tracked properties into computed accessors, so assignments made
+    /// while this class is initializing can still reach their `didSet` observers. Suppress
+    /// persistence until every property has been restored to avoid replacing the stored
+    /// snapshot with declaration defaults before it has been read.
+    @ObservationIgnored private var isInitializing = true
 
-    init(defaults: UserDefaults = .standard) {
+    init(
+        defaults: UserDefaults = .standard,
+        storageKey: String = "pulse.settings.v1"
+    ) {
         self.defaults = defaults
-        languagePreference = PulseLocalization.currentPreference
+        self.storageKey = storageKey
         var loadedSnapshot = false
         if let data = defaults.data(forKey: storageKey),
            let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data) {
             loadedSnapshot = true
-            // Assignments in a class's init don't trigger didSet, so no redundant saves
             menuBarMode = snapshot.menuBarMode
             primarySymbol = snapshot.primarySymbol
             rotateInterval = snapshot.rotateInterval
@@ -158,8 +165,11 @@ final class AppSettings {
             languagePreference = snapshot.languagePreference ?? .system
             shareAnonymousUsageData = snapshot.shareAnonymousUsageData ?? true
             UserDefaults.standard.set(languagePreference.rawValue, forKey: PulseLocalization.languagePreferenceKey)
+        } else {
+            languagePreference = PulseLocalization.currentPreference
         }
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        isInitializing = false
         if loadedSnapshot {
             // Rewrite a legacy crypto primarySymbol using SymbolID's structured format.
             save()
@@ -181,6 +191,7 @@ final class AppSettings {
     }
 
     private func save() {
+        guard !isInitializing else { return }
         let snapshot = Snapshot(menuBarMode: menuBarMode, primarySymbol: primarySymbol,
                                 rotateInterval: rotateInterval,
                                 rotateGroupID: rotateGroupID,

@@ -103,7 +103,7 @@ struct DetailView: View {
                 route = .list
             }
             HStack(spacing: 6) {
-                Text(quote?.name ?? symbol.displayCode)
+                Text(appState.displayName(for: symbol))
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)

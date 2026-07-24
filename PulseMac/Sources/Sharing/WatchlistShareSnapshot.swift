@@ -72,7 +72,7 @@ struct WatchlistShareSnapshot {
             )
             return Row(
                 id: item.symbol,
-                name: quote?.name ?? item.displayName,
+                name: item.resolvedDisplayName,
                 market: item.symbol.market,
                 symbolCode: item.symbol.displayCode,
                 priceText: quote.map { PriceFormatter.price($0.price) } ?? "—",

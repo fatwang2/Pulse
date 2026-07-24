@@ -74,7 +74,7 @@ struct PositionEditorView: View {
             Text(PulseLocalization.localizedString("position.editTitle"))
                 .font(.headline)
             HStack(spacing: 5) {
-                Text(quote?.name ?? item.displayName)
+                Text(item.resolvedDisplayName)
                     .font(.subheadline)
                     .lineLimit(1)
                 Text(item.symbol.displayCode)

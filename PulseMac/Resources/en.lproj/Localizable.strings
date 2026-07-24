@@ -43,6 +43,19 @@
 
 "language.system" = "System Default";
 
+"index.sp500" = "S&P 500 Index";
+"index.nasdaqComposite" = "Nasdaq Composite";
+"index.dowJonesIndustrial" = "Dow Jones Industrial Average";
+"index.nasdaq100" = "Nasdaq 100 Index";
+"index.vix" = "CBOE Volatility Index";
+"index.russell1000" = "Russell 1000 Index";
+"index.russell2000" = "Russell 2000 Index";
+"index.hangSeng" = "Hang Seng Index";
+"index.hangSengTech" = "Hang Seng TECH Index";
+"index.shanghaiComposite" = "Shanghai Composite";
+"index.shenzhenComponent" = "Shenzhen Component Index";
+"index.chiNext" = "ChiNext Index";
+
 "market.hk" = "HK";
 "market.crypto" = "Crypto";
 "market.sh" = "SH";

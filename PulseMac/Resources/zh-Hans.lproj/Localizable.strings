@@ -43,6 +43,19 @@
 
 "language.system" = "跟随系统";
 
+"index.sp500" = "标普500指数";
+"index.nasdaqComposite" = "纳斯达克综合指数";
+"index.dowJonesIndustrial" = "道琼斯工业平均指数";
+"index.nasdaq100" = "纳斯达克100指数";
+"index.vix" = "CBOE波动率指数";
+"index.russell1000" = "罗素1000指数";
+"index.russell2000" = "罗素2000指数";
+"index.hangSeng" = "恒生指数";
+"index.hangSengTech" = "恒生科技指数";
+"index.shanghaiComposite" = "上证指数";
+"index.shenzhenComponent" = "深证成指";
+"index.chiNext" = "创业板指";
+
 "market.hk" = "港股";
 "market.crypto" = "加密";
 "market.sh" = "沪";

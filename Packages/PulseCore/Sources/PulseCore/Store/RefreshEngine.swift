@@ -102,12 +102,6 @@ public final class RefreshEngine {
             do {
                 let quotes = try await provider.quotes(for: quoteSymbols)
                 store.apply(quotes: quotes)
-                // Write the latest name from quotes back to the watchlist (the search-result name captured at add time can be rough)
-                for quote in quotes {
-                    if let name = quote.name {
-                        watchlist.updateDisplayName(quote.symbol, name: name)
-                    }
-                }
             } catch {
                 store.reportError(String(describing: error))
             }

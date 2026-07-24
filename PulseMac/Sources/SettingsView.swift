@@ -84,7 +84,7 @@ struct SettingsView: View {
                         Picker(PulseLocalization.localizedString("settings.menuBar.fixedSymbol"), selection: $settings.primarySymbol) {
                             Text(PulseLocalization.localizedString("settings.menuBar.firstWatchlistItem")).tag(SymbolID?.none)
                             ForEach(appState.watchlist.allItems) { item in
-                                Text(item.displayName).tag(SymbolID?.some(item.symbol))
+                                Text(item.resolvedDisplayName).tag(SymbolID?.some(item.symbol))
                             }
                         }
                         .transition(contextualRowTransition)

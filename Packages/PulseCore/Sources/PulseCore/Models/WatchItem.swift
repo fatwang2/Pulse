@@ -18,7 +18,8 @@ public struct CostLot: Codable, Sendable, Hashable, Identifiable {
 /// A watchlist entry
 public struct WatchItem: Codable, Sendable, Hashable, Identifiable {
     public var symbol: SymbolID
-    /// Name captured when the item was added (fallback for offline/first-frame display; the latest name from quotes takes precedence)
+    /// Stable name captured when the item was added. Quote-source failover does
+    /// not replace it.
     public var displayName: String
     public var addedAt: Date
     public var lots: [CostLot]
@@ -31,6 +32,15 @@ public struct WatchItem: Codable, Sendable, Hashable, Identifiable {
     }
 
     public var id: SymbolID { symbol }
+
+    /// The persisted name is the user-facing identity chosen when the symbol was
+    /// added. Quote providers must not replace it as routing or failover changes.
+    /// Indices use Pulse's localized catalog so every provider presents one name.
+    public var resolvedDisplayName: String {
+        if let index = symbol.indexID { return index.displayName }
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? symbol.displayCode : displayName
+    }
 
     public var positionQuantity: Double {
         lots.reduce(0) { $0 + $1.quantity }

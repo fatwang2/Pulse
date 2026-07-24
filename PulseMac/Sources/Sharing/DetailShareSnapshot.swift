@@ -91,7 +91,7 @@ struct DetailShareSnapshot {
         let quote = appState.market.quote(for: symbol)
         self.init(
             symbol: symbol,
-            name: quote?.name ?? appState.watchlist.item(for: symbol)?.displayName ?? symbol.displayCode,
+            name: appState.displayName(for: symbol),
             quote: quote,
             period: period,
             candles: candles,

@@ -128,7 +128,7 @@ public final class WatchlistStore {
         guard let targetID = group(for: groupID ?? selectedGroupID)?.id,
               let groupIndex = groups.firstIndex(where: { $0.id == targetID }) else { return }
         if item(for: info.symbol) == nil {
-            allItems.append(WatchItem(symbol: info.symbol, displayName: info.name))
+            allItems.append(WatchItem(symbol: info.symbol, displayName: info.resolvedDisplayName))
         }
         guard !groups[groupIndex].symbols.contains(info.symbol) else { return }
         groups[groupIndex].symbols.append(info.symbol)
@@ -210,13 +210,6 @@ public final class WatchlistStore {
         groups[groupIndex].symbols = ordered + existing.filter { !orderedSet.contains($0) }
         save()
         return true
-    }
-
-    public func updateDisplayName(_ symbol: SymbolID, name: String) {
-        guard let index = allItems.firstIndex(where: { $0.symbol == symbol }),
-              allItems[index].displayName != name else { return }
-        allItems[index].displayName = name
-        save()
     }
 
     public func updateLots(_ symbol: SymbolID, lots: [CostLot]) {

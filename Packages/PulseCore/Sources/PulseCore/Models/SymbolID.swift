@@ -98,6 +98,30 @@ public enum MarketIndexID: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// Provider-independent, localized name used everywhere Pulse presents the
+    /// index. Raw provider names remain quote metadata and never replace this.
+    public var displayName: String {
+        let key = "index.\(rawValue)"
+        let localized = PulseLocalization.localizedString(key)
+        guard localized == key else { return localized }
+
+        let chinese = PulseLocalization.currentLanguageIdentifier.hasPrefix("zh")
+        return switch self {
+        case .sp500: chinese ? "标普500指数" : "S&P 500 Index"
+        case .nasdaqComposite: chinese ? "纳斯达克综合指数" : "Nasdaq Composite"
+        case .dowJonesIndustrial: chinese ? "道琼斯工业平均指数" : "Dow Jones Industrial Average"
+        case .nasdaq100: chinese ? "纳斯达克100指数" : "Nasdaq 100 Index"
+        case .vix: chinese ? "CBOE波动率指数" : "CBOE Volatility Index"
+        case .russell1000: chinese ? "罗素1000指数" : "Russell 1000 Index"
+        case .russell2000: chinese ? "罗素2000指数" : "Russell 2000 Index"
+        case .hangSeng: chinese ? "恒生指数" : "Hang Seng Index"
+        case .hangSengTech: chinese ? "恒生科技指数" : "Hang Seng TECH Index"
+        case .shanghaiComposite: chinese ? "上证指数" : "Shanghai Composite"
+        case .shenzhenComponent: chinese ? "深证成指" : "Shenzhen Component Index"
+        case .chiNext: chinese ? "创业板指" : "ChiNext Index"
+        }
+    }
+
     /// Code written alongside `indexID` so the immediately preceding app version
     /// can still decode a new watchlist snapshot.
     var backwardCompatibleCode: String {

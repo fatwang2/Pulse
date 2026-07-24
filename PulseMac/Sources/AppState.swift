@@ -254,10 +254,22 @@ final class AppState {
         return "\(shortName(for: item)) \(PriceFormatter.price(quote.price)) \(arrow)\(percent)%"
     }
 
+    /// One presentation name per instrument, independent of whichever provider
+    /// currently supplies its price. Quote names remain source metadata only.
+    func displayName(for symbol: SymbolID) -> String {
+        if let item = watchlist.item(for: symbol) {
+            return item.resolvedDisplayName
+        }
+        if let index = symbol.indexID {
+            return index.displayName
+        }
+        return market.quote(for: symbol)?.name ?? symbol.displayCode
+    }
+
     private func shortName(for item: WatchItem) -> String {
         // US stocks use the ticker (AAPL is shorter than "Apple Inc."); Chinese names are truncated to the first 5 characters
         if item.symbol.market == .us { return item.symbol.code }
-        return String(item.displayName.prefix(5))
+        return String(item.resolvedDisplayName.prefix(5))
     }
 
     // MARK: - Rotation

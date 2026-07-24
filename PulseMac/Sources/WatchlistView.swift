@@ -32,41 +32,29 @@ struct WatchlistView: View {
     }
 
     var body: some View {
-        // The correct Liquid Glass structure: put the chrome in safeAreaInset so the system treats it as a floating bar —
-        // content scrolls underneath it and fades at the edge via scrollEdgeEffect, without clashing with the chrome text
-        ZStack {
-            baseContent
+        VStack(spacing: 0) {
+            // Top chrome stays floating so rows can fade beneath it. The status
+            // bar is a real sibling below, giving the scrollable list an explicit
+            // lower boundary instead of overlaying its final rows.
+            ZStack {
+                baseContent
+                    .opacity(searchText.isEmpty ? 1 : 0)
+                    .allowsHitTesting(searchText.isEmpty)
+                searchList
+                    .opacity(searchText.isEmpty ? 0 : 1)
+                    .allowsHitTesting(!searchText.isEmpty)
+            }
+            // Crossfade the watchlist ↔ search swap; it only fires at the empty ↔
+            // non-empty boundary, so typing stays instant after the first character.
+            .animation(.easeOut(duration: 0.15), value: searchText.isEmpty)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .scrollEdgeEffectStyle(.soft, for: .all)
+            .safeAreaInset(edge: .top, spacing: 0) { chrome }
+
+            bottomBar
+                .frame(height: 30)
                 .opacity(searchText.isEmpty ? 1 : 0)
                 .allowsHitTesting(searchText.isEmpty)
-            searchList
-                .opacity(searchText.isEmpty ? 0 : 1)
-                .allowsHitTesting(!searchText.isEmpty)
-        }
-        // Crossfade the watchlist ↔ search swap; it only fires at the empty ↔
-        // non-empty boundary, so typing stays instant after the first character.
-        .animation(.easeOut(duration: 0.15), value: searchText.isEmpty)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .scrollEdgeEffectStyle(.soft, for: .all)
-        .safeAreaInset(edge: .top, spacing: 0) { chrome }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            HStack {
-                footer
-                Spacer()
-                if isReordering {
-                    Button {
-                        withAnimation(.snappy(duration: 0.25)) { isReordering = false }
-                    } label: {
-                        Label(PulseLocalization.localizedString("action.done"), systemImage: "checkmark")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .buttonStyle(.glassProminent)
-                    .controlSize(.small)
-                    .padding(.trailing, 12)
-                    .padding(.bottom, 4)
-                }
-            }
-            .opacity(searchText.isEmpty ? 1 : 0)
-            .allowsHitTesting(searchText.isEmpty)
         }
     }
 
@@ -224,7 +212,7 @@ struct WatchlistView: View {
     private var watchRowTitleColumnWidth: CGFloat {
         let widths = appState.watchlist.items.map { item in
             WatchRowColumnLayout.titleWidth(
-                name: appState.market.quote(for: item.symbol)?.name ?? item.displayName,
+                name: item.resolvedDisplayName,
                 symbolCode: item.symbol.displayCode,
                 marketName: item.symbol.market.displayName,
                 presentation: .popover
@@ -274,6 +262,25 @@ struct WatchlistView: View {
         .frame(height: 22)
         .padding(.leading, 12)
         .padding(.bottom, 4)
+    }
+
+    private var bottomBar: some View {
+        HStack {
+            footer
+            Spacer()
+            if isReordering {
+                Button {
+                    withAnimation(.snappy(duration: 0.25)) { isReordering = false }
+                } label: {
+                    Label(PulseLocalization.localizedString("action.done"), systemImage: "checkmark")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.glassProminent)
+                .controlSize(.small)
+                .padding(.trailing, 12)
+                .padding(.bottom, 4)
+            }
+        }
     }
 
     private var footerShowsFallback: Bool {
@@ -860,7 +867,7 @@ struct SearchResultRow: View {
     private func rowContent(isIncluded: Bool) -> some View {
         HStack(spacing: 6) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(info.name)
+                Text(info.resolvedDisplayName)
                     .font(.system(size: 12.5))
                     .lineLimit(1)
                 HStack(spacing: 4) {
@@ -940,7 +947,7 @@ struct WatchRow: View {
             HStack(spacing: 8) {
                 // The list's widest required title establishes one shared column; the aligned remainder goes to every sparkline.
                 VStack(alignment: .leading, spacing: 2.5) {
-                    Text(quote?.name ?? item.displayName)
+                    Text(item.resolvedDisplayName)
                         .font(.system(size: 12.5, weight: .medium))
                         .lineLimit(1)
                     HStack(spacing: 4) {

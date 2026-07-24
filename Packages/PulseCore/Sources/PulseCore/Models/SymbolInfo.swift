@@ -19,4 +19,10 @@ public struct SymbolInfo: Codable, Sendable, Hashable, Identifiable {
     }
 
     public var id: SymbolID { symbol }
+
+    /// Search providers may spell the same index differently. Pulse owns the
+    /// canonical index name; ordinary securities keep the search-result name.
+    public var resolvedDisplayName: String {
+        symbol.indexID?.displayName ?? name
+    }
 }

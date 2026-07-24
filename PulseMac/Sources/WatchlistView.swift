@@ -425,6 +425,8 @@ struct WatchlistView: View {
             .padding(.horizontal, 4)
             .padding(.vertical, 4)
         }
+        .scrollIndicators(.never, axes: .vertical)
+        .scrollEdgeEffectStyle(.soft, for: .vertical)
         .overlay {
             switch searchTerminalState {
             case .failure(let searchError):
@@ -607,6 +609,11 @@ struct WatchlistView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        // A persistent AppKit scroller becomes a heavy dark rail in this compact
+        // glass popover. The system soft edge effect communicates overflow while
+        // keeping scrolling, keyboard navigation, and List reordering unchanged.
+        .scrollIndicators(.never, axes: .vertical)
+        .scrollEdgeEffectStyle(.soft, for: .vertical)
     }
 
     private func membershipCount(for symbol: SymbolID) -> Int {

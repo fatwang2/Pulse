@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render() {
+async function render(path = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", {
+    new Request(new URL(path, "http://localhost/"), {
       headers: { accept: "text/html" },
     }),
     {
@@ -38,6 +38,7 @@ test("server-renders the Pulse landing page", async () => {
   assert.match(html, /class="market-pulse" aria-hidden="true"/);
   assert.match(html, /class="brand-mark"/);
   assert.match(html, /href="\/download"/);
+  assert.match(html, /href="\/changelog"/);
   assert.doesNotMatch(html, /github\.com\/fatwang2\/Pulse\/releases\/latest/);
   assert.match(html, /apple\.svg/);
   assert.match(html, /Market data sources/);
@@ -48,6 +49,33 @@ test("server-renders the Pulse landing page", async () => {
   assert.match(html, /aria-pressed="false"[^>]*>中文<\/button>/);
   assert.match(html, /aria-pressed="true"[^>]*>EN<\/button>/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
+});
+
+test("server-renders the full bilingual release timeline", async () => {
+  const response = await render("/changelog");
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+
+  const html = await response.text();
+  assert.match(
+    html,
+    /<title>Pulse Changelog — Every release at a glance<\/title>/i,
+  );
+  assert.match(html, /data-testid="release-timeline"/);
+  assert.match(html, /Every release,/);
+  assert.match(html, /<h2>Pulse <!-- -->0\.6\.2<\/h2>/);
+  assert.match(html, /<h2>Pulse <!-- -->0\.1\.0<\/h2>/);
+  assert.ok(html.indexOf("0.6.2") < html.indexOf("0.1.0"));
+  assert.match(html, /dateTime="2026-07-24"/);
+  assert.match(html, /href="\/"/);
+  assert.match(html, /href="\/download"/);
+  assert.match(
+    html,
+    /github\.com\/fatwang2\/Pulse\/releases\/tag\/v0\.6\.2/,
+  );
+
+  const releaseEntries = html.match(/class="release-entry"/g) ?? [];
+  assert.equal(releaseEntries.length, 16);
 });
 
 test("includes English copy and remembered language selection", async () => {
@@ -64,6 +92,25 @@ test("includes English copy and remembered language selection", async () => {
   assert.match(page, /localStorage\.getItem\("pulse-language"\)/);
   assert.match(page, /localStorage\.setItem\("pulse-language", nextLanguage\)/);
   assert.match(page, /document\.documentElement\.lang/);
+});
+
+test("changelog shares the remembered language selection", async () => {
+  const page = await readFile(
+    new URL("../app/changelog/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const releaseData = await readFile(
+    new URL("../app/changelog/releases.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(page, /Every release,/);
+  assert.match(page, /每一次更新/);
+  assert.match(page, /localStorage\.getItem\("pulse-language"\)/);
+  assert.match(page, /localStorage\.setItem\("pulse-language", nextLanguage\)/);
+  assert.match(releaseData, /version: "0\.6\.2"/);
+  assert.match(releaseData, /version: "0\.1\.0"/);
+  assert.match(releaseData, /Longbridge 行情切换/);
 });
 
 test("redirects the stable download URL to a versioned request", async () => {

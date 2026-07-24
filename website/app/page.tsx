@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { InteractivePreview } from "./interactive-preview";
 
 const latestReleaseUrl = "/download";
@@ -43,6 +44,7 @@ type Language = "zh" | "en";
 const translations = {
   zh: {
     homeLabel: "Pulse 首页",
+    changelogLabel: "更新日志",
     languageLabel: "切换网站语言",
     overline: "macOS 菜单栏行情工具",
     headlineFirst: "你的市场，",
@@ -63,6 +65,7 @@ const translations = {
   },
   en: {
     homeLabel: "Pulse home",
+    changelogLabel: "Changelog",
     languageLabel: "Change website language",
     overline: "macOS menu bar market tracker",
     headlineFirst: "Your market,",
@@ -133,7 +136,7 @@ export default function Home() {
       </div>
 
       <header className="header shell">
-        <a className="brand" href="#top" aria-label={copy.homeLabel}>
+        <Link className="brand" href="/" aria-label={copy.homeLabel}>
           <span className="brand-mark">
             <Image
               src="/pulse-icon.png"
@@ -145,8 +148,11 @@ export default function Home() {
             />
           </span>
           <span>Pulse</span>
-        </a>
+        </Link>
         <div className="header-actions">
+          <nav className="site-nav" aria-label={copy.homeLabel}>
+            <Link href="/changelog">{copy.changelogLabel}</Link>
+          </nav>
           <div className="language-switcher" aria-label={copy.languageLabel}>
             <button
               type="button"

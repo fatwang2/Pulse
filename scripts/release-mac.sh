@@ -60,6 +60,44 @@ BUILD_NUMBER="${PULSE_BUILD_NUMBER:-$(date +%s)}"
 TAG="${PULSE_TAG:-v$VERSION}"
 RELEASE_NOTES_FILE="${PULSE_RELEASE_NOTES_FILE:-$ROOT/.github/release-notes/$VERSION.md}"
 
+if [[ ! "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+  echo "error: build number must be a positive integer, found: $BUILD_NUMBER" >&2
+  exit 1
+fi
+
+if [[ "${SKIP_BUILD_NUMBER_CHECK:-0}" != "1" ]]; then
+  echo "==> Checking build number against published appcast"
+  if ! PUBLISHED_BUILD="$(
+    curl --fail --silent --show-error --location --max-time 20 "$SPARKLE_FEED_URL" \
+      | /usr/bin/python3 -c '
+import sys
+import xml.etree.ElementTree as ET
+
+root = ET.parse(sys.stdin).getroot()
+version = root.find(".//{http://www.andymatuschak.org/xml-namespaces/sparkle}version")
+if version is None or not (version.text or "").strip():
+    raise SystemExit("published appcast has no sparkle:version")
+print(version.text.strip())
+'
+  )"; then
+    echo "error: unable to read the current build number from $SPARKLE_FEED_URL" >&2
+    exit 1
+  fi
+
+  if [[ ! "$PUBLISHED_BUILD" =~ ^[0-9]+$ ]]; then
+    echo "error: published appcast build is not an integer: $PUBLISHED_BUILD" >&2
+    exit 1
+  fi
+
+  if (( 10#$BUILD_NUMBER <= 10#$PUBLISHED_BUILD )); then
+    echo "error: build $BUILD_NUMBER must be greater than published build $PUBLISHED_BUILD" >&2
+    echo "Set PULSE_BUILD_NUMBER to a larger value. Use SKIP_BUILD_NUMBER_CHECK=1 only for appcast recovery." >&2
+    exit 1
+  fi
+else
+  echo "warning: SKIP_BUILD_NUMBER_CHECK=1; build monotonicity was not verified" >&2
+fi
+
 BUILD_DIR="$ROOT/build/release"
 ARCHIVE_PATH="$BUILD_DIR/Pulse.xcarchive"
 EXPORT_DIR="$BUILD_DIR/export"

@@ -15,7 +15,6 @@ struct WatchlistGroupBar: View {
     @State private var editingGroupID: UUID?
     @State private var nameDraft = ""
     @State private var nameHasError = false
-    @State private var pendingDeletion: WatchlistGroup?
     @State private var draggingGroupID: UUID?
     @State private var visibleGroupIDs: Set<UUID> = []
     @State private var shouldAnimateNextSelectionScroll = false
@@ -73,7 +72,7 @@ struct WatchlistGroupBar: View {
                                         PulseLocalization.localizedString("watchlist.group.delete"),
                                         role: .destructive
                                     ) {
-                                        pendingDeletion = group
+                                        deleteGroup(group)
                                     }
                                 }
                             }
@@ -105,26 +104,6 @@ struct WatchlistGroupBar: View {
         .disabled(isDisabled)
         .opacity(isDisabled ? 0.45 : 1)
         .frame(height: 24)
-        .alert(
-            PulseLocalization.localizedString(
-                "watchlist.group.deleteTitle",
-                pendingDeletion?.name ?? ""
-            ),
-            isPresented: deletionAlertPresented
-        ) {
-            Button(PulseLocalization.localizedString("action.cancel"), role: .cancel) {}
-            Button(PulseLocalization.localizedString("action.delete"), role: .destructive) {
-                guard let group = pendingDeletion else { return }
-                var transaction = Transaction(animation: nil)
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    _ = appState.watchlist.deleteGroup(group.id)
-                }
-                pendingDeletion = nil
-            }
-        } message: {
-            Text(PulseLocalization.localizedString("watchlist.group.deleteMessage"))
-        }
     }
 
     private var nameField: some View {
@@ -150,13 +129,6 @@ struct WatchlistGroupBar: View {
             .help(nameHasError ? PulseLocalization.localizedString("watchlist.group.nameError") : "")
     }
 
-    private var deletionAlertPresented: Binding<Bool> {
-        Binding(
-            get: { pendingDeletion != nil },
-            set: { if !$0 { pendingDeletion = nil } }
-        )
-    }
-
     private func beginCreating() {
         editingGroupID = nil
         isCreating = true
@@ -171,6 +143,14 @@ struct WatchlistGroupBar: View {
         nameDraft = group.name
         nameHasError = false
         focusNameField()
+    }
+
+    private func deleteGroup(_ group: WatchlistGroup) {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            _ = appState.watchlist.deleteGroup(group.id)
+        }
     }
 
     private func focusNameField() {

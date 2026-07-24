@@ -81,7 +81,7 @@ test("redirects the stable download URL to a versioned request", async () => {
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.equal(
     response.headers.get("location"),
-    "http://localhost/download?version=0.5.1",
+    "http://localhost/download?version=0.6.0",
   );
 });
 
@@ -92,11 +92,11 @@ test("serves a stored DMG from the Sites R2 binding", async () => {
   const body = new TextEncoder().encode("dmg");
 
   const response = await worker.fetch(
-    new Request("http://localhost/download?version=0.5.1"),
+    new Request("http://localhost/download?version=0.6.0"),
     {
       DOWNLOADS: {
         async get(key) {
-          assert.equal(key, "releases/v0.5.1/Pulse-0.5.1.dmg");
+          assert.equal(key, "releases/v0.6.0/Pulse-0.6.0.dmg");
           return {
             body: new Blob([body]).stream(),
             httpEtag: '"test-etag"',
@@ -114,12 +114,12 @@ test("serves a stored DMG from the Sites R2 binding", async () => {
   assert.equal(response.status, 200);
   assert.equal(
     response.headers.get("content-disposition"),
-    'attachment; filename="Pulse-0.5.1.dmg"',
+    'attachment; filename="Pulse-0.6.0.dmg"',
   );
   assert.equal(
     response.headers.get("content-type"),
     "application/x-apple-diskimage",
   );
-  assert.equal(response.headers.get("x-pulse-version"), "0.5.1");
+  assert.equal(response.headers.get("x-pulse-version"), "0.6.0");
   assert.equal(new TextDecoder().decode(await response.arrayBuffer()), "dmg");
 });

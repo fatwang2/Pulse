@@ -96,6 +96,26 @@ test("includes English copy and remembered language selection", async () => {
   assert.match(page, /document\.documentElement\.lang/);
 });
 
+test("includes privacy-conscious GA4 and download tracking", async () => {
+  const layout = await readFile(
+    new URL("../app/layout.tsx", import.meta.url),
+    "utf8",
+  );
+  const analyticsEvents = await readFile(
+    new URL("../app/analytics-events.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(layout, /G-J9GLF06LPP/);
+  assert.match(layout, /googletagmanager\.com\/gtag\/js/);
+  assert.match(layout, /analytics_storage: "denied"/);
+  assert.match(layout, /ad_personalization: "denied"/);
+  assert.match(layout, /allow_google_signals", false/);
+  assert.match(analyticsEvents, /"file_download"/);
+  assert.match(analyticsEvents, /url\.pathname !== "\/download"/);
+  assert.match(analyticsEvents, /transport_type: "beacon"/);
+});
+
 test("changelog shares the remembered language selection", async () => {
   const page = await readFile(
     new URL("../app/changelog/page.tsx", import.meta.url),

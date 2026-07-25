@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
+import Script from "next/script";
+import { AnalyticsEvents } from "./analytics-events";
 import "./globals.css";
+
+const googleAnalyticsMeasurementId = "G-J9GLF06LPP";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -58,8 +62,31 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <Script id="google-analytics" strategy="beforeInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            window.gtag = function gtag(){window.dataLayer.push(arguments);}
+            window.gtag("consent", "default", {
+              analytics_storage: "denied",
+              ad_storage: "denied",
+              ad_user_data: "denied",
+              ad_personalization: "denied"
+            });
+            window.gtag("set", "allow_google_signals", false);
+            window.gtag("set", "allow_ad_personalization_signals", false);
+            window.gtag("js", new Date());
+            window.gtag("config", "${googleAnalyticsMeasurementId}");
+          `}
+        </Script>
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsMeasurementId}`}
+          strategy="afterInteractive"
+        />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
+        <AnalyticsEvents measurementId={googleAnalyticsMeasurementId} />
       </body>
     </html>
   );

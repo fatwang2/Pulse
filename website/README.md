@@ -49,3 +49,14 @@ R2 是 Sites Worker 的内部存储绑定，与访问域名无关；自定义域
   `https://www.tencent.com/wp-content/uploads/2022/12/01_Tencent_Standard-Logo.png`
 - Yahoo Finance：Yahoo Inc. 提供、由 Wikimedia Commons 收录的标准标识
   `https://upload.wikimedia.org/wikipedia/commons/9/9f/Yahoo%21_Finance_logo.svg`
+
+## 访问分析
+
+官网使用独立的 GA4 Property `Pulse`（Property ID `546939165`）和 Web 数据流
+`Pulse Website`（Measurement ID `G-J9GLF06LPP`）。
+
+- 页面访问、来源、滚动和站外点击由 GA4 与增强型衡量记录。
+- 所有指向 `/download` 的点击额外记录为 `file_download`，并附带 DMG 文件类型、
+  链接文字和落地 URL。
+- 默认拒绝 Analytics 与广告存储，并关闭 Google Signals 和广告个性化信号；
+  GA4 以不写入这些 Cookie 的方式接收聚合测量事件。

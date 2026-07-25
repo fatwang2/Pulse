@@ -63,16 +63,17 @@ test("server-renders the full bilingual release timeline", async () => {
   );
   assert.match(html, /data-testid="release-timeline"/);
   assert.match(html, /Every release,/);
-  assert.match(html, /<h2>Pulse <!-- -->0\.6\.2<\/h2>/);
-  assert.match(html, /<h2>Pulse <!-- -->0\.1\.0<\/h2>/);
+  assert.match(html, /id="v0-6-2"/);
+  assert.match(html, /href="#v0-6-2"/);
+  assert.match(html, /id="v0-1-0"/);
+  assert.match(html, /href="#v0-1-0"/);
   assert.ok(html.indexOf("0.6.2") < html.indexOf("0.1.0"));
   assert.match(html, /dateTime="2026-07-24"/);
   assert.match(html, /href="\/"/);
   assert.match(html, /href="\/download"/);
-  assert.match(
-    html,
-    /github\.com\/fatwang2\/Pulse\/releases\/tag\/v0\.6\.2/,
-  );
+  assert.match(html, /github\.com\/fatwang2\/Pulse\/releases/);
+  assert.doesNotMatch(html, /github\.com\/fatwang2\/Pulse\/releases\/tag\//);
+  assert.doesNotMatch(html, /class="release-link"/);
 
   const releaseEntries = html.match(/class="release-entry"/g) ?? [];
   assert.equal(releaseEntries.length, 16);
@@ -91,6 +92,7 @@ test("includes English copy and remembered language selection", async () => {
   assert.match(page, /navigator\.language/);
   assert.match(page, /localStorage\.getItem\("pulse-language"\)/);
   assert.match(page, /localStorage\.setItem\("pulse-language", nextLanguage\)/);
+  assert.doesNotMatch(page, /viewRelease/);
   assert.match(page, /document\.documentElement\.lang/);
 });
 

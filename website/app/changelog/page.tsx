@@ -23,7 +23,7 @@ const translations = {
     release: "新版本",
     improvement: "体验改进",
     fix: "问题修复",
-    viewRelease: "在 GitHub 查看",
+    releaseAnchor: "链接到版本",
     allReleases: "查看全部 GitHub Releases",
     download: "下载最新版",
     pageTitle: "Pulse 更新日志 — 每一次更新都清楚可见",
@@ -41,7 +41,7 @@ const translations = {
     release: "New release",
     improvement: "Improvement",
     fix: "Fix",
-    viewRelease: "View on GitHub",
+    releaseAnchor: "Link to release",
     allReleases: "View all GitHub Releases",
     download: "Download latest",
     pageTitle: "Pulse Changelog — Every release at a glance",
@@ -148,7 +148,11 @@ export default function Changelog() {
       <section className="changelog-content shell" aria-label={copy.changelog}>
         <ol className="release-timeline" data-testid="release-timeline">
           {releases.map((release, index) => (
-            <li className="release-entry" key={release.version}>
+            <li
+              className="release-entry"
+              id={`v${release.version.replaceAll(".", "-")}`}
+              key={release.version}
+            >
               <div className="release-meta">
                 <time dateTime={release.date}>
                   {formatDate(release.date, language)}
@@ -161,7 +165,16 @@ export default function Changelog() {
               <article className="release-card">
                 <header className="release-heading">
                   <div className="release-title">
-                    <h2>Pulse {release.version}</h2>
+                    <h2>
+                      <a
+                        className="release-anchor"
+                        href={`#v${release.version.replaceAll(".", "-")}`}
+                        aria-label={`${copy.releaseAnchor} ${release.version}`}
+                      >
+                        Pulse {release.version}
+                        <span aria-hidden="true">#</span>
+                      </a>
+                    </h2>
                     {index === 0 ? (
                       <span className="latest-badge">{copy.latest}</span>
                     ) : null}
@@ -178,15 +191,6 @@ export default function Changelog() {
                     <li key={highlight}>{highlight}</li>
                   ))}
                 </ul>
-                <a
-                  className="release-link"
-                  href={`${repositoryReleasesUrl}/tag/v${release.version}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {copy.viewRelease}
-                  <span aria-hidden="true">↗</span>
-                </a>
               </article>
             </li>
           ))}

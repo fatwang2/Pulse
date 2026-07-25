@@ -267,6 +267,7 @@ a {
   grid-template-columns: 132px 49px minmax(0, 1fr);
   align-items: start;
   padding-bottom: clamp(72px, 9vw, 112px);
+  scroll-margin-top: 32px;
 }
 
 .release-meta {
@@ -330,6 +331,43 @@ a {
   font-weight: 690;
   letter-spacing: -0.045em;
   line-height: 1;
+}
+
+.release-anchor {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.release-anchor > span {
+  color: rgba(10, 132, 255, 0.55);
+  font-size: 0.48em;
+  font-weight: 620;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity 160ms ease,
+    transform 180ms var(--ease-out-quart);
+}
+
+.release-anchor:hover > span,
+.release-anchor:focus-visible > span,
+.release-entry:target .release-anchor > span {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.release-anchor:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid rgba(10, 132, 255, 0.25);
+  outline-offset: 5px;
+}
+
+.release-entry:target .release-marker {
+  background: var(--blue);
+  box-shadow:
+    0 0 0 1px rgba(10, 132, 255, 0.3),
+    0 0 0 7px rgba(10, 132, 255, 0.09);
 }
 
 .latest-badge,
@@ -399,26 +437,6 @@ a {
   content: "";
 }
 
-.release-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 24px;
-  color: #1476d2;
-  font-size: 12px;
-  font-weight: 620;
-  transition:
-    color 180ms ease,
-    gap 180ms var(--ease-out-quart);
-}
-
-.release-link:hover,
-.release-link:focus-visible {
-  gap: 9px;
-  color: #006ee0;
-}
-
-.release-link:focus-visible,
 .changelog-footer > a:first-child:focus-visible {
   border-radius: 4px;
   outline: 2px solid rgba(10, 132, 255, 0.25);

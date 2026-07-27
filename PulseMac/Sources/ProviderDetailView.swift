@@ -113,11 +113,29 @@ struct ProviderFactsCard: View {
             ForEach(coveredMarkets, id: \.self) { market in
                 Divider().padding(.leading, 12)
                 factRow(market.displayName) {
-                    freshnessLabel(for: descriptor.delay[market] ?? 0)
+                    if descriptor.id == LongbridgeProvider.providerID {
+                        longbridgeFreshnessLabel(for: market)
+                    } else {
+                        freshnessLabel(for: descriptor.delay[market] ?? 0)
+                    }
                 }
             }
         }
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func longbridgeFreshnessLabel(for market: Market) -> some View {
+        switch appState.longbridgeQuoteAccess[market] ?? .unknown {
+        case .realtime:
+            freshnessLabel(for: 0)
+        case .delayed:
+            freshnessLabel(for: 15 * 60)
+        case .unknown:
+            Text(PulseLocalization.localizedString("provider.delay.session"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func factRow(_ title: String, @ViewBuilder value: () -> some View) -> some View {

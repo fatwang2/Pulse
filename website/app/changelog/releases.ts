@@ -10,6 +10,23 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.6.3",
+    date: "2026-07-27",
+    kind: "fix",
+    highlights: {
+      zh: [
+        "Longbridge 现在按官方 SDK 实际协商的行情包和时间戳区分实时与延迟行情。",
+        "延迟的 Longbridge 行情会让位于更及时的备用来源，详情页始终显示实际来源和延迟。",
+        "OAuth 身份不再随 Mac 的地区或时区变化；现有登录保持有效，受影响用户可在设置中刷新授权。",
+      ],
+      en: [
+        "Longbridge quotes now use the official SDK's negotiated package and timestamp to distinguish real-time from delayed data.",
+        "Delayed Longbridge data yields to a fresher fallback when available, while details always show the actual source and delay.",
+        "OAuth identity no longer changes with the Mac's region or time zone; existing sessions remain valid and affected users can refresh authorization in Settings.",
+      ],
+    },
+  },
+  {
     version: "0.6.2",
     date: "2026-07-24",
     kind: "fix",

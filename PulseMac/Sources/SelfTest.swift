@@ -89,10 +89,13 @@ enum SelfTest {
                     )
                     let symbols = [
                         SymbolID(market: .hk, code: "700"),
+                        SymbolID(market: .sh, code: "600519"),
                         SymbolID(market: .us, code: "AAPL"),
                         SymbolID(market: .us, code: "PDD"),
                     ]
-                    let quotes = try await routedProvider.quotes(for: symbols)
+                    let quotes = try await provider.quotes(for: symbols)
+                    let routedQuotes = try await routedProvider.quotes(for: symbols)
+                    let quotePackages = try await provider.quotePackages()
                     let names = try await provider.securityNames(for: symbols)
                     let candles = try await provider.candles(
                         for: symbols[0],
@@ -100,33 +103,58 @@ enum SelfTest {
                         count: 5
                     )
                     let health = await routedProvider.healthReport()
-                    let routedThroughLongbridge = quotes.allSatisfy {
-                        $0.sourceID == LongbridgeProvider.providerID
-                    }
                     guard quotes.count == symbols.count,
+                          routedQuotes.count == symbols.count,
                           names.count == symbols.count,
                           names.allSatisfy({ !$0.name.isEmpty }),
                           !candles.isEmpty,
-                          routedThroughLongbridge,
                           health[LongbridgeProvider.providerID] == "healthy" else {
                         throw ProviderError.badResponse(
                             "SDK routing check failed: quotes=\(quotes.count)/\(symbols.count), " +
+                            "routed=\(routedQuotes.count)/\(symbols.count), " +
                             "names=\(names.count)/\(symbols.count), " +
-                            "candles=\(candles.count), sources=\(quotes.compactMap(\.sourceID)), " +
+                            "candles=\(candles.count), sources=\(routedQuotes.compactMap(\.sourceID)), " +
                             "health=\(health)"
                         )
                     }
                     let quoteSummary = quotes
-                        .map { "\($0.symbol)=\(String(format: "%.4f", $0.price))" }
+                        .map {
+                            let age = max(0, Int(Date.now.timeIntervalSince($0.timestamp)))
+                            let delay = Int($0.sourceDelay ?? 0)
+                            return "\($0.symbol)=\(String(format: "%.4f", $0.price))" +
+                                "@\(Int($0.timestamp.timeIntervalSince1970))" +
+                                "/age\(age)s/delay\(delay)s"
+                        }
+                        .joined(separator: ",")
+                    let packageSummary = quotePackages
+                        .filter { !$0.key.isEmpty }
+                        .map {
+                            let name = $0.name.replacingOccurrences(of: " ", with: "_")
+                            let description = $0.description
+                                .replacingOccurrences(of: " ", with: "_")
+                                .replacingOccurrences(of: "\n", with: "")
+                            let start = $0.startAt.map {
+                                String(Int($0.timeIntervalSince1970))
+                            } ?? "none"
+                            let end = $0.endAt.map {
+                                String(Int($0.timeIntervalSince1970))
+                            } ?? "none"
+                            return "\($0.key){name=\(name),description=\(description)," +
+                                "start=\(start),end=\(end)}"
+                        }
+                        .sorted()
                         .joined(separator: ",")
                     let nameSummary = names
                         .map { "\($0.symbol)=\($0.name)" }
                         .joined(separator: ",")
+                    let routingSummary = routedQuotes
+                        .map { "\($0.symbol)=\($0.sourceID ?? "none")" }
+                        .joined(separator: ",")
                     print(
                         "PULSE_LONGBRIDGE_SDK_LIVE_SELFTEST ok " +
                         "transport=official-sdk-v4.4.1 quotes=\(quoteSummary) " +
-                        "names=\(nameSummary) candles=\(candles.count) " +
-                        "routing=longbridge health=healthy"
+                        "packages=\(packageSummary) names=\(nameSummary) candles=\(candles.count) " +
+                        "routing=\(routingSummary) health=healthy"
                     )
                     fflush(stdout)
                     exit(0)

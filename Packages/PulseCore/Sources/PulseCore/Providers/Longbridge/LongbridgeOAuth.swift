@@ -9,12 +9,35 @@ public struct LongbridgeOAuthTokens: Codable, Sendable, Hashable {
     public var accessToken: String
     public var refreshToken: String
     public var expiresAt: Date
+    public var issuer: String?
 
-    public init(clientID: String, accessToken: String, refreshToken: String, expiresAt: Date) {
+    public init(
+        clientID: String,
+        accessToken: String,
+        refreshToken: String,
+        expiresAt: Date,
+        issuer: String? = nil
+    ) {
         self.clientID = clientID
         self.accessToken = accessToken
         self.refreshToken = refreshToken
         self.expiresAt = expiresAt
+        self.issuer = issuer
+    }
+
+    fileprivate var normalizedIssuer: String {
+        Self.normalized(issuer ?? "https://openapi.longbridge.com")
+    }
+
+    /// Safe identifier for correlating entitlement history and diagnostics without
+    /// persisting or logging the OAuth client id itself.
+    public var clientFingerprint: String {
+        let digest = SHA256.hash(data: Data(clientID.utf8))
+        return digest.prefix(6).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func normalized(_ value: String) -> String {
+        value.trimmingCharacters(in: CharacterSet(charactersIn: "/")).lowercased()
     }
 }
 
@@ -26,6 +49,7 @@ struct LongbridgeOAuthClient: Codable, Sendable {
     var scope: String
     var redirectURIs: [String]
     var logoURI: String?
+    var issuer: String?
 }
 
 /// Browser-based authorization: dynamic client registration → authorize URL with PKCE →
@@ -34,17 +58,17 @@ struct LongbridgeOAuthClient: Codable, Sendable {
 /// falls back to the custom URL scheme when the port can't be bound; scheme callbacks are
 /// fed in via `handleCallback`.
 public actor LongbridgeOAuthAuthenticator {
-    public static let host = URL(string: "https://openapi.longbridge.com")!
     static let loopbackPort: UInt16 = 41917
     static let callbackPath = "/oauth/callback"
     /// Shown by the authorize page next to the client name (RFC 7591 `logo_uri`).
     static let logoURI = "https://pulse-market-glance.wangding0798.chatgpt.site/pulse-icon.png"
     static var loopbackRedirectURI: String { "http://localhost:\(loopbackPort)\(callbackPath)" }
-    private static let clientCacheKey = "pulse.longbridge.oauthClient.v1"
+    private static let clientCacheKey = "pulse.longbridge.oauthClient.v2"
 
     private let schemeRedirectURI: String
     private let clientName: String
     private let defaults: UserDefaults
+    private let registrationHost: URL
     private var pending: PendingAuthorization?
 
     private struct PendingAuthorization {
@@ -52,10 +76,19 @@ public actor LongbridgeOAuthAuthenticator {
         var continuation: CheckedContinuation<URL, any Error>
     }
 
-    public init(redirectScheme: String, clientName: String, defaults: UserDefaults = .standard) {
+    public init(
+        redirectScheme: String,
+        clientName: String,
+        defaults: UserDefaults = .standard,
+        host: URL? = nil
+    ) {
         self.schemeRedirectURI = "\(redirectScheme)://oauth/callback"
         self.clientName = clientName
         self.defaults = defaults
+        // OAuth registration is a stable application identity decision, not a
+        // market-data routing decision. New installations use the global control
+        // plane; an existing client's issuer is preserved below.
+        self.registrationHost = host ?? LongbridgeEndpointSelection.globalHTTPBaseURL
     }
 
     // MARK: - Authorization flow
@@ -64,6 +97,7 @@ public actor LongbridgeOAuthAuthenticator {
     /// the flow completes when the browser redirects back, or fails after 5 minutes.
     public func authorize(openURL: @Sendable @escaping (URL) -> Void) async throws -> LongbridgeOAuthTokens {
         let client = try await ensureClient()
+        let authorizationHost = Self.authorizationHost(for: client)
 
         var server: LongbridgeLoopbackServer? = LongbridgeLoopbackServer(
             port: Self.loopbackPort,
@@ -82,7 +116,12 @@ public actor LongbridgeOAuthAuthenticator {
         }
 
         do {
-            let tokens = try await runAuthorization(client: client, redirectURI: redirectURI, openURL: openURL)
+            let tokens = try await runAuthorization(
+                client: client,
+                host: authorizationHost,
+                redirectURI: redirectURI,
+                openURL: openURL
+            )
             await server?.stop()
             return tokens
         } catch {
@@ -91,12 +130,12 @@ public actor LongbridgeOAuthAuthenticator {
         }
     }
 
-    private func runAuthorization(client: LongbridgeOAuthClient, redirectURI: String,
+    private func runAuthorization(client: LongbridgeOAuthClient, host: URL, redirectURI: String,
                                   openURL: @Sendable @escaping (URL) -> Void) async throws -> LongbridgeOAuthTokens {
         let verifier = Self.randomURLSafe(32)
         let state = Self.randomURLSafe(16)
 
-        var components = URLComponents(url: Self.host.appending(path: "/oauth2/authorize"), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(url: host.appending(path: "/oauth2/authorize"), resolvingAgainstBaseURL: false)!
         components.queryItems = [
             .init(name: "response_type", value: "code"),
             .init(name: "client_id", value: client.clientID),
@@ -131,7 +170,7 @@ public actor LongbridgeOAuthAuthenticator {
             "redirect_uri": redirectURI,
             "code": code,
             "code_verifier": verifier,
-        ])
+        ], host: host)
     }
 
     /// Feed a `scheme://oauth/callback?...` URL from the system open-URL handler.
@@ -167,7 +206,7 @@ public actor LongbridgeOAuthAuthenticator {
             return cached
         }
 
-        var request = URLRequest(url: Self.host.appending(path: "/oauth2/register"))
+        var request = URLRequest(url: registrationHost.appending(path: "/oauth2/register"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(Registration(
@@ -192,11 +231,19 @@ public actor LongbridgeOAuthAuthenticator {
             clientID: registered.clientID,
             scope: registered.scope ?? "",
             redirectURIs: desiredRedirectURIs,
-            logoURI: Self.logoURI
+            logoURI: Self.logoURI,
+            issuer: registrationHost.absoluteString
         )
         try LongbridgeCredentialStore.saveOAuthClient(client)
         defaults.set(try JSONEncoder().encode(client), forKey: Self.clientCacheKey)
         return client
+    }
+
+    static func authorizationHost(for client: LongbridgeOAuthClient) -> URL {
+        guard let issuer = client.issuer, let url = URL(string: issuer) else {
+            return LongbridgeEndpointSelection.globalHTTPBaseURL
+        }
+        return url
     }
 
     private struct Registration: Encodable {
@@ -219,7 +266,11 @@ public actor LongbridgeOAuthAuthenticator {
 
     // MARK: - Token endpoint
 
-    static func exchangeToken(clientID: String, form: [String: String]) async throws -> LongbridgeOAuthTokens {
+    static func exchangeToken(
+        clientID: String,
+        form: [String: String],
+        host: URL
+    ) async throws -> LongbridgeOAuthTokens {
         var request = URLRequest(url: host.appending(path: "/oauth2/token"))
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -253,16 +304,18 @@ public actor LongbridgeOAuthAuthenticator {
             clientID: clientID,
             accessToken: token.accessToken,
             refreshToken: token.refreshToken ?? form["refresh_token"] ?? "",
-            expiresAt: Date.now.addingTimeInterval(token.expiresIn ?? 3600)
+            expiresAt: Date.now.addingTimeInterval(token.expiresIn ?? 3600),
+            issuer: host.absoluteString
         )
     }
 
     public static func refresh(_ tokens: LongbridgeOAuthTokens) async throws -> LongbridgeOAuthTokens {
-        try await exchangeToken(clientID: tokens.clientID, form: [
+        let host = URL(string: tokens.normalizedIssuer)!
+        return try await exchangeToken(clientID: tokens.clientID, form: [
             "grant_type": "refresh_token",
             "client_id": tokens.clientID,
             "refresh_token": tokens.refreshToken,
-        ])
+        ], host: host)
     }
 
     // MARK: - PKCE helpers
@@ -307,6 +360,10 @@ public actor LongbridgeOAuthSession {
     /// context is being established.
     public func accessTokenForSDK() async throws -> String {
         try await freshAccessToken(refreshLeeway: 300)
+    }
+
+    public func clientFingerprint() -> String {
+        tokens.clientFingerprint
     }
 
     private func freshAccessToken(refreshLeeway: TimeInterval = 60) async throws -> String {

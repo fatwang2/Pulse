@@ -15,6 +15,7 @@ struct MockProvider: QuoteProvider {
     var searchDelay: Duration = .zero
     var minimumRequestInterval: TimeInterval?
     var delay: [Market: TimeInterval] = [:]
+    var runtimeQuoteDelay: TimeInterval?
     var markets: Set<Market> = Set(Market.allCases)
     var supportsStreaming = false
     var supportsReferenceData = false
@@ -46,7 +47,14 @@ struct MockProvider: QuoteProvider {
         if let quoteError { throw quoteError }
         return symbols
             .filter { !omittedQuoteCodes.contains($0.code) }
-            .map { Quote(symbol: $0, price: quotePrice, previousClose: 99) }
+            .map {
+                Quote(
+                    symbol: $0,
+                    price: quotePrice,
+                    previousClose: 99,
+                    sourceDelay: runtimeQuoteDelay
+                )
+            }
     }
 
     func securityNames(for symbols: [SymbolID]) async throws -> [SecurityName] {
@@ -63,7 +71,14 @@ struct MockProvider: QuoteProvider {
         guard supportsStreaming else { return nil }
         return AsyncThrowingStream { continuation in
             for symbol in symbols {
-                continuation.yield(Quote(symbol: symbol, price: quotePrice, previousClose: 99))
+                continuation.yield(
+                    Quote(
+                        symbol: symbol,
+                        price: quotePrice,
+                        previousClose: 99,
+                        sourceDelay: runtimeQuoteDelay
+                    )
+                )
             }
             continuation.finish()
         }
@@ -270,6 +285,30 @@ struct CompositeProviderTests {
         #expect(quotes.first(where: { $0.symbol == tencentHK })?.price == 100)
     }
 
+    @Test("A delayed primary quote yields to a lower-delay fallback")
+    func delayedPrimaryUsesFresherFallback() async throws {
+        let longbridge = MockProvider(
+            id: LongbridgeProvider.providerID,
+            quotePrice: 100,
+            delay: [.sh: 15 * 60],
+            markets: [.sh]
+        )
+        let tencent = MockProvider(
+            id: "tencent",
+            quotePrice: 200,
+            delay: [.sh: 0],
+            markets: [.sh]
+        )
+        let composite = CompositeProvider(providers: [longbridge, tencent])
+        let symbol = SymbolID(market: .sh, code: "600519")
+
+        let quote = try #require(try await composite.quotes(for: [symbol]).first)
+
+        #expect(quote.price == 200)
+        #expect(quote.sourceID == "tencent")
+        #expect(quote.sourceDelay == 0)
+    }
+
     @Test("Name priorities match quote routing and do not depend on health")
     func namesUseQuoteProviderPriority() {
         let longbridge = MockProvider(id: LongbridgeProvider.providerID)
@@ -450,6 +489,31 @@ struct CompositeProviderTests {
         #expect(received.count == 2)
         #expect(received.first(where: { $0.symbol == apple })?.sourceID == LongbridgeProvider.providerID)
         #expect(received.first(where: { $0.symbol == bitcoin })?.sourceID == BinanceProvider.providerID)
+    }
+
+    @Test("A delayed stream cannot overwrite a market with a fresher polling source")
+    func delayedStreamIsSuppressedWhenFresherPollingExists() async throws {
+        let delayedStreamer = MockProvider(
+            id: LongbridgeProvider.providerID,
+            quotePrice: 100,
+            runtimeQuoteDelay: 900,
+            markets: [.sh],
+            supportsStreaming: true
+        )
+        let realtimePoller = MockProvider(
+            id: "tencent",
+            quotePrice: 101,
+            delay: [.sh: 0],
+            markets: [.sh]
+        )
+        let composite = CompositeProvider(providers: [delayedStreamer, realtimePoller])
+        let maotai = SymbolID(market: .sh, code: "600519")
+        let stream = try #require(composite.quoteStream(for: [maotai]))
+        var received: [Quote] = []
+
+        for try await quote in stream { received.append(quote) }
+
+        #expect(received.isEmpty)
     }
 
     @Test("Quotes are annotated with the actual source and its market delay")

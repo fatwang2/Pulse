@@ -33,6 +33,23 @@ public actor LongbridgeProvider: QuoteProvider {
         await sdk.resetConnection()
     }
 
+    /// Quote packages negotiated by the current official-SDK context. This is the
+    /// runtime source of truth for real-time vs delayed market data.
+    public func quotePackages() async throws -> [LongbridgeQuotePackage] {
+        guard configured else { throw LongbridgeError.notConfigured }
+        return try await sdk.quotePackages()
+    }
+
+    /// Converts negotiated package metadata into a stable value suitable for
+    /// settings UI and entitlement-downgrade monitoring.
+    public nonisolated static func quoteAccess(
+        for market: Market,
+        packages: [LongbridgeQuotePackage],
+        at date: Date = .now
+    ) -> LongbridgeQuoteAccess {
+        LongbridgeQuoteFreshness.quoteAccess(for: market, packages: packages, at: date)
+    }
+
     /// Validation hook used by the local SDK self-test.
     public func debugSDKSubscriptionRoundTrip(for symbols: [SymbolID]) async throws {
         guard configured else { throw LongbridgeError.notConfigured }

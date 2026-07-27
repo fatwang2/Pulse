@@ -1,4 +1,10 @@
 import Foundation
+import OSLog
+
+private let quoteRoutingLogger = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "app.pulse.mac",
+    category: "QuoteRouting"
+)
 
 /// Routing + failover: dispatches each request, keyed by capability x market, to the first healthy provider in registration order.
 /// On failure it trips that provider's circuit breaker for a while and falls back to the next one. The core and the UI only ever talk to this type.
@@ -9,6 +15,7 @@ public actor CompositeProvider: QuoteProvider {
     private var searchCache: [String: CacheEntry<[SymbolInfo]>] = [:]
     private var quoteCache: [SymbolID: CacheEntry<Quote>] = [:]
     private var candleCache: [ProviderCandleCacheKey: CacheEntry<[Candle]>] = [:]
+    private var delayedStreamLogAt: [String: Date] = [:]
     private var disabledIDs: Set<String>
     private let cooldown: TimeInterval
     private let searchCacheTTL: TimeInterval
@@ -248,6 +255,7 @@ public actor CompositeProvider: QuoteProvider {
         }
 
         var result: [Quote] = []
+        var delayedFallbacks: [SymbolID: Quote] = [:]
         var lastError: (any Error)?
         for (id, group) in groups {
             do {
@@ -255,6 +263,15 @@ public actor CompositeProvider: QuoteProvider {
                 try await waitForProviderBudget(provider)
                 let quotes = try await provider.quotes(for: group).map { $0.sourced(by: provider.descriptor) }
                 for quote in quotes {
+                    if let actualDelay = quote.sourceDelay,
+                       candidates(.quotes, market: quote.symbol.market).contains(where: {
+                           $0.descriptor.id != id
+                               && ($0.descriptor.delay[quote.symbol.market] ?? .infinity)
+                                   < actualDelay
+                       }) {
+                        delayedFallbacks[quote.symbol] = quote
+                        continue
+                    }
                     quoteCache[quote.symbol] = CacheEntry(value: quote)
                     quotesBySymbol[quote.symbol] = quote
                 }
@@ -299,7 +316,7 @@ public actor CompositeProvider: QuoteProvider {
             }
         }
         for symbol in missing where quotesBySymbol[symbol] == nil {
-            quotesBySymbol[symbol] = quoteCache[symbol]?.value
+            quotesBySymbol[symbol] = delayedFallbacks[symbol] ?? quoteCache[symbol]?.value
         }
         let ordered = symbols.compactMap { quotesBySymbol[$0] }
         if ordered.isEmpty, let lastError { throw lastError }
@@ -415,7 +432,12 @@ public actor CompositeProvider: QuoteProvider {
                             guard let inner = route.provider.quoteStream(for: route.symbols) else { return }
                             do {
                                 for try await quote in inner {
-                                    continuation.yield(quote.sourced(by: route.provider.descriptor))
+                                    let sourced = quote.sourced(by: route.provider.descriptor)
+                                    guard await self.shouldYieldStreamedQuote(
+                                        sourced,
+                                        from: route.provider
+                                    ) else { continue }
+                                    continuation.yield(sourced)
                                 }
                             } catch {
                                 // One market stream can disappear independently; the remaining
@@ -433,6 +455,32 @@ public actor CompositeProvider: QuoteProvider {
     private struct StreamingRoute: Sendable {
         var provider: any QuoteProvider
         var symbols: [SymbolID]
+    }
+
+    /// A delayed push must not overwrite a fresher quote recovered by polling.
+    /// Providers without streaming (for example Tencent A-shares) keep refreshing
+    /// through the existing polling engine.
+    private func shouldYieldStreamedQuote(
+        _ quote: Quote,
+        from provider: any QuoteProvider
+    ) -> Bool {
+        guard let actualDelay = quote.sourceDelay,
+              candidates(.quotes, market: quote.symbol.market).contains(where: {
+                  $0.descriptor.id != provider.descriptor.id
+                      && ($0.descriptor.delay[quote.symbol.market] ?? .infinity) < actualDelay
+              }) else {
+            return true
+        }
+
+        let logKey = "\(provider.descriptor.id):\(quote.symbol.market.rawValue)"
+        let now = Date.now
+        if now.timeIntervalSince(delayedStreamLogAt[logKey] ?? .distantPast) >= 5 * 60 {
+            delayedStreamLogAt[logKey] = now
+            quoteRoutingLogger.info(
+                "Suppressed delayed stream market=\(quote.symbol.market.rawValue, privacy: .public) source=\(provider.descriptor.id, privacy: .public) delaySeconds=\(Int(actualDelay), privacy: .public); fresher polling source available"
+            )
+        }
+        return false
     }
 
     private func streamingRoutes(for symbols: [SymbolID]) -> [StreamingRoute] {

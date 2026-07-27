@@ -1,12 +1,19 @@
 import AppKit
 import Foundation
 import Observation
+import OSLog
 import PulseCore
 import PulseUI
 
 @MainActor
 @Observable
 final class AppState {
+    private static let longbridgeLogger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "app.pulse.mac",
+        category: "LongbridgeAccess"
+    )
+    private static let longbridgeAccessSnapshotKey = "pulse.longbridge.quoteAccess.v1"
+
     let settings: AppSettings
     let watchlist: WatchlistStore
     let market: MarketStore
@@ -27,6 +34,14 @@ final class AppState {
     private(set) var longbridgeAuthState: LongbridgeAuthState
     var longbridgeConfigured: Bool { longbridgeAuthState != .none }
     private(set) var longbridgeConnectionStatus: LongbridgeConnectionStatus = .disconnected
+    private(set) var longbridgeQuoteAccess: [Market: LongbridgeQuoteAccess] = [:]
+    private(set) var longbridgeDelayedMarkets: Set<Market> = []
+    private(set) var longbridgeDowngradedMarkets: Set<Market> = []
+    var longbridgeHasDelayedQuoteAccess: Bool { !longbridgeDelayedMarkets.isEmpty }
+    var longbridgeNeedsAuthorizationRefresh: Bool {
+        longbridgeAuthState == .oauth && longbridgeHasDelayedQuoteAccess
+    }
+    @ObservationIgnored private var isUpdatingLongbridgeAuth = false
 
     private(set) var rotationIndex = 0
     @ObservationIgnored private var rotationTask: Task<Void, Never>?
@@ -75,6 +90,9 @@ final class AppState {
             for await status in updates {
                 guard let self else { return }
                 self.longbridgeConnectionStatus = status
+                if status == .connected, !self.isUpdatingLongbridgeAuth {
+                    await self.refreshLongbridgeQuoteAccess()
+                }
             }
         }
     }
@@ -149,6 +167,8 @@ final class AppState {
         let tokens = try await longbridgeOAuth.authorize { url in
             Task { @MainActor in NSWorkspace.shared.open(url) }
         }
+        isUpdatingLongbridgeAuth = true
+        defer { isUpdatingLongbridgeAuth = false }
         try await activate(auth: .oauth(Self.makeOAuthSession(tokens)))
         try LongbridgeCredentialStore.saveOAuthTokens(tokens)
         LongbridgeCredentialStore.clear() // OAuth replaces any pasted API-key credentials
@@ -156,6 +176,7 @@ final class AppState {
         // Connecting is the strongest possible "turn this on" signal — flip the
         // switch that was locked off while unconfigured.
         setProvider(LongbridgeProvider.providerID, enabled: true)
+        await refreshLongbridgeQuoteAccess()
     }
 
     /// Forwards `bundleid://oauth/callback?...` URLs from the system to the pending flow.
@@ -166,11 +187,14 @@ final class AppState {
     /// Validates against the live gateway before persisting; invalid credentials are rolled
     /// back so a previously working configuration is never destroyed by a failed edit.
     func saveLongbridgeCredentials(_ credentials: LongbridgeCredentials) async throws {
+        isUpdatingLongbridgeAuth = true
+        defer { isUpdatingLongbridgeAuth = false }
         try await activate(auth: .apiKey(credentials))
         try LongbridgeCredentialStore.save(credentials)
         LongbridgeCredentialStore.clearOAuthTokens() // manual credentials replace OAuth
         longbridgeAuthState = .apiKey
         setProvider(LongbridgeProvider.providerID, enabled: true)
+        await refreshLongbridgeQuoteAccess()
     }
 
     private func activate(auth: LongbridgeAuth) async throws {
@@ -187,6 +211,9 @@ final class AppState {
         LongbridgeCredentialStore.clear()
         LongbridgeCredentialStore.clearOAuthTokens()
         longbridgeAuthState = .none
+        longbridgeQuoteAccess = [:]
+        longbridgeDelayedMarkets = []
+        longbridgeDowngradedMarkets = []
         Task {
             await longbridge.updateAuth(nil)
         }
@@ -203,6 +230,90 @@ final class AppState {
             engine.poke()
             if isPopoverVisible { restartWatchlistStream() }
         }
+    }
+
+    /// Reads the package list from the live SDK context and remembers the best
+    /// access previously negotiated by this OAuth client. A downgrade is surfaced
+    /// to the user but never destroys credentials or starts OAuth automatically.
+    private func refreshLongbridgeQuoteAccess() async {
+        guard longbridgeConfigured else { return }
+        do {
+            let packages = try await longbridge.quotePackages()
+            guard !packages.isEmpty else { return }
+
+            let markets: [Market] = [.us, .hk, .sh, .sz]
+            let current = Dictionary(uniqueKeysWithValues: markets.map {
+                ($0, LongbridgeProvider.quoteAccess(for: $0, packages: packages))
+            })
+            longbridgeQuoteAccess = current
+            longbridgeDelayedMarkets = Set(current.compactMap { market, access in
+                access == .delayed ? market : nil
+            })
+
+            let packageKeys = packages.map(\.key).filter { !$0.isEmpty }.sorted()
+            guard let fingerprint = LongbridgeCredentialStore.loadOAuthTokens()?.clientFingerprint else {
+                longbridgeDowngradedMarkets = []
+                Self.longbridgeLogger.notice(
+                    "Quote access packages=\(packageKeys.joined(separator: ","), privacy: .public) auth=api-key"
+                )
+                return
+            }
+
+            let prior = Self.loadLongbridgeAccessSnapshot()
+            let priorAccess = prior?.clientFingerprint == fingerprint ? prior?.bestAccess ?? [:] : [:]
+            longbridgeDowngradedMarkets = Set(markets.filter {
+                priorAccess[$0.rawValue] == .realtime && current[$0] == .delayed
+            })
+
+            var bestAccess = priorAccess
+            for (market, access) in current where access != .unknown {
+                if access == .realtime || bestAccess[market.rawValue] == nil {
+                    bestAccess[market.rawValue] = access
+                }
+            }
+            Self.saveLongbridgeAccessSnapshot(LongbridgeAccessSnapshot(
+                clientFingerprint: fingerprint,
+                bestAccess: bestAccess,
+                packageKeys: packageKeys,
+                observedAt: .now
+            ))
+
+            let accessSummary = markets
+                .map { "\($0.rawValue)=\(current[$0]?.rawValue ?? "unknown")" }
+                .joined(separator: ",")
+            Self.longbridgeLogger.notice(
+                "Quote access client=\(fingerprint, privacy: .public) packages=\(packageKeys.joined(separator: ","), privacy: .public) access=\(accessSummary, privacy: .public)"
+            )
+            if !longbridgeDowngradedMarkets.isEmpty {
+                let markets = longbridgeDowngradedMarkets.map(\.rawValue).sorted().joined(separator: ",")
+                Self.longbridgeLogger.error(
+                    "Quote entitlement downgrade client=\(fingerprint, privacy: .public) markets=\(markets, privacy: .public)"
+                )
+            }
+        } catch {
+            Self.longbridgeLogger.error(
+                "Quote access inspection failed error=\(error.localizedDescription, privacy: .public)"
+            )
+        }
+    }
+
+    private struct LongbridgeAccessSnapshot: Codable {
+        var clientFingerprint: String
+        var bestAccess: [String: LongbridgeQuoteAccess]
+        var packageKeys: [String]
+        var observedAt: Date
+    }
+
+    private static func loadLongbridgeAccessSnapshot() -> LongbridgeAccessSnapshot? {
+        guard let data = UserDefaults.standard.data(forKey: longbridgeAccessSnapshotKey) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(LongbridgeAccessSnapshot.self, from: data)
+    }
+
+    private static func saveLongbridgeAccessSnapshot(_ snapshot: LongbridgeAccessSnapshot) {
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        UserDefaults.standard.set(data, forKey: longbridgeAccessSnapshotKey)
     }
 
     // MARK: - Menu bar text

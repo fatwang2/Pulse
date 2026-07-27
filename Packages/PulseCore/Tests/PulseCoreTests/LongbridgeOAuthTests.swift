@@ -4,6 +4,58 @@ import Testing
 
 @Suite("Longbridge OAuth")
 struct LongbridgeOAuthTests {
+    @Test func legacyOAuthTokensRemainUsable() {
+        let legacy = LongbridgeOAuthTokens(
+            clientID: "client",
+            accessToken: "access",
+            refreshToken: "refresh",
+            expiresAt: .distantFuture
+        )
+        #expect(legacy.issuer == nil)
+        #expect(!legacy.clientFingerprint.isEmpty)
+    }
+
+    @Test func issuerSurvivesTokenRoundTrip() throws {
+        let tokens = LongbridgeOAuthTokens(
+            clientID: "client",
+            accessToken: "access",
+            refreshToken: "refresh",
+            expiresAt: .distantFuture,
+            issuer: "https://openapi.longbridge.cn"
+        )
+        let decoded = try JSONDecoder().decode(
+            LongbridgeOAuthTokens.self,
+            from: JSONEncoder().encode(tokens)
+        )
+        #expect(decoded.issuer == "https://openapi.longbridge.cn")
+        #expect(decoded.clientFingerprint == tokens.clientFingerprint)
+    }
+
+    @Test func cachedClientKeepsItsRegistrationIssuer() {
+        let client = LongbridgeOAuthClient(
+            clientID: "client",
+            scope: "",
+            redirectURIs: [],
+            issuer: "https://openapi.longbridge.cn"
+        )
+        #expect(
+            LongbridgeOAuthAuthenticator.authorizationHost(for: client).absoluteString
+                == "https://openapi.longbridge.cn"
+        )
+    }
+
+    @Test func legacyClientUsesGlobalAuthorizationHost() {
+        let client = LongbridgeOAuthClient(
+            clientID: "client",
+            scope: "",
+            redirectURIs: []
+        )
+        #expect(
+            LongbridgeOAuthAuthenticator.authorizationHost(for: client).absoluteString
+                == "https://openapi.longbridge.com"
+        )
+    }
+
     @Test func pkceChallengeMatchesRFC7636Vector() {
         // RFC 7636 appendix B golden vector
         let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"

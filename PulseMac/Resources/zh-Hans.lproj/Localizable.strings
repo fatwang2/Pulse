@@ -123,13 +123,17 @@
 "provider.delay.delayed" = "延时";
 "provider.delay.partial" = "部分实时";
 "provider.delay.realtime" = "实时";
+"provider.delay.session" = "以本次会话权限为准";
 "provider.longbridge" = "长桥 Longbridge";
 "longbridge.setup.manualToggle" = "或手动填入 API 密钥";
-"longbridge.setup.intro" = "连接你的 Longbridge 账户后,港股、美股与 A 股行情将切换为实时数据。";
+"longbridge.setup.intro" = "连接后将按账户为本次 OpenAPI 会话提供的行情权限显示数据。";
 "longbridge.disconnect" = "断开连接";
 "longbridge.oauth.connect" = "通过浏览器授权连接";
+"longbridge.oauth.refresh" = "刷新 Longbridge 授权";
 "longbridge.oauth.waiting" = "等待浏览器授权…";
 "longbridge.oauth.error" = "授权失败或已超时,请重试";
+"longbridge.access.delayed" = "Longbridge 为当前会话返回了延迟行情权限。账户后台权限可能正常，刷新授权可重新协商本应用的行情包。";
+"longbridge.access.downgraded" = "Longbridge 当前返回的行情权限低于本应用此前成功协商的实时权限。请刷新授权；Pulse 不会自动退出登录。";
 "longbridge.account" = "账户";
 "longbridge.credentials.manual" = "手动填入 API 密钥";
 "longbridge.status.oauth" = "已连接(浏览器授权)";
@@ -138,7 +142,7 @@
 "longbridge.connection.waiting" = "已就绪";
 "longbridge.connection.connecting" = "连接中…";
 "longbridge.connection.reconnecting" = "重连中…";
-"longbridge.connection.connected" = "实时行情已连接";
+"longbridge.connection.connected" = "行情连接已建立";
 "longbridge.connection.fallback" = "正在使用备用行情";
 "longbridge.connection.retry" = "重新连接行情";
 "longbridge.connection.fallback.help" = "Longbridge 暂时不可用，Pulse 正在使用备用行情源。";

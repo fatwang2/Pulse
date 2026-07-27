@@ -115,6 +115,37 @@ struct LongbridgeSetupView: View {
                         }
                     }
 
+                    if appState.longbridgeHasDelayedQuoteAccess {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label {
+                                Text(PulseLocalization.localizedString(
+                                    appState.longbridgeDowngradedMarkets.isEmpty
+                                        ? "longbridge.access.delayed"
+                                        : "longbridge.access.downgraded"
+                                ))
+                                .font(.caption2)
+                                .fixedSize(horizontal: false, vertical: true)
+                            } icon: {
+                                Image(systemName: "clock.badge.exclamationmark")
+                                    .foregroundStyle(.orange)
+                            }
+                            .foregroundStyle(.secondary)
+
+                            if appState.longbridgeNeedsAuthorizationRefresh {
+                                actionButton(
+                                    titleKey: isConnecting
+                                        ? "longbridge.oauth.waiting"
+                                        : "longbridge.oauth.refresh",
+                                    tint: .accentColor,
+                                    showsSpinner: isConnecting
+                                ) {
+                                    connectOAuth()
+                                }
+                                .disabled(isConnecting)
+                            }
+                        }
+                    }
+
                     actionButton(titleKey: "longbridge.disconnect", tint: .red) {
                         appState.clearLongbridgeCredentials()
                         setConnectionError(nil)

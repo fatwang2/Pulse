@@ -123,13 +123,17 @@
 "provider.delay.delayed" = "Delayed";
 "provider.delay.partial" = "Partially real-time";
 "provider.delay.realtime" = "Real-time";
+"provider.delay.session" = "Depends on session entitlement";
 "provider.longbridge" = "Longbridge";
 "longbridge.setup.manualToggle" = "Or enter API keys manually";
-"longbridge.setup.intro" = "Connect your Longbridge account to switch HK, US and CN quotes to real-time data.";
+"longbridge.setup.intro" = "Quotes use the market-data entitlement granted to this OpenAPI session.";
 "longbridge.disconnect" = "Disconnect";
 "longbridge.oauth.connect" = "Connect via Browser";
+"longbridge.oauth.refresh" = "Refresh Longbridge Authorization";
 "longbridge.oauth.waiting" = "Waiting for authorization…";
 "longbridge.oauth.error" = "Authorization failed or timed out — try again";
+"longbridge.access.delayed" = "Longbridge returned delayed access for this session. Your account entitlement may still be active; refresh authorization to renegotiate this app's quote packages.";
+"longbridge.access.downgraded" = "Longbridge returned lower access than the real-time package this app previously negotiated. Refresh authorization; Pulse will never sign you out automatically.";
 "longbridge.account" = "Account";
 "longbridge.credentials.manual" = "Enter API keys manually";
 "longbridge.status.oauth" = "Connected (browser auth)";
@@ -138,7 +142,7 @@
 "longbridge.connection.waiting" = "Ready";
 "longbridge.connection.connecting" = "Connecting…";
 "longbridge.connection.reconnecting" = "Reconnecting…";
-"longbridge.connection.connected" = "Real-time connected";
+"longbridge.connection.connected" = "Market data connected";
 "longbridge.connection.fallback" = "Using fallback";
 "longbridge.connection.retry" = "Reconnect Market Data";
 "longbridge.connection.fallback.help" = "Longbridge is unavailable. Pulse is temporarily using a fallback market-data source.";

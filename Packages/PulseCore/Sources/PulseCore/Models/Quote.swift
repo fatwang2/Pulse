@@ -52,7 +52,10 @@ public struct Quote: Codable, Sendable, Hashable {
         var quote = self
         quote.sourceID = descriptor.id
         quote.sourceName = descriptor.name
-        quote.sourceDelay = descriptor.delay[symbol.market]
+        // A provider may negotiate a session-specific quote package (Longbridge)
+        // or detect delay from the returned market timestamp. Preserve that runtime
+        // provenance; the static descriptor is only the fallback.
+        quote.sourceDelay = quote.sourceDelay ?? descriptor.delay[symbol.market]
         return quote
     }
 

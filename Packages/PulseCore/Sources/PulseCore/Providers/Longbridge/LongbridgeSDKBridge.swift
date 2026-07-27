@@ -1,7 +1,14 @@
 #if os(macOS)
 import Darwin
+import CryptoKit
 import Foundation
 import LongbridgeCABI
+import OSLog
+
+private let longbridgeLogger = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "app.pulse.mac",
+    category: "Longbridge"
+)
 
 private typealias LBSDKAsyncCallback = @convention(c) (UnsafePointer<lb_async_result_t>?) -> Void
 private typealias LBSDKQuoteCallback = @convention(c) (
@@ -78,6 +85,14 @@ private struct LBSDKCandlestick: Sendable {
     var timestamp: Int64
 }
 
+private struct LBSDKQuotePackage: Sendable {
+    var key: String
+    var name: String
+    var description: String
+    var startAt: Int64
+    var endAt: Int64
+}
+
 enum LongbridgeSDKErrorClassifier {
     static func providerError(code: Int64, message: String) -> ProviderError {
         let lowercased = message.lowercased()
@@ -134,9 +149,18 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
     ) -> OpaquePointer?
     typealias ConfigFromOAuthToken = @convention(c) (UnsafePointer<CChar>?) -> OpaquePointer?
     typealias ConfigMutation = @convention(c) (OpaquePointer?) -> Void
+    typealias ConfigStringMutation = @convention(c) (
+        OpaquePointer?,
+        UnsafePointer<CChar>?
+    ) -> Void
     typealias ConfigFree = @convention(c) (OpaquePointer?) -> Void
     typealias ContextNew = @convention(c) (OpaquePointer?) -> OpaquePointer?
     typealias ContextRelease = @convention(c) (OpaquePointer?) -> Void
+    typealias ContextRequest = @convention(c) (
+        OpaquePointer?,
+        LBSDKAsyncCallback?,
+        UnsafeMutableRawPointer?
+    ) -> Void
     typealias SetOnQuote = @convention(c) (
         OpaquePointer?,
         LBSDKQuoteCallback?,
@@ -177,9 +201,12 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
     let configFromOAuthToken: ConfigFromOAuthToken
     let enableOvernight: ConfigMutation
     let disablePrintQuotePackages: ConfigMutation
+    let setHTTPURL: ConfigStringMutation
+    let setQuoteWebSocketURL: ConfigStringMutation
     let configFree: ConfigFree
     let contextNew: ContextNew
     let contextRelease: ContextRelease
+    let quotePackageDetails: ContextRequest
     let setOnQuote: SetOnQuote
     let staticInfo: SymbolsRequest
     let quote: SymbolsRequest
@@ -223,12 +250,27 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
             "lb_config_disable_print_quote_packages",
             as: ConfigMutation.self
         )
+        self.setHTTPURL = try Self.resolve(
+            handle,
+            "lb_config_set_http_url",
+            as: ConfigStringMutation.self
+        )
+        self.setQuoteWebSocketURL = try Self.resolve(
+            handle,
+            "lb_config_set_quote_ws_url",
+            as: ConfigStringMutation.self
+        )
         self.configFree = try Self.resolve(handle, "lb_config_free", as: ConfigFree.self)
         self.contextNew = try Self.resolve(handle, "lb_quote_context_new", as: ContextNew.self)
         self.contextRelease = try Self.resolve(
             handle,
             "lb_quote_context_release",
             as: ContextRelease.self
+        )
+        self.quotePackageDetails = try Self.resolve(
+            handle,
+            "lb_quote_context_quote_package_details",
+            as: ContextRequest.self
         )
         self.setOnQuote = try Self.resolve(
             handle,
@@ -349,6 +391,23 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
         }
     }
 
+    func copyQuotePackages(_ result: UnsafePointer<lb_async_result_t>) -> [LBSDKQuotePackage] {
+        guard let data = result.pointee.data else { return [] }
+        let rows = UnsafeBufferPointer(
+            start: data.assumingMemoryBound(to: lb_quote_package_detail_t.self),
+            count: Int(result.pointee.length)
+        )
+        return rows.map { row in
+            LBSDKQuotePackage(
+                key: row.key.map(String.init(cString:)) ?? "",
+                name: row.name.map(String.init(cString:)) ?? "",
+                description: row.description.map(String.init(cString:)) ?? "",
+                startAt: row.start_at,
+                endAt: row.end_at
+            )
+        }
+    }
+
     func copyPushQuote(_ pointer: UnsafePointer<lb_push_quote_t>) -> LBSDKPushQuote? {
         let row = pointer.pointee
         guard let symbol = row.symbol else { return nil }
@@ -416,6 +475,11 @@ actor LongbridgeSDKBridge {
         var continuation: AsyncThrowingStream<Quote, any Error>.Continuation
     }
 
+    private struct FreshnessLogState {
+        var signature: String
+        var loggedAt: Date
+    }
+
     private var auth: LongbridgeAuth?
     private var library: LongbridgeSDKDynamicLibrary?
     private var context: OpaquePointer?
@@ -424,12 +488,16 @@ actor LongbridgeSDKBridge {
     private var streamSubscribers: [UUID: StreamSubscriber] = [:]
     private var subscribedSymbols: Set<String> = []
     private var streamBase: [String: Quote] = [:]
+    private var negotiatedQuotePackages: [LongbridgeQuotePackage] = []
+    private var freshnessLogState: [Market: FreshnessLogState] = [:]
+    private var marketsWithLoggedPush: Set<Market> = []
 
     init(auth: LongbridgeAuth?) {
         self.auth = auth
     }
 
     func updateAuth(_ auth: LongbridgeAuth?) {
+        longbridgeLogger.notice("Authentication changed; rebuilding quote context")
         finishStreams()
         releaseContext()
         self.auth = auth
@@ -445,9 +513,15 @@ actor LongbridgeSDKBridge {
     }
 
     func resetConnection() {
+        longbridgeLogger.notice("Manual quote connection reset requested")
         finishStreams()
         releaseContext()
         setStatus(.disconnected)
+    }
+
+    func quotePackages() async throws -> [LongbridgeQuotePackage] {
+        _ = try await ensureContext()
+        return negotiatedQuotePackages
     }
 
     func subscriptionRoundTrip(for symbols: [SymbolID]) async throws {
@@ -482,16 +556,24 @@ actor LongbridgeSDKBridge {
                 context: context,
                 library: library
             )
+            let receivedAt = Date.now
+            let packages = negotiatedQuotePackages
             let symbolsBySDKName = Dictionary(uniqueKeysWithValues: mapped.map { ($0.1, $0.0) })
             let quotes = snapshots.compactMap { snapshot -> Quote? in
                 guard let symbol = symbolsBySDKName[snapshot.symbol] else { return nil }
-                return Self.quote(from: snapshot, symbol: symbol)
+                return Self.quote(
+                    from: snapshot,
+                    symbol: symbol,
+                    packages: packages,
+                    receivedAt: receivedAt
+                )
             }
             for quote in quotes {
                 if let sdkSymbol = LongbridgeProvider.longbridgeSymbol(for: quote.symbol) {
                     streamBase[sdkSymbol] = quote
                 }
             }
+            logQuoteFreshness(quotes, receivedAt: receivedAt)
             setStatus(.connected)
             return quotes
         } catch {
@@ -638,6 +720,13 @@ actor LongbridgeSDKBridge {
                 return
             }
             streamSubscribers[id] = StreamSubscriber(symbols: accepted, continuation: continuation)
+            let markets = Set(mapped.compactMap { sdkSymbol, symbol in
+                accepted.contains(sdkSymbol) ? symbol.market : nil
+            })
+            let marketList = markets.map(\.rawValue).sorted().joined(separator: ",")
+            longbridgeLogger.info(
+                "Quote stream subscribed markets=\(marketList, privacy: .public) count=\(accepted.count, privacy: .public)"
+            )
             setStatus(.connected)
         } catch {
             streamSubscribers[id] = nil
@@ -776,8 +865,19 @@ actor LongbridgeSDKBridge {
         if push.timestamp > 0 {
             quote.timestamp = Date(timeIntervalSince1970: TimeInterval(push.timestamp))
         }
+        quote.sourceDelay = LongbridgeQuoteFreshness.effectiveDelay(
+            for: quote.symbol,
+            timestamp: quote.timestamp,
+            packages: negotiatedQuotePackages
+        )
         quote.marketState = Self.marketState(forTradeSession: push.tradeSession)
         streamBase[push.symbol] = quote
+        if marketsWithLoggedPush.insert(quote.symbol.market).inserted {
+            let age = max(0, Int(Date.now.timeIntervalSince(quote.timestamp)))
+            longbridgeLogger.info(
+                "First quote push market=\(quote.symbol.market.rawValue, privacy: .public) ageSeconds=\(age, privacy: .public)"
+            )
+        }
         setStatus(.connected)
 
         for subscriber in streamSubscribers.values where subscriber.symbols.contains(push.symbol) {
@@ -799,8 +899,12 @@ actor LongbridgeSDKBridge {
         }
 
         let config: OpaquePointer?
+        let authMode: String
+        let authClientFingerprint: String
         switch auth {
         case .apiKey(let credentials):
+            authMode = "api-key"
+            authClientFingerprint = Self.fingerprint(credentials.appKey)
             config = credentials.appKey.withCString { appKey in
                 credentials.appSecret.withCString { appSecret in
                     credentials.accessToken.withCString { accessToken in
@@ -809,6 +913,8 @@ actor LongbridgeSDKBridge {
                 }
             }
         case .oauth(let session):
+            authMode = "oauth"
+            authClientFingerprint = await session.clientFingerprint()
             let accessToken = try await session.accessTokenForSDK()
             config = accessToken.withCString { library.configFromOAuthToken($0) }
         }
@@ -819,6 +925,18 @@ actor LongbridgeSDKBridge {
 
         library.enableOvernight(config)
         library.disablePrintQuotePackages(config)
+        let usesChinaEndpoint = LongbridgeEndpointSelection.usesChinaEndpoint()
+        if usesChinaEndpoint {
+            LongbridgeEndpointSelection.httpBaseURL().absoluteString.withCString {
+                library.setHTTPURL(config, $0)
+            }
+            LongbridgeEndpointSelection.quoteWebSocketURL().absoluteString.withCString {
+                library.setQuoteWebSocketURL(config, $0)
+            }
+        }
+        longbridgeLogger.notice(
+            "Creating quote context auth=\(authMode, privacy: .public) authClient=\(authClientFingerprint, privacy: .public) endpoint=\(usesChinaEndpoint ? "cn" : "global", privacy: .public)"
+        )
         guard let context = library.contextNew(config) else {
             throw LongbridgeError.socket("Longbridge SDK could not create a quote context")
         }
@@ -833,6 +951,26 @@ actor LongbridgeSDKBridge {
             Unmanaged.passRetained(pushBox).toOpaque(),
             longbridgeSDKFreeCallback
         )
+
+        do {
+            negotiatedQuotePackages = try await requestQuotePackages(
+                context: context,
+                library: library
+            )
+            let keys = negotiatedQuotePackages
+                .map(\.key)
+                .filter { !$0.isEmpty }
+                .sorted()
+                .joined(separator: ",")
+            longbridgeLogger.notice(
+                "Quote packages negotiated count=\(self.negotiatedQuotePackages.count, privacy: .public) keys=\(keys, privacy: .public)"
+            )
+        } catch {
+            negotiatedQuotePackages = []
+            longbridgeLogger.error(
+                "Quote package inspection failed issue=\(Self.issueLabel(for: error), privacy: .public)"
+            )
+        }
         return context
     }
 
@@ -843,6 +981,9 @@ actor LongbridgeSDKBridge {
         context = nil
         subscribedSymbols = []
         streamBase = [:]
+        negotiatedQuotePackages = []
+        freshnessLogState = [:]
+        marketsWithLoggedPush = []
     }
 
     private func finishStreams() {
@@ -884,6 +1025,9 @@ actor LongbridgeSDKBridge {
     private func setStatus(_ newStatus: LongbridgeConnectionStatus) {
         guard status != newStatus else { return }
         status = newStatus
+        longbridgeLogger.notice(
+            "Connection status=\(Self.statusLabel(newStatus), privacy: .public)"
+        )
         statusContinuation?.yield(newStatus)
     }
 
@@ -892,7 +1036,64 @@ actor LongbridgeSDKBridge {
             if context != nil { setStatus(.connected) }
             return
         }
+        longbridgeLogger.error(
+            "Longbridge operation failed issue=\(Self.issueLabel(for: error), privacy: .public)"
+        )
         setStatus(.failed(Self.connectionIssue(for: error)))
+    }
+
+    private func requestQuotePackages(
+        context: OpaquePointer,
+        library: LongbridgeSDKDynamicLibrary
+    ) async throws -> [LongbridgeQuotePackage] {
+        let rows: [LBSDKQuotePackage] = try await perform(library: library) { callback, userdata in
+            library.quotePackageDetails(context, callback, userdata)
+        } decode: { result in
+            library.copyQuotePackages(result)
+        }
+        return rows.map {
+            LongbridgeQuotePackage(
+                key: $0.key,
+                name: $0.name,
+                description: $0.description,
+                startAt: $0.startAt > 0
+                    ? Date(timeIntervalSince1970: TimeInterval($0.startAt))
+                    : nil,
+                endAt: $0.endAt > 0
+                    ? Date(timeIntervalSince1970: TimeInterval($0.endAt))
+                    : nil
+            )
+        }
+    }
+
+    private func logQuoteFreshness(_ quotes: [Quote], receivedAt: Date) {
+        for (market, rows) in Dictionary(grouping: quotes, by: \.symbol.market) {
+            guard !rows.isEmpty else { continue }
+            let ages = rows.map { max(0, Int(receivedAt.timeIntervalSince($0.timestamp))) }
+            let minimumAge = ages.min() ?? 0
+            let maximumAge = ages.max() ?? 0
+            let effectiveDelay = Int(rows.compactMap(\.sourceDelay).max() ?? 0)
+            let packageDelay = Int(rows.compactMap {
+                LongbridgeQuoteFreshness.packageDelay(
+                    for: $0.symbol,
+                    packages: negotiatedQuotePackages,
+                    at: receivedAt
+                )
+            }.max() ?? 0)
+            let signature = "\(minimumAge / 60):\(maximumAge / 60):\(effectiveDelay):\(packageDelay)"
+            let previous = freshnessLogState[market]
+            guard previous?.signature != signature
+                    || receivedAt.timeIntervalSince(previous?.loggedAt ?? .distantPast) >= 5 * 60 else {
+                continue
+            }
+            freshnessLogState[market] = FreshnessLogState(
+                signature: signature,
+                loggedAt: receivedAt
+            )
+            longbridgeLogger.info(
+                "Quote freshness market=\(market.rawValue, privacy: .public) count=\(rows.count, privacy: .public) ageSeconds=\(minimumAge, privacy: .public)-\(maximumAge, privacy: .public) packageDelaySeconds=\(packageDelay, privacy: .public) effectiveDelaySeconds=\(effectiveDelay, privacy: .public)"
+            )
+        }
     }
 
     private static func withCStringArray<Result>(
@@ -924,7 +1125,12 @@ actor LongbridgeSDKBridge {
         }
     }
 
-    private static func quote(from snapshot: LBSDKSecurityQuote, symbol: SymbolID) -> Quote? {
+    private static func quote(
+        from snapshot: LBSDKSecurityQuote,
+        symbol: SymbolID,
+        packages: [LongbridgeQuotePackage],
+        receivedAt: Date
+    ) -> Quote? {
         guard let regularPrice = snapshot.lastDone,
               let previousClose = snapshot.previousClose else { return nil }
 
@@ -963,9 +1169,17 @@ actor LongbridgeSDKBridge {
             volume: Double(snapshot.volume),
             turnover: snapshot.turnover,
             currencyCode: symbol.market.currencyCode,
+            sourceDelay: LongbridgeQuoteFreshness.effectiveDelay(
+                for: symbol,
+                timestamp: timestamp > 0
+                    ? Date(timeIntervalSince1970: TimeInterval(timestamp))
+                    : receivedAt,
+                packages: packages,
+                receivedAt: receivedAt
+            ),
             timestamp: timestamp > 0
                 ? Date(timeIntervalSince1970: TimeInterval(timestamp))
-                : .now,
+                : receivedAt,
             marketState: marketState
         )
     }
@@ -1016,6 +1230,38 @@ actor LongbridgeSDKBridge {
         if detail.contains("auth") || detail.contains("token") { return .authentication }
         if detail.contains("network") || detail.contains("socket") { return .network }
         return .server
+    }
+
+    private static func issueLabel(for error: any Error) -> String {
+        switch connectionIssue(for: error) {
+        case .connectionLimit: "connection-limit"
+        case .authentication: "authentication"
+        case .rateLimited: "rate-limited"
+        case .network: "network"
+        case .server: "server"
+        }
+    }
+
+    private static func fingerprint(_ value: String) -> String {
+        let digest = SHA256.hash(data: Data(value.utf8))
+        return digest.prefix(6).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func statusLabel(_ status: LongbridgeConnectionStatus) -> String {
+        switch status {
+        case .disconnected: "disconnected"
+        case .connecting: "connecting"
+        case .reconnecting: "reconnecting"
+        case .connected: "connected"
+        case .failed(let issue):
+            switch issue {
+            case .connectionLimit: "failed.connection-limit"
+            case .authentication: "failed.authentication"
+            case .rateLimited: "failed.rate-limited"
+            case .network: "failed.network"
+            case .server: "failed.server"
+            }
+        }
     }
 }
 #endif

@@ -102,4 +102,12 @@ typedef struct lb_candlestick_t {
     int32_t trade_session;
 } lb_candlestick_t;
 
+typedef struct lb_quote_package_detail_t {
+    const char *key;
+    const char *name;
+    const char *description;
+    int64_t start_at;
+    int64_t end_at;
+} lb_quote_package_detail_t;
+
 #endif

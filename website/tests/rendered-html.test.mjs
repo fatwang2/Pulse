@@ -96,7 +96,7 @@ test("includes English copy and remembered language selection", async () => {
   assert.match(page, /document\.documentElement\.lang/);
 });
 
-test("includes privacy-conscious GA4 and download tracking", async () => {
+test("enables GA4 analytics while keeping advertising consent disabled", async () => {
   const layout = await readFile(
     new URL("../app/layout.tsx", import.meta.url),
     "utf8",
@@ -108,7 +108,9 @@ test("includes privacy-conscious GA4 and download tracking", async () => {
 
   assert.match(layout, /G-J9GLF06LPP/);
   assert.match(layout, /googletagmanager\.com\/gtag\/js/);
-  assert.match(layout, /analytics_storage: "denied"/);
+  assert.match(layout, /analytics_storage: "granted"/);
+  assert.match(layout, /ad_storage: "denied"/);
+  assert.match(layout, /ad_user_data: "denied"/);
   assert.match(layout, /ad_personalization: "denied"/);
   assert.match(layout, /allow_google_signals", false/);
   assert.match(analyticsEvents, /"file_download"/);

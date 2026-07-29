@@ -199,14 +199,18 @@ public struct IntradayChartView: View {
         return lo...hi
     }
 
+    /// Gaps are measured in trading minutes: the collapsed lunch break spans ~0 trading
+    /// minutes and stays continuous, while genuine data holes still break the line.
     private var lineSegments: [CandleSegment] {
         let sorted = sessionCandles
+        let session = self.session
         guard let first = sorted.first else { return [] }
+        let breakMinutes: Double = 20
         var segments: [CandleSegment] = []
         var current = [first]
         for candle in sorted.dropFirst() {
             if let previous = current.last,
-               candle.time.timeIntervalSince(previous.time) > segmentBreakInterval {
+               session.minuteOffset(for: candle.time) - session.minuteOffset(for: previous.time) > breakMinutes {
                 segments.append(CandleSegment(id: segments.count, candles: current))
                 current = [candle]
             } else {
@@ -215,10 +219,6 @@ public struct IntradayChartView: View {
         }
         segments.append(CandleSegment(id: segments.count, candles: current))
         return segments
-    }
-
-    private var segmentBreakInterval: TimeInterval {
-        market.isChinaA || market == .hk ? 30 * 60 : 20 * 60
     }
 
     private var axisTimeFormatter: DateFormatter {

@@ -8,13 +8,14 @@ struct ShareImageConfiguration {
     var colorScheme: ColorScheme
     var locale: Locale
 
-    static func socialPortrait(
-        height: CGFloat = 675,
+    /// Watchlist card: 1:1 at the base height, growing taller for long lists.
+    static func watchlistSquare(
+        height: CGFloat,
         colorScheme: ColorScheme,
         locale: Locale
     ) -> Self {
         Self(
-            width: 540,
+            width: 640,
             height: height,
             scale: 2,
             colorScheme: colorScheme,
@@ -22,10 +23,11 @@ struct ShareImageConfiguration {
         )
     }
 
-    static func compactClipboard(colorScheme: ColorScheme, locale: Locale) -> Self {
+    /// Detail card: 16:9, X's native in-stream ratio.
+    static func detailLandscape(colorScheme: ColorScheme, locale: Locale) -> Self {
         Self(
-            width: 420,
-            height: nil,
+            width: DetailShareSnapshot.imageSize.width,
+            height: DetailShareSnapshot.imageSize.height,
             scale: 2,
             colorScheme: colorScheme,
             locale: locale

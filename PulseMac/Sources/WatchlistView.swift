@@ -295,14 +295,15 @@ struct WatchlistView: View {
     private func copyShareSnapshot() {
         do {
             let snapshot = WatchlistShareSnapshot(appState: appState)
+            let palette = ChangePalette(redUp: snapshot.redUp)
             let card = PulseShareCard(
-                metadata: PulseShareCardMetadata(updatedAtText: snapshot.updatedAtText)
+                ambientColor: snapshot.ambientChange.map(palette.color(for:))
             ) {
                 WatchlistShareContent(snapshot: snapshot)
             }
             let artifact = try ShareImageRenderer.render(
                 card,
-                configuration: .socialPortrait(
+                configuration: .watchlistSquare(
                     height: snapshot.preferredImageHeight,
                     colorScheme: colorScheme,
                     locale: appState.settings.locale

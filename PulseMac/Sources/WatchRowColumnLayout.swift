@@ -31,6 +31,20 @@ enum WatchRowColumnLayout {
         return measure(name, font: metrics.nameFont) > availableWidth
     }
 
+    /// Share rows stack the session label above the price, so the column fits the wider of the two.
+    static func sharePriceWidth(priceText: String, sessionLabel: String?) -> CGFloat {
+        let metrics = Metrics(.share)
+        let priceWidth = measure(priceText, font: metrics.priceFont)
+        let sessionWidth = sessionLabel.map { measure($0, font: metrics.sessionFont) } ?? 0
+        return max(max(priceWidth, sessionWidth), 40)
+    }
+
+    /// Share rows show the metric inside a fixed-width pill; the widest metric wins, floored at 86pt.
+    static func sharePillWidth(metricText: String) -> CGFloat {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 13.5, weight: .bold)
+        return max(measure(metricText, font: font) + 24, 86)
+    }
+
     static func metricWidth(
         priceText: String,
         metricText: String,
@@ -76,15 +90,15 @@ enum WatchRowColumnLayout {
                 minimumMetricWidth = 48
                 maximumMetricWidth = 104
             case .share:
-                nameFont = .systemFont(ofSize: 15, weight: .medium)
+                nameFont = .systemFont(ofSize: 14.5, weight: .medium)
                 symbolFont = .monospacedSystemFont(ofSize: 11.5, weight: .regular)
                 priceFont = .monospacedDigitSystemFont(ofSize: 15, weight: .semibold)
-                metricFont = .monospacedDigitSystemFont(ofSize: 13, weight: .semibold)
-                badgeGap = 5
+                metricFont = .monospacedDigitSystemFont(ofSize: 13.5, weight: .bold)
+                badgeGap = 6
                 minimumTitleWidth = 58
-                maximumTitleWidth = 132
+                maximumTitleWidth = 240
                 minimumMetricWidth = 58
-                maximumMetricWidth = 112
+                maximumMetricWidth = 132
             }
         }
     }

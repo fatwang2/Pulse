@@ -179,12 +179,11 @@
 "search.noResults" = "No symbols found";
 "search.placeholder" = "Search symbols or companies";
 
+"share.watchlist.title" = "My Watchlist";
 "share.copyFailed" = "Couldn’t copy share image";
 "share.copySuccess" = "Copied share image";
-"share.disclaimer" = "For reference only";
+"share.range.intraday" = "Day range";
 "share.updateUnavailable" = "Waiting for quote data";
-"share.watchlist.more.many" = "%d more symbols";
-"share.watchlist.more.one" = "%d more symbol";
 
 "settings.general.language" = "Language";
 "settings.general.launchAtLogin" = "Launch at Login";

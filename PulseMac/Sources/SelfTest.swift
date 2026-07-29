@@ -3,6 +3,7 @@ import Dispatch
 import Foundation
 import SwiftUI
 import PulseCore
+import PulseUI
 
 /// In-sandbox data pipeline self-test: `./Pulse.app/Contents/MacOS/Pulse --selftest`
 /// Unlike the CLI unit tests, this runs in the app's real sandbox/signing/network environment.
@@ -603,57 +604,92 @@ enum SelfTest {
                     ),
                 ],
                 redUp: true,
+                title: "My Watchlist",
+                dateText: "Jul 29, Wed",
                 updatedAtText: PulseLocalization.localizedString("refresh.updatedAt", "09:45")
             )
+            let palette = ChangePalette(redUp: snapshot.redUp)
             let card = PulseShareCard(
-                metadata: PulseShareCardMetadata(updatedAtText: snapshot.updatedAtText)
+                ambientColor: snapshot.ambientChange.map(palette.color(for:))
             ) {
                 WatchlistShareContent(snapshot: snapshot)
             }
             let artifact = try ShareImageRenderer.render(
                 card,
-                configuration: .socialPortrait(
+                configuration: .watchlistSquare(
                     height: snapshot.preferredImageHeight,
                     colorScheme: .light,
                     locale: Locale(identifier: "en")
                 )
             )
 
+            // 7 rows fit inside the 1:1 base canvas (1280×1280 at 2x).
             let pasteboard = NSPasteboard.withUniqueName()
             try ClipboardImageExporter.write(artifact, to: pasteboard)
             guard pasteboard.data(forType: .png) != nil,
                   pasteboard.data(forType: .tiff) != nil,
                   let bitmap = NSBitmapImageRep(data: artifact.pngData),
-                  bitmap.pixelsWide == 1080,
-                  bitmap.pixelsHigh == 1350 else {
+                  bitmap.pixelsWide == 1280,
+                  bitmap.pixelsHigh == 1280 else {
                 throw ShareImageError.clipboardWriteFailed
             }
 
             let shortSnapshot = WatchlistShareSnapshot(
                 rows: Array(snapshot.rows.prefix(1)),
                 redUp: snapshot.redUp,
+                title: snapshot.title,
+                dateText: snapshot.dateText,
                 updatedAtText: snapshot.updatedAtText
             )
             guard snapshot.titleColumnWidth > shortSnapshot.titleColumnWidth,
-                  snapshot.metricColumnWidth > shortSnapshot.metricColumnWidth else {
+                  snapshot.priceColumnWidth > shortSnapshot.priceColumnWidth,
+                  snapshot.pillColumnWidth > shortSnapshot.pillColumnWidth else {
                 throw ShareImageError.renderingFailed
             }
-            let shortCard = PulseShareCard(
-                metadata: PulseShareCardMetadata(updatedAtText: shortSnapshot.updatedAtText)
-            ) {
-                WatchlistShareContent(snapshot: shortSnapshot)
+
+            // Long lists keep the 640pt width and grow taller instead of dropping rows.
+            let tallRows = snapshot.rows + snapshot.rows.map { row in
+                WatchlistShareSnapshot.Row(
+                    id: SymbolID(market: row.market == .crypto ? .us : row.market, code: row.symbolCode + "X"),
+                    name: row.name,
+                    market: row.market,
+                    symbolCode: row.symbolCode,
+                    priceText: row.priceText,
+                    metricText: row.metricText,
+                    metricColorValue: row.metricColorValue,
+                    change: row.change,
+                    previousClose: row.previousClose,
+                    sessionLabel: row.sessionLabel,
+                    sparkline: row.sparkline
+                )
             }
-            let shortArtifact = try ShareImageRenderer.render(
-                shortCard,
-                configuration: .socialPortrait(
-                    height: shortSnapshot.preferredImageHeight,
+            let tallSnapshot = WatchlistShareSnapshot(
+                rows: tallRows,
+                redUp: snapshot.redUp,
+                title: snapshot.title,
+                dateText: snapshot.dateText,
+                updatedAtText: snapshot.updatedAtText
+            )
+            guard shortSnapshot.preferredImageHeight == WatchlistShareSnapshot.baseImageSize,
+                  tallSnapshot.preferredImageHeight > WatchlistShareSnapshot.baseImageSize else {
+                throw ShareImageError.renderingFailed
+            }
+            let tallCard = PulseShareCard(
+                ambientColor: tallSnapshot.ambientChange.map(palette.color(for:))
+            ) {
+                WatchlistShareContent(snapshot: tallSnapshot)
+            }
+            let tallArtifact = try ShareImageRenderer.render(
+                tallCard,
+                configuration: .watchlistSquare(
+                    height: tallSnapshot.preferredImageHeight,
                     colorScheme: .light,
                     locale: Locale(identifier: "en")
                 )
             )
-            guard let shortBitmap = NSBitmapImageRep(data: shortArtifact.pngData),
-                  shortBitmap.pixelsWide == 1080,
-                  shortBitmap.pixelsHigh == 720 else {
+            guard let tallBitmap = NSBitmapImageRep(data: tallArtifact.pngData),
+                  tallBitmap.pixelsWide == 1280,
+                  tallBitmap.pixelsHigh == Int(tallSnapshot.preferredImageHeight * 2) else {
                 throw ShareImageError.renderingFailed
             }
 
@@ -684,41 +720,40 @@ enum SelfTest {
                 updatedAtText: PulseLocalization.localizedString("refresh.updatedAt", "09:45")
             )
             let detailCard = PulseShareCard(
-                metadata: PulseShareCardMetadata(updatedAtText: detailSnapshot.updatedAtText)
+                ambientColor: detailSnapshot.changeValue.map(palette.color(for:))
             ) {
                 DetailShareContent(snapshot: detailSnapshot)
             }
             let detailArtifact = try ShareImageRenderer.render(
                 detailCard,
-                configuration: .socialPortrait(
-                    height: detailSnapshot.preferredImageHeight,
+                configuration: .detailLandscape(
                     colorScheme: .light,
                     locale: Locale(identifier: "en")
                 )
             )
             let darkDetailArtifact = try ShareImageRenderer.render(
                 detailCard,
-                configuration: .socialPortrait(
-                    height: detailSnapshot.preferredImageHeight,
+                configuration: .detailLandscape(
                     colorScheme: .dark,
                     locale: Locale(identifier: "en")
                 )
             )
+            // 16:9 landscape (1920×1080 at 2x) in both appearances.
             guard let detailBitmap = NSBitmapImageRep(data: detailArtifact.pngData),
                   let darkDetailBitmap = NSBitmapImageRep(data: darkDetailArtifact.pngData),
-                  detailBitmap.pixelsWide == 1080,
-                  detailBitmap.pixelsHigh == 1024,
-                  darkDetailBitmap.pixelsWide == 1080,
-                  darkDetailBitmap.pixelsHigh == 1024 else {
+                  detailBitmap.pixelsWide == 1920,
+                  detailBitmap.pixelsHigh == 1080,
+                  darkDetailBitmap.pixelsWide == 1920,
+                  darkDetailBitmap.pixelsHigh == 1080 else {
                 throw ShareImageError.renderingFailed
             }
 
             let outputURL = URL(fileURLWithPath: NSTemporaryDirectory())
                 .appendingPathComponent("pulse-share-selftest.png")
             try artifact.pngData.write(to: outputURL, options: .atomic)
-            let shortOutputURL = URL(fileURLWithPath: NSTemporaryDirectory())
-                .appendingPathComponent("pulse-share-selftest-short.png")
-            try shortArtifact.pngData.write(to: shortOutputURL, options: .atomic)
+            let tallOutputURL = URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("pulse-share-selftest-tall.png")
+            try tallArtifact.pngData.write(to: tallOutputURL, options: .atomic)
             let detailOutputURL = URL(fileURLWithPath: NSTemporaryDirectory())
                 .appendingPathComponent("pulse-detail-share-selftest.png")
             try detailArtifact.pngData.write(to: detailOutputURL, options: .atomic)
@@ -727,13 +762,27 @@ enum SelfTest {
             try darkDetailArtifact.pngData.write(to: darkDetailOutputURL, options: .atomic)
             print(
                 "SHARE_SELFTEST: ✅ PNG/TIFF copied to isolated pasteboard, "
-                    + "images=\(shortBitmap.pixelsWide)x\(shortBitmap.pixelsHigh)..."
-                    + "\(bitmap.pixelsWide)x\(bitmap.pixelsHigh), detail="
+                    + "images=\(bitmap.pixelsWide)x\(bitmap.pixelsHigh),tall="
+                    + "\(tallBitmap.pixelsWide)x\(tallBitmap.pixelsHigh), detail="
                     + "\(detailBitmap.pixelsWide)x\(detailBitmap.pixelsHigh), darkDetail="
                     + "\(darkDetailBitmap.pixelsWide)x\(darkDetailBitmap.pixelsHigh), outputs="
-                    + "\(shortOutputURL.path),\(outputURL.path),\(detailOutputURL.path),"
+                    + "\(tallOutputURL.path),\(outputURL.path),\(detailOutputURL.path),"
                     + darkDetailOutputURL.path
             )
+
+            // Sandboxed builds keep the PNGs inside the app container; the base64 dump
+            // lets external tooling (CI, agents) inspect renders without container access.
+            if ProcessInfo.processInfo.environment["PULSE_SHARE_SELFTEST_BASE64"] == "1" {
+                let dumps = [
+                    ("watchlist", artifact.pngData),
+                    ("watchlist-tall", tallArtifact.pngData),
+                    ("detail-light", detailArtifact.pngData),
+                    ("detail-dark", darkDetailArtifact.pngData),
+                ]
+                for (name, data) in dumps {
+                    print("SHARE_SELFTEST_B64:\(name):\(data.base64EncodedString())")
+                }
+            }
             return true
         } catch {
             print("SHARE_SELFTEST: ❌ \(error)")

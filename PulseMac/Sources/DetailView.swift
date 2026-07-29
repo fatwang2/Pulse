@@ -156,15 +156,15 @@ struct DetailView: View {
                 period: period,
                 candles: candles
             )
+            let palette = ChangePalette(redUp: snapshot.redUp)
             let card = PulseShareCard(
-                metadata: PulseShareCardMetadata(updatedAtText: snapshot.updatedAtText)
+                ambientColor: snapshot.changeValue.map(palette.color(for:))
             ) {
                 DetailShareContent(snapshot: snapshot)
             }
             let artifact = try ShareImageRenderer.render(
                 card,
-                configuration: .socialPortrait(
-                    height: snapshot.preferredImageHeight,
+                configuration: .detailLandscape(
                     colorScheme: colorScheme,
                     locale: appState.settings.locale
                 )

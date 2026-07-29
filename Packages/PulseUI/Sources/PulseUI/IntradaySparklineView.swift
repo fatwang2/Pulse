@@ -28,7 +28,7 @@ public struct IntradaySparklineView: View {
                 return CGPoint(x: size.width * CGFloat(x), y: size.height * CGFloat(y))
             }
 
-            for segment in lineSegments(trend.candles) {
+            for segment in lineSegments(trend.candles, session: trend.session) {
                 var line = Path()
                 line.move(to: point(for: segment[0]))
                 for candle in segment.dropFirst() {
@@ -77,14 +77,16 @@ public struct IntradaySparklineView: View {
         return lo...hi
     }
 
-    private func lineSegments(_ candles: [Candle]) -> [[Candle]] {
+    /// Gaps are measured in trading minutes: the collapsed lunch break spans ~0 trading
+    /// minutes and stays continuous, while genuine data holes still break the line.
+    private func lineSegments(_ candles: [Candle], session: IntradayTradingSession) -> [[Candle]] {
         guard let first = candles.first else { return [] }
-        let breakInterval: TimeInterval = market.isChinaA || market == .hk ? 30 * 60 : 20 * 60
+        let breakMinutes: Double = 20
         var segments: [[Candle]] = []
         var current = [first]
         for candle in candles.dropFirst() {
             if let previous = current.last,
-               candle.time.timeIntervalSince(previous.time) > breakInterval {
+               session.minuteOffset(for: candle.time) - session.minuteOffset(for: previous.time) > breakMinutes {
                 segments.append(current)
                 current = [candle]
             } else {

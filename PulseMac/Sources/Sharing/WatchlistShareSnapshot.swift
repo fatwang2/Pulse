@@ -19,28 +19,24 @@ struct WatchlistShareSnapshot {
 
     let rows: [Row]
     let redUp: Bool
+    let title: String
+    let dateText: String
     let updatedAtText: String
 
-    /// Keeps the social image mobile-friendly while avoiding a large empty field for short lists.
-    /// 1...7 visible rows map to 720...1350 output pixels at the renderer's 2x scale.
+    /// Layout constants shared with `WatchlistShareContent`; `preferredImageHeight` must stay
+    /// an upper bound of the natural content height so rows stretch instead of clipping.
+    static let baseImageSize: CGFloat = 640
+    static let rowMinHeight: CGFloat = 56
+    private static let chromeHeight: CGFloat = 150
+
+    /// 1:1 at the base size; width stays fixed and the card grows taller once the
+    /// row stack no longer fits, so every symbol in the list is included.
     var preferredImageHeight: CGFloat {
-        let visibleRows = min(max(rows.count, 1), 7)
-        return min(675, max(360, 270 + CGFloat(visibleRows) * 60))
+        let rowCount = CGFloat(max(rows.count, 1))
+        return max(Self.baseImageSize, Self.chromeHeight + rowCount * Self.rowMinHeight)
     }
 
-    /// Mirrors the popover's content-aware metric column instead of reserving the maximum width for every list.
-    var metricColumnWidth: CGFloat {
-        let widths = rows.map { row in
-            WatchRowColumnLayout.metricWidth(
-                priceText: row.priceText,
-                metricText: row.metricText,
-                sessionLabel: row.sessionLabel,
-                presentation: .share
-            )
-        }
-        return widths.max() ?? 58
-    }
-
+    /// Mirrors the popover's content-aware title column instead of reserving the maximum width for every list.
     var titleColumnWidth: CGFloat {
         let widths = rows.map { row in
             WatchRowColumnLayout.titleWidth(
@@ -53,15 +49,40 @@ struct WatchlistShareSnapshot {
         return widths.max() ?? 58
     }
 
-    init(rows: [Row], redUp: Bool, updatedAtText: String) {
+    var priceColumnWidth: CGFloat {
+        let widths = rows.map { row in
+            WatchRowColumnLayout.sharePriceWidth(
+                priceText: row.priceText,
+                sessionLabel: row.sessionLabel
+            )
+        }
+        return widths.max() ?? 40
+    }
+
+    var pillColumnWidth: CGFloat {
+        let widths = rows.map { WatchRowColumnLayout.sharePillWidth(metricText: $0.metricText) }
+        return widths.max() ?? 86
+    }
+
+    /// Tints the card ambient with the majority direction of the list; balanced lists stay neutral.
+    var ambientChange: Double? {
+        let ups = rows.filter { ($0.change ?? 0) > 0 }.count
+        let downs = rows.filter { ($0.change ?? 0) < 0 }.count
+        if ups == downs { return nil }
+        return ups > downs ? 1 : -1
+    }
+
+    init(rows: [Row], redUp: Bool, title: String, dateText: String, updatedAtText: String) {
         self.rows = rows
         self.redUp = redUp
+        self.title = title
+        self.dateText = dateText
         self.updatedAtText = updatedAtText
     }
 
     @MainActor
     init(appState: AppState) {
-        rows = appState.watchlist.items.map { item in
+        let rows = appState.watchlist.items.map { item in
             let quote = appState.market.quote(for: item.symbol)
             let metrics = quote.flatMap { PositionMetrics(item: item, quote: $0) }
             let metricDisplay = WatchRowMetricDisplay.resolve(
@@ -84,11 +105,27 @@ struct WatchlistShareSnapshot {
                 sparkline: appState.market.sparklines[item.symbol] ?? []
             )
         }
-        redUp = appState.settings.redUp
+        let locale = appState.settings.locale
+        // The shared list is the selected tag, so the card is titled after it
+        let groupName = appState.watchlist.selectedGroup?.name
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         // The card is rendered from live store data, so its freshness is the capture moment
-        updatedAtText = PulseLocalization.localizedString(
-            "refresh.updatedAt",
-            Date.now.formatted(date: .omitted, time: .standard)
+        self.init(
+            rows: rows,
+            redUp: appState.settings.redUp,
+            title: groupName.isEmpty
+                ? PulseLocalization.localizedString("share.watchlist.title")
+                : groupName,
+            dateText: Date.now.formatted(
+                Date.FormatStyle(locale: locale)
+                    .month().day().weekday(.abbreviated)
+            ),
+            updatedAtText: PulseLocalization.localizedString(
+                "refresh.updatedAt",
+                Date.now.formatted(
+                    Date.FormatStyle(locale: locale).hour().minute()
+                )
+            )
         )
     }
 }
@@ -96,43 +133,49 @@ struct WatchlistShareSnapshot {
 struct WatchlistShareContent: View {
     let snapshot: WatchlistShareSnapshot
 
-    private let maximumVisibleRows = 7
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(spacing: 0) {
-                ForEach(Array(snapshot.rows.prefix(maximumVisibleRows))) { row in
-                    WatchlistShareRow(
-                        row: row,
-                        palette: ChangePalette(redUp: snapshot.redUp),
-                        titleColumnWidth: snapshot.titleColumnWidth,
-                        metricColumnWidth: snapshot.metricColumnWidth
-                    )
-
-                    if row.id != snapshot.rows.prefix(maximumVisibleRows).last?.id {
-                        Divider()
-                            .opacity(0.45)
-                    }
-                }
-            }
-
-            if hiddenRowCount > 0 {
-                Text(PulseLocalization.localizedString(
-                    hiddenRowCount == 1
-                        ? "share.watchlist.more.one"
-                        : "share.watchlist.more.many",
-                    hiddenRowCount
-                ))
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 2)
-            }
+        VStack(spacing: 0) {
+            header
+            rows
         }
     }
 
-    private var hiddenRowCount: Int {
-        max(snapshot.rows.count - maximumVisibleRows, 0)
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(snapshot.title)
+                .font(.system(size: 20, weight: .bold))
+                .lineLimit(1)
+            Text(snapshot.dateText)
+                .font(.system(size: 12))
+                .foregroundStyle(.tertiary)
+            Spacer(minLength: 12)
+            Text(snapshot.updatedAtText)
+                .font(.system(size: 11.5))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 30)
+        .padding(.top, 26)
+    }
+
+    private var rows: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(snapshot.rows.enumerated()), id: \.element.id) { index, row in
+                if index > 0 {
+                    Divider()
+                        .opacity(0.45)
+                }
+                WatchlistShareRow(
+                    row: row,
+                    palette: ChangePalette(redUp: snapshot.redUp),
+                    titleColumnWidth: snapshot.titleColumnWidth,
+                    priceColumnWidth: snapshot.priceColumnWidth,
+                    pillColumnWidth: snapshot.pillColumnWidth
+                )
+            }
+        }
+        .padding(.horizontal, 30)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
     }
 }
 
@@ -140,57 +183,62 @@ private struct WatchlistShareRow: View {
     let row: WatchlistShareSnapshot.Row
     let palette: ChangePalette
     let titleColumnWidth: CGFloat
-    let metricColumnWidth: CGFloat
+    let priceColumnWidth: CGFloat
+    let pillColumnWidth: CGFloat
+
+    private var metricColor: Color? {
+        row.metricColorValue.map(palette.color(for:))
+    }
 
     var body: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(row.name)
-                        .font(.system(size: 15, weight: .medium))
-                        .lineLimit(1)
-
-                    HStack(spacing: 5) {
-                        MarketBadge(market: row.market)
-                        Text(row.symbolCode)
-                            .font(.system(size: 11.5).monospaced())
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(width: titleColumnWidth, alignment: .leading)
-
-                IntradaySparklineView(
-                    candles: row.sparkline,
-                    previousClose: row.previousClose,
-                    market: row.market,
-                    tint: row.change.map(palette.color(for:)) ?? .secondary
-                )
-                .frame(maxWidth: .infinity, minHeight: 34, maxHeight: 34)
-            }
-            .frame(maxWidth: .infinity)
-
-            VStack(alignment: .trailing, spacing: 3) {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    if let sessionLabel = row.sessionLabel {
-                        Text(sessionLabel)
-                            .font(.system(size: 8.5, weight: .medium))
-                            .foregroundStyle(.tertiary)
-                    }
-                    Text(row.priceText)
-                        .font(.system(size: 15, weight: .semibold).monospacedDigit())
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-                }
-                Text(row.metricText)
-                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(row.metricColorValue.map(palette.color(for:)) ?? .secondary)
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(row.name)
+                    .font(.system(size: 14.5, weight: .medium))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.65)
-                    .allowsTightening(true)
+
+                HStack(spacing: 6) {
+                    MarketBadge(market: row.market)
+                    Text(row.symbolCode)
+                        .font(.system(size: 11.5).monospaced())
+                        .foregroundStyle(.secondary)
+                }
             }
-            .frame(width: metricColumnWidth, alignment: .trailing)
-            .layoutPriority(2)
+            .frame(width: titleColumnWidth, alignment: .leading)
+
+            IntradaySparklineView(
+                candles: row.sparkline,
+                previousClose: row.previousClose,
+                market: row.market,
+                tint: row.change.map(palette.color(for:)) ?? .secondary
+            )
+            .frame(maxWidth: .infinity, minHeight: 32, maxHeight: 32)
+
+            VStack(alignment: .trailing, spacing: 2.5) {
+                if let sessionLabel = row.sessionLabel {
+                    Text(sessionLabel)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                }
+                Text(row.priceText)
+                    .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(width: priceColumnWidth, alignment: .trailing)
+
+            Text(row.metricText)
+                .font(.system(size: 13.5, weight: .bold).monospacedDigit())
+                .foregroundStyle(metricColor ?? .secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+                .allowsTightening(true)
+                .frame(width: pillColumnWidth, height: 27)
+                .background(
+                    (metricColor ?? .secondary).opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                )
         }
-        .frame(height: 60)
+        .frame(minHeight: WatchlistShareSnapshot.rowMinHeight, maxHeight: .infinity)
     }
 }

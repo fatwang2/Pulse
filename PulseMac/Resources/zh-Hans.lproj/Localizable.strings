@@ -179,12 +179,11 @@
 "search.noResults" = "没有找到匹配的标的";
 "search.placeholder" = "代码 / 名称 / 拼音，如 AAPL、腾讯、600519";
 
+"share.watchlist.title" = "我的自选";
 "share.copyFailed" = "无法复制分享图";
 "share.copySuccess" = "分享图已复制";
-"share.disclaimer" = "数据仅供参考";
+"share.range.intraday" = "日内区间";
 "share.updateUnavailable" = "等待行情数据";
-"share.watchlist.more.many" = "另有 %d 个标的";
-"share.watchlist.more.one" = "另有 %d 个标的";
 
 "settings.general.language" = "语言";
 "settings.general.launchAtLogin" = "开机自启";

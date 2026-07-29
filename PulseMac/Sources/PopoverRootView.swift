@@ -27,11 +27,15 @@ struct PopoverRootView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var route: PopoverRoute = .list
+    /// Search UI state lives at the root so pushing a detail page and coming back
+    /// preserves the query, active state, and cached results.
+    @State private var searchSession = SearchSession()
 
     private static let minHeight: CGFloat = 300
     private static let minListHeight: CGFloat = 220
     private static let maxHeight: CGFloat = 600
-    private static let listChromeHeight: CGFloat = 143
+    private static let searchHeight: CGFloat = 480
+    private static let listChromeHeight: CGFloat = 110
     private static let listRowHeight: CGFloat = 48
 
     /// Children push in from the trailing edge and pop back out the same way
@@ -65,7 +69,7 @@ struct PopoverRootView: View {
         ZStack(alignment: .top) {
             switch route {
             case .list:
-                WatchlistView(route: $route)
+                WatchlistView(route: $route, searchSession: $searchSession)
                     .frame(height: height(for: route))
                     .transition(rootTransition)
             case .detail(let symbol):
@@ -90,7 +94,7 @@ struct PopoverRootView: View {
                             }
                         )
                     } else {
-                        WatchlistView(route: $route)
+                        WatchlistView(route: $route, searchSession: $searchSession)
                     }
                 }
                 .frame(height: height(for: route))
@@ -114,6 +118,7 @@ struct PopoverRootView: View {
         .frame(width: 340, height: height(for: route), alignment: .top)
         .clipped()
         .animation(.snappy(duration: 0.28), value: route)
+        .animation(.snappy(duration: 0.28), value: searchSession.isActive)
         .animation(.snappy(duration: 0.28), value: height(for: route))
         // Live subscriptions run only while the popover is on screen
         .onAppear {
@@ -134,6 +139,8 @@ struct PopoverRootView: View {
     private func height(for route: PopoverRoute) -> CGFloat {
         switch route {
         case .list:
+            // The search panel needs room for results/recents regardless of list size.
+            if searchSession.isActive { return Self.searchHeight }
             let content = Self.listChromeHeight + CGFloat(appState.watchlist.items.count) * Self.listRowHeight
             let minimum = appState.watchlist.items.isEmpty ? Self.minHeight : Self.minListHeight
             return min(max(content, minimum), Self.maxHeight)

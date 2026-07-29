@@ -109,6 +109,25 @@ final class AppSettings {
     /// Provider ids disabled by the user (all enabled by default)
     var disabledProviderIDs: Set<String> = [] { didSet { save() } }
 
+    /// Most-recent-first market search queries, capped, user-clearable from the search panel.
+    var recentSearchQueries: [String] = [] { didSet { save() } }
+
+    private static let recentSearchLimit = 8
+
+    func recordRecentSearch(_ query: String) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var queries = recentSearchQueries.filter {
+            $0.caseInsensitiveCompare(trimmed) != .orderedSame
+        }
+        queries.insert(trimmed, at: 0)
+        recentSearchQueries = Array(queries.prefix(Self.recentSearchLimit))
+    }
+
+    func clearRecentSearches() {
+        recentSearchQueries = []
+    }
+
     var locale: Locale {
         PulseLocalization.currentLocale
     }
@@ -161,6 +180,7 @@ final class AppSettings {
             }
             redUp = snapshot.redUp
             disabledProviderIDs = snapshot.disabledProviderIDs ?? []
+            recentSearchQueries = snapshot.recentSearchQueries ?? []
             showPriceInMenuBar = snapshot.showPriceInMenuBar ?? false
             languagePreference = snapshot.languagePreference ?? .system
             shareAnonymousUsageData = snapshot.shareAnonymousUsageData ?? true
@@ -184,6 +204,7 @@ final class AppSettings {
         var watchRowMetricMode: WatchRowMetricMode?
         var redUp: Bool
         var disabledProviderIDs: Set<String>?
+        var recentSearchQueries: [String]?
         var showPriceInMenuBar: Bool?
         var languagePreference: PulseLanguagePreference?
         var providerPollIntervals: [String: TimeInterval]?
@@ -197,6 +218,7 @@ final class AppSettings {
                                 rotateGroupID: rotateGroupID,
                                 watchRowMetricMode: watchRowMetricMode, redUp: redUp,
                                 disabledProviderIDs: disabledProviderIDs,
+                                recentSearchQueries: recentSearchQueries,
                                 showPriceInMenuBar: showPriceInMenuBar,
                                 languagePreference: languagePreference,
                                 providerPollIntervals: providerPollIntervals,

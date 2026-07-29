@@ -177,6 +177,11 @@
 "search.addToGroup" = "添加到“%@”";
 "search.inGroup" = "已在“%@”中";
 "search.noResults" = "没有找到匹配的标的";
+"action.search" = "搜索标的";
+"search.hot.title" = "热门标的";
+"search.viewDetail" = "查看 %@ 行情";
+"search.recent.title" = "最近搜索";
+"search.recent.clear" = "清除";
 "search.placeholder" = "代码 / 名称 / 拼音，如 AAPL、腾讯、600519";
 
 "share.watchlist.title" = "我的自选";

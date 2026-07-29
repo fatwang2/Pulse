@@ -44,6 +44,19 @@ struct DetailView: View {
                 // Stream dropped (e.g. socket reconnect) — the 15s polling loop still updates the page.
             }
         }
+        // Symbols opened from search aren't in the watchlist, so the engine's polling
+        // loop never covers them; the page runs its own light poll until it closes
+        // (or the symbol gets added, at which point the engine takes over).
+        .task(id: symbol) {
+            while !Task.isCancelled {
+                if appState.watchlist.item(for: symbol) == nil {
+                    if let quote = try? await appState.provider.quotes(for: [symbol]).first {
+                        appState.ingestStreamedQuote(quote)
+                    }
+                }
+                try? await Task.sleep(for: .seconds(15))
+            }
+        }
         .task(id: period) {
             let taskStart = ContinuousClock.now
             // Show the spinner only when loading is actually slow: a sub-150ms load
@@ -124,6 +137,19 @@ struct DetailView: View {
             }
             .disabled(quote == nil || candles.isEmpty)
             .opacity(quote == nil || candles.isEmpty ? 0.45 : 1)
+            if item == nil {
+                // Opened from search without being watched: offer the add here so
+                // a lookup can graduate into the list without going back.
+                ClusterIcon(
+                    systemName: "plus",
+                    help: PulseLocalization.localizedString(
+                        "search.addToGroup",
+                        appState.watchlist.selectedGroup?.name ?? ""
+                    )
+                ) {
+                    addToWatchlist()
+                }
+            }
             if let item, item.supportsPosition {
                 ClusterIcon(
                     systemName: item.hasPosition ? "briefcase.fill" : "briefcase",
@@ -145,6 +171,16 @@ struct DetailView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
+    }
+
+    @MainActor
+    private func addToWatchlist() {
+        let info = SymbolInfo(
+            symbol: symbol,
+            name: appState.market.quote(for: symbol)?.name ?? appState.displayName(for: symbol)
+        )
+        appState.watchlist.add(info)
+        appState.engine.poke()
     }
 
     @MainActor

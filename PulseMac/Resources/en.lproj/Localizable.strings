@@ -177,6 +177,11 @@
 "search.addToGroup" = "Add to “%@”";
 "search.inGroup" = "Already in “%@”";
 "search.noResults" = "No symbols found";
+"action.search" = "Search Symbols";
+"search.hot.title" = "Popular Symbols";
+"search.viewDetail" = "View %@ quote";
+"search.recent.title" = "Recent Searches";
+"search.recent.clear" = "Clear";
 "search.placeholder" = "Search symbols or companies";
 
 "share.watchlist.title" = "My Watchlist";

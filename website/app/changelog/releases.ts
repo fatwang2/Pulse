@@ -10,6 +10,29 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.7.0",
+    date: "2026-07-29",
+    kind: "release",
+    highlights: {
+      zh: [
+        "全新社交分享卡：自选卡改为 1:1 画布、以当前分组命名，列表再长也完整收录并自动延长。",
+        "个股分享卡改为 16:9 海报式布局，趋势图通栏展示，新增日内区间条。",
+        "分享卡跟随系统深浅色外观与红涨绿跌设置，底部品牌栏替换了免责声明。",
+        "搜索移入工具栏：点击放大镜或按 ⌘F 唤起即聚焦，空态提供可清除的最近搜索与热门标的。",
+        "搜索结果可直接打开行情详情页，未关注的标的也能查看并从详情页添加。",
+        "A 股与港股分时图跨越午休连续绘制，不再断开。",
+      ],
+      en: [
+        "Redesigned share cards: the watchlist card is a 1:1 canvas titled after the selected list, including every symbol and growing with long lists.",
+        "The symbol share card moves to a 16:9 poster layout with a full-bleed trend chart and a day-range bar.",
+        "Share cards follow the system appearance and your rise/fall color setting, with a brand footer replacing the disclaimer.",
+        "Search moved into the toolbar: the magnifier or ⌘F opens a focused panel with clearable recent searches and popular symbols.",
+        "Search results open the full quote page — including symbols you don't watch — and can be added from there.",
+        "A-share and Hong Kong intraday charts draw continuously across the lunch break.",
+      ],
+    },
+  },
+  {
     version: "0.6.3",
     date: "2026-07-27",
     kind: "fix",

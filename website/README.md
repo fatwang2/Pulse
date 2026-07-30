@@ -24,10 +24,18 @@ npm test
 
 ## 发布
 
-网站使用 Codex Sites 发布，项目配置保存在 `.openai/hosting.json`。
-生产环境使用自定义域名 [`www.pulseticker.app`](https://www.pulseticker.app/)。
+网站部署在 Cloudflare Workers（Worker 名 `pulse-website`，2026-07-30 从 ChatGPT Sites 迁出），生产配置在 `wrangler.deploy.jsonc`：
 
-R2 是 Sites Worker 的内部存储绑定，与访问域名无关；自定义域名由 Sites 路由到同一个 Worker 后，`/download` 会继续使用现有的 `DOWNLOADS` 绑定，不需要为域名单独配置 R2。
+```bash
+npm run build
+npx wrangler deploy --config wrangler.deploy.jsonc
+```
+
+生产环境使用自定义域名 [`www.pulseticker.app`](https://www.pulseticker.app/)，预览地址
+`https://pulse-website.fatwang2.workers.dev`。`.openai/hosting.json` 仅供 `vite.config.ts`
+在本地开发时推导绑定名，属历史遗留，不再关联线上托管。
+
+`/download` 使用 Worker 绑定的 R2 桶 `pulse-downloads`（绑定名 `DOWNLOADS`），与访问域名无关，不需要为域名单独配置 R2。
 
 安装包使用版本化 R2 对象，官网稳定入口 `/download` 会跳转到带版本参数的下载请求：
 

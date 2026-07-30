@@ -1,6 +1,19 @@
 # Pulse Website
 
-Pulse 的中英文单页官网，介绍 macOS 菜单栏行情工具并通过 Sites 托管的 R2 提供最新版 DMG 下载，同时保留 GitHub 开源地址。
+Pulse 的中英文单页官网，介绍 macOS 菜单栏行情工具，并通过 Cloudflare Workers 绑定的 R2 提供最新版 DMG 下载，同时保留 GitHub 开源地址。
+
+技术栈：TanStack Start + Vite + `@cloudflare/vite-plugin`，部署为 Cloudflare Worker（2026-07-30 从 vinext/ChatGPT Sites 脚手架迁出）。
+
+## 目录结构
+
+- `src/routes/`：页面路由（`__root.tsx` 文档骨架与全站 meta / GA，`index.tsx` 首页，`changelog.tsx` 更新日志）。
+- `src/components/`：交互组件（自选列表演示、GA 下载事件）。
+- `src/data/releases.ts`：更新日志数据（中英双语），发版时在此追加条目。
+- `src/styles/globals.css`：全站样式（Tailwind 仅用于 preflight，版式为手写 CSS）。
+- `src/server.ts`：Worker 入口，先处理 `/download` 再交给 TanStack Start SSR。
+- `src/download.ts`：R2 下载镜像逻辑与当前版本元数据。
+- `src/routeTree.gen.ts`：由 TanStack Start 插件生成，不入库。
+- `wrangler.jsonc`：Worker 配置（R2 绑定、自定义域名路由）。
 
 ## 本地运行
 
@@ -11,31 +24,32 @@ npm install
 npm run dev
 ```
 
-默认通过本地开发服务器预览。页面源码位于 `app/`，静态资源位于 `public/`。
+`npm run dev` 通过 Vite + workerd 本地运行，包含 `/download` 路由（本地 R2 为空时会尝试回源 GitHub）。
 
 ## 检查
 
 ```bash
 npm run lint
+npx tsc --noEmit
 npm test
 ```
 
-`npm test` 会先生成 Sites 部署构建，再检查中英文内容和主要页面结构。
+`npm test` 会先执行生产构建，再直接加载 `dist/server/index.js` 对首页、更新日志的 SSR HTML 和 `/download` 行为做断言。
 
 ## 发布
 
-网站部署在 Cloudflare Workers（Worker 名 `pulse-website`，2026-07-30 从 ChatGPT Sites 迁出），生产配置在 `wrangler.deploy.jsonc`：
+网站部署在 Cloudflare Workers（Worker 名 `pulse-website`）：
 
 ```bash
-npm run build
-npx wrangler deploy --config wrangler.deploy.jsonc
+npm run deploy
 ```
 
-生产环境使用自定义域名 [`www.pulseticker.app`](https://www.pulseticker.app/)，预览地址
-`https://pulse-website.fatwang2.workers.dev`。`.openai/hosting.json` 仅供 `vite.config.ts`
-在本地开发时推导绑定名，属历史遗留，不再关联线上托管。
+等价于 `vite build && wrangler deploy`（`@cloudflare/vite-plugin` 会在 `dist/` 下生成最终 wrangler 配置，`wrangler deploy` 通过 `.wrangler/deploy/config.json` 自动指向它）。
 
-`/download` 使用 Worker 绑定的 R2 桶 `pulse-downloads`（绑定名 `DOWNLOADS`），与访问域名无关，不需要为域名单独配置 R2。
+生产环境使用自定义域名 [`www.pulseticker.app`](https://www.pulseticker.app/)，预览地址
+`https://pulse-website.fatwang2.workers.dev`。
+
+`/download` 使用 Worker 绑定的 R2 桶 `pulse-downloads`（绑定名 `DOWNLOADS`），与访问域名无关。
 
 安装包使用版本化 R2 对象，官网稳定入口 `/download` 会跳转到带版本参数的下载请求：
 
@@ -43,7 +57,7 @@ npx wrangler deploy --config wrangler.deploy.jsonc
 /download?version=0.8.1
 ```
 
-首次访问版本化请求时，Worker 会从固定的 GitHub Release 地址读取文件，校验预期大小与 SHA-256 后写入 Sites 管理的 R2；后续请求直接从 R2 返回。使用查询参数是为了避免 Sites 的静态资源路由拦截带 `.dmg` 后缀的路径。发布新版时需要同步更新 `worker/index.ts` 中的版本、文件名、下载地址、大小和 SHA-256。
+首次访问版本化请求时，Worker 会从固定的 GitHub Release 地址读取文件，校验预期大小与 SHA-256 后写入 R2；后续请求直接从 R2 返回。**发布新版时需要同步更新 `src/download.ts` 中的版本、文件名、下载地址、大小和 SHA-256，并在 `src/data/releases.ts` 中追加更新日志。**
 
 ## 行情数据源标识
 

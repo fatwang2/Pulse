@@ -1,9 +1,10 @@
-"use client";
-
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { InteractivePreview } from "./interactive-preview";
+import { InteractivePreview } from "../components/interactive-preview";
+
+export const Route = createFileRoute("/")({
+  component: Home,
+});
 
 const latestReleaseUrl = "/download";
 const repositoryUrl = "https://github.com/fatwang2/Pulse";
@@ -86,7 +87,7 @@ const translations = {
   },
 } as const;
 
-export default function Home() {
+function Home() {
   const [language, setLanguage] = useState<Language>("en");
   const copy = translations[language];
 
@@ -136,22 +137,15 @@ export default function Home() {
       </div>
 
       <header className="header shell">
-        <Link className="brand" href="/" aria-label={copy.homeLabel}>
+        <Link className="brand" to="/" aria-label={copy.homeLabel}>
           <span className="brand-mark">
-            <Image
-              src="/pulse-icon.png"
-              alt=""
-              width={34}
-              height={34}
-              priority
-              unoptimized
-            />
+            <img src="/pulse-icon.png" alt="" width={34} height={34} />
           </span>
           <span>Pulse</span>
         </Link>
         <div className="header-actions">
           <nav className="site-nav" aria-label={copy.homeLabel}>
-            <Link href="/changelog">{copy.changelogLabel}</Link>
+            <Link to="/changelog">{copy.changelogLabel}</Link>
           </nav>
           <div className="language-switcher" aria-label={copy.languageLabel}>
             <button
@@ -194,7 +188,7 @@ export default function Home() {
 
           <div className="actions">
             <a className="cta-button cta-primary" href={latestReleaseUrl}>
-              <Image src="/apple.svg" alt="" width={15} height={15} aria-hidden="true" />
+              <img src="/apple.svg" alt="" width={15} height={15} aria-hidden="true" />
               {copy.downloadLabel}
             </a>
             <a
@@ -238,12 +232,11 @@ export default function Home() {
               className={`provider-logo provider-logo--${source.id}`}
               key={source.id}
             >
-              <Image
+              <img
                 src={source.src}
                 alt={source.name}
                 width={source.width}
                 height={source.height}
-                unoptimized
               />
             </li>
           ))}

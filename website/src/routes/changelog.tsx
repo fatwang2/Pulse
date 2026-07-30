@@ -1,9 +1,28 @@
-"use client";
-
-import Image from "next/image";
-import Link from "next/link";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { releases } from "./releases";
+import { releases } from "../data/releases";
+
+const changelogTitle = "Pulse Changelog — Every release at a glance";
+const changelogDescription =
+  "Follow the Pulse release timeline and see what changed in every version of the macOS menu bar market tracker.";
+const changelogSocialDescription =
+  "New features, improvements, and fixes in every Pulse release.";
+
+export const Route = createFileRoute("/changelog")({
+  head: () => ({
+    meta: [
+      { title: changelogTitle },
+      { name: "description", content: changelogDescription },
+      { property: "og:title", content: changelogTitle },
+      { property: "og:description", content: changelogSocialDescription },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: changelogTitle },
+      { name: "twitter:description", content: changelogSocialDescription },
+    ],
+  }),
+  component: Changelog,
+});
 
 type Language = "zh" | "en";
 
@@ -58,7 +77,7 @@ function formatDate(date: string, language: Language) {
   }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
-export default function Changelog() {
+function Changelog() {
   const [language, setLanguage] = useState<Language>("en");
   const copy = translations[language];
 
@@ -91,23 +110,16 @@ export default function Changelog() {
   return (
     <main className="changelog-page">
       <header className="header shell">
-        <Link className="brand" href="/" aria-label={copy.homeLabel}>
+        <Link className="brand" to="/" aria-label={copy.homeLabel}>
           <span className="brand-mark">
-            <Image
-              src="/pulse-icon.png"
-              alt=""
-              width={34}
-              height={34}
-              priority
-              unoptimized
-            />
+            <img src="/pulse-icon.png" alt="" width={34} height={34} />
           </span>
           <span>Pulse</span>
         </Link>
         <div className="header-actions">
           <nav className="site-nav" aria-label={copy.homeLabel}>
-            <Link href="/">{copy.home}</Link>
-            <Link href="/changelog" aria-current="page">
+            <Link to="/">{copy.home}</Link>
+            <Link to="/changelog" aria-current="page">
               {copy.changelog}
             </Link>
           </nav>
@@ -203,7 +215,7 @@ export default function Changelog() {
           <span aria-hidden="true">↗</span>
         </a>
         <a className="cta-button cta-primary" href="/download">
-          <Image src="/apple.svg" alt="" width={15} height={15} aria-hidden="true" />
+          <img src="/apple.svg" alt="" width={15} height={15} aria-hidden="true" />
           {copy.download}
         </a>
       </footer>

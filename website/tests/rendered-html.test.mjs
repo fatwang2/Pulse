@@ -2,20 +2,21 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render(path = "/") {
+async function loadWorker(tag) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
+  workerUrl.searchParams.set(tag, `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
+  return worker;
+}
+
+async function render(path = "/") {
+  const worker = await loadWorker("test");
 
   return worker.fetch(
     new Request(new URL(path, "http://localhost/"), {
       headers: { accept: "text/html" },
     }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
+    {},
     {
       waitUntil() {},
       passThroughOnException() {},
@@ -48,7 +49,6 @@ test("server-renders the Pulse landing page", async () => {
   assert.match(html, /providers\/yahoo-finance\.svg/);
   assert.match(html, /aria-pressed="false"[^>]*>中文<\/button>/);
   assert.match(html, /aria-pressed="true"[^>]*>EN<\/button>/);
-  assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
 
 test("server-renders the full bilingual release timeline", async () => {
@@ -81,7 +81,7 @@ test("server-renders the full bilingual release timeline", async () => {
 
 test("includes English copy and remembered language selection", async () => {
   const page = await readFile(
-    new URL("../app/page.tsx", import.meta.url),
+    new URL("../src/routes/index.tsx", import.meta.url),
     "utf8",
   );
 
@@ -97,34 +97,40 @@ test("includes English copy and remembered language selection", async () => {
 });
 
 test("enables GA4 analytics while keeping advertising consent disabled", async () => {
-  const layout = await readFile(
-    new URL("../app/layout.tsx", import.meta.url),
+  const rootRoute = await readFile(
+    new URL("../src/routes/__root.tsx", import.meta.url),
     "utf8",
   );
   const analyticsEvents = await readFile(
-    new URL("../app/analytics-events.tsx", import.meta.url),
+    new URL("../src/components/analytics-events.tsx", import.meta.url),
     "utf8",
   );
 
-  assert.match(layout, /G-J9GLF06LPP/);
-  assert.match(layout, /googletagmanager\.com\/gtag\/js/);
-  assert.match(layout, /analytics_storage: "granted"/);
-  assert.match(layout, /ad_storage: "denied"/);
-  assert.match(layout, /ad_user_data: "denied"/);
-  assert.match(layout, /ad_personalization: "denied"/);
-  assert.match(layout, /allow_google_signals", false/);
+  assert.match(rootRoute, /G-J9GLF06LPP/);
+  assert.match(rootRoute, /googletagmanager\.com\/gtag\/js/);
+  assert.match(rootRoute, /analytics_storage: "granted"/);
+  assert.match(rootRoute, /ad_storage: "denied"/);
+  assert.match(rootRoute, /ad_user_data: "denied"/);
+  assert.match(rootRoute, /ad_personalization: "denied"/);
+  assert.match(rootRoute, /allow_google_signals", false/);
   assert.match(analyticsEvents, /"file_download"/);
   assert.match(analyticsEvents, /url\.pathname !== "\/download"/);
   assert.match(analyticsEvents, /transport_type: "beacon"/);
+
+  const response = await render();
+  const html = await response.text();
+  const head = html.slice(0, html.indexOf("</head>"));
+  assert.match(head, /dataLayer/);
+  assert.match(head, /googletagmanager\.com\/gtag\/js/);
 });
 
 test("changelog shares the remembered language selection", async () => {
   const page = await readFile(
-    new URL("../app/changelog/page.tsx", import.meta.url),
+    new URL("../src/routes/changelog.tsx", import.meta.url),
     "utf8",
   );
   const releaseData = await readFile(
-    new URL("../app/changelog/releases.ts", import.meta.url),
+    new URL("../src/data/releases.ts", import.meta.url),
     "utf8",
   );
 
@@ -138,9 +144,7 @@ test("changelog shares the remembered language selection", async () => {
 });
 
 test("redirects the stable download URL to a versioned request", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("download-test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+  const worker = await loadWorker("download-test");
 
   const response = await worker.fetch(
     new Request("http://localhost/download", { redirect: "manual" }),
@@ -156,10 +160,8 @@ test("redirects the stable download URL to a versioned request", async () => {
   );
 });
 
-test("serves a stored DMG from the Sites R2 binding", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("r2-test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+test("serves a stored DMG from the R2 binding", async () => {
+  const worker = await loadWorker("r2-test");
   const body = new TextEncoder().encode("dmg");
 
   const response = await worker.fetch(

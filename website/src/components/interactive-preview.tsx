@@ -1,7 +1,4 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 
 type Language = "zh" | "en";
 type MetricMode = "change" | "today" | "total";
@@ -265,13 +262,7 @@ export function InteractivePreview({
       <section className="preview-watchlist preview-panel-enter" aria-label={ariaLabel}>
           <header className="preview-app-header">
             <div className="preview-app-identity">
-              <Image
-                src="/pulse-icon.png"
-                alt=""
-                width={44}
-                height={44}
-                unoptimized
-              />
+              <img src="/pulse-icon.png" alt="" width={44} height={44} />
               <div><strong>Pulse</strong><span>{text.tagline}</span></div>
             </div>
           </header>

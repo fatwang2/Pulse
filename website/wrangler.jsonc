@@ -1,0 +1,19 @@
+// Cloudflare Workers config for the TanStack Start site.
+// `npm run dev` / `vite build` read this through @cloudflare/vite-plugin;
+// deploy with `npm run deploy` (vite build + wrangler deploy).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pulse-website",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "src/server.ts",
+  "r2_buckets": [
+    { "binding": "DOWNLOADS", "bucket_name": "pulse-downloads" }
+  ],
+  "observability": { "enabled": true },
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "www.pulseticker.app", "custom_domain": true },
+    { "pattern": "pulseticker.app", "custom_domain": true }
+  ]
+}

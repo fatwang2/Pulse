@@ -1,8 +1,11 @@
-/** Cloudflare Worker entry point for the vinext-starter template. */
-import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
-import handler from "vinext/server/app-router-entry";
+/**
+ * R2-backed mirror for the latest Pulse DMG.
+ *
+ * When releasing a new version, update `latestDownload` (version, file name,
+ * key, source URL, size, and SHA-256) to match the GitHub Release assets.
+ */
 
-const latestDownload = {
+export const latestDownload = {
   version: "0.8.1",
   fileName: "Pulse-0.8.1.dmg",
   key: "releases/v0.8.1/Pulse-0.8.1.dmg",
@@ -35,22 +38,8 @@ interface DownloadBucket {
   ): Promise<unknown>;
 }
 
-interface Env {
-  ASSETS: Fetcher;
-  DB: D1Database;
+export interface DownloadEnv {
   DOWNLOADS: DownloadBucket;
-  IMAGES: {
-    input(stream: ReadableStream): {
-      transform(options: Record<string, unknown>): {
-        output(options: { format: string; quality: number }): Promise<{ response(): Response }>;
-      };
-    };
-  };
-}
-
-interface ExecutionContext {
-  waitUntil(promise: Promise<unknown>): void;
-  passThroughOnException(): void;
 }
 
 function downloadHeaders(size: number, etag?: string): Headers {
@@ -82,7 +71,7 @@ async function fetchValidatedRelease(): Promise<ArrayBuffer> {
   const response = await fetch(latestDownload.sourceUrl, {
     headers: {
       accept: "application/octet-stream",
-      "user-agent": "Pulse-Sites-Release-Mirror/1.0",
+      "user-agent": "Pulse-Website-Release-Mirror/1.0",
     },
     redirect: "follow",
   });
@@ -106,7 +95,7 @@ async function fetchValidatedRelease(): Promise<ArrayBuffer> {
   return bytes;
 }
 
-async function serveDownload(request: Request, env: Env): Promise<Response> {
+async function serveDownload(request: Request, env: DownloadEnv): Promise<Response> {
   const existing = await env.DOWNLOADS.get(latestDownload.key);
   if (existing) {
     const headers = downloadHeaders(existing.size, existing.httpEtag);
@@ -144,53 +133,45 @@ async function serveDownload(request: Request, env: Env): Promise<Response> {
   });
 }
 
-const worker = {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
+/**
+ * Handles `/download` requests; returns `null` for every other request so the
+ * caller can fall through to the TanStack Start handler.
+ */
+export async function handleDownloadRequest(
+  request: Request,
+  env: DownloadEnv,
+): Promise<Response | null> {
+  const url = new URL(request.url);
 
-    if (
-      url.pathname === "/download" &&
-      (request.method === "GET" || request.method === "HEAD")
-    ) {
-      if (url.searchParams.get("version") !== latestDownload.version) {
-        const versionedUrl = new URL("/download", request.url);
-        versionedUrl.searchParams.set("version", latestDownload.version);
-        return new Response(null, {
-          status: 302,
-          headers: {
-            "cache-control": "no-store",
-            location: versionedUrl.toString(),
-          },
-        });
-      }
+  if (
+    url.pathname !== "/download" ||
+    (request.method !== "GET" && request.method !== "HEAD")
+  ) {
+    return null;
+  }
 
-      try {
-        return await serveDownload(request, env);
-      } catch (error) {
-        console.error("Pulse download mirror failed", error);
-        return new Response("The Pulse download is temporarily unavailable.", {
-          status: 503,
-          headers: {
-            "cache-control": "no-store",
-            "content-type": "text/plain; charset=utf-8",
-          },
-        });
-      }
-    }
+  if (url.searchParams.get("version") !== latestDownload.version) {
+    const versionedUrl = new URL("/download", request.url);
+    versionedUrl.searchParams.set("version", latestDownload.version);
+    return new Response(null, {
+      status: 302,
+      headers: {
+        "cache-control": "no-store",
+        location: versionedUrl.toString(),
+      },
+    });
+  }
 
-    if (url.pathname === "/_vinext/image") {
-      const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
-      return handleImageOptimization(request, {
-        fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
-        transformImage: async (body, { width, format, quality }) => {
-          const result = await env.IMAGES.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
-          return result.response();
-        },
-      }, allowedWidths);
-    }
-
-    return handler.fetch(request, env, ctx);
-  },
-};
-
-export default worker;
+  try {
+    return await serveDownload(request, env);
+  } catch (error) {
+    console.error("Pulse download mirror failed", error);
+    return new Response("The Pulse download is temporarily unavailable.", {
+      status: 503,
+      headers: {
+        "cache-control": "no-store",
+        "content-type": "text/plain; charset=utf-8",
+      },
+    });
+  }
+}

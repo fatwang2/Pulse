@@ -255,3 +255,42 @@
 
 "watchRow.dragHelp" = "Drag to reorder";
 "watchRow.metricHelp" = "Click to cycle through Change %, Day P&L, and Total P&L";
+
+/* Position transactions */
+"trade.buy" = "Buy";
+"trade.sell" = "Sell";
+"trade.recordBuy" = "Record a Buy";
+"trade.confirmBuy" = "Confirm Buy";
+"trade.confirmSell" = "Confirm Sell";
+"trade.price" = "Price";
+"trade.date" = "Date";
+"trade.dateToday" = "Today";
+"trade.priceHintCurrent" = "Prefilled with live price";
+"trade.availableToSell" = "Available: %@";
+"trade.exceedsHolding" = "Exceeds your current holding (%@). Adjust the quantity to save.";
+"trade.amount" = "Trade Amount";
+"trade.realizedPnL" = "Realized P&L (this trade)";
+"trade.resultingPosition" = "Position After Trade";
+"trade.newAverageCost" = "New Avg. Cost";
+"position.realizedPnL" = "Realized P&L";
+"position.totalInvested" = "Total Invested";
+"position.recentTransactions" = "Recent Trades";
+"position.noTransactions" = "No trades recorded yet";
+"position.viewAllTransactions" = "View All Trades (%d)";
+"position.quickEdit" = "Set Position Directly…";
+"position.quickSet" = "Set Position Directly…";
+"position.quickEditTitle" = "Set Position Directly";
+"position.calibrationNotice" = "Saving overwrites your position with this quantity and cost, recorded as an “adjustment” — no realized P&L.";
+"position.empty.title" = "Not Holding Yet";
+"position.empty.subtitle" = "Record buys and sells — Pulse tracks cost and P&L for you";
+"position.historySection" = "History";
+"position.historyTrades" = "Past Trades";
+"position.tradeCount" = "%d trades";
+"transaction.logTitle" = "Trade Log";
+"transaction.kind.buy" = "BUY";
+"transaction.kind.sell" = "SELL";
+"transaction.kind.adjustment" = "ADJ";
+"transaction.overwrite" = "overwrite";
+"transaction.deleteConfirmTitle" = "Delete this trade?";
+"transaction.deleteConfirmMessage" = "%@ %@ %@ @ %@ will be deleted; your position and P&L will be recalculated. This cannot be undone.";
+"trade.dateYesterday" = "Yesterday";

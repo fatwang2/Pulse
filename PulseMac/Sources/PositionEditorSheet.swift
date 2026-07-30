@@ -2,12 +2,14 @@ import SwiftUI
 import PulseCore
 import PulseUI
 
+/// Quick set ("calibrate"): overwrite quantity + average cost in one step.
+/// Saving records a single `.adjustment` ledger entry — no realized P&L.
 struct PositionEditorView: View {
     let item: WatchItem
     let quote: Quote?
     let palette: ChangePalette
     let onCancel: () -> Void
-    let onSave: ([CostLot]) -> Void
+    let onSave: (_ quantity: Double, _ averageCost: Double) -> Void
     let onClear: () -> Void
 
     @State private var quantityText: String
@@ -15,7 +17,8 @@ struct PositionEditorView: View {
 
     init(item: WatchItem, quote: Quote?, palette: ChangePalette,
          onCancel: @escaping () -> Void,
-         onSave: @escaping ([CostLot]) -> Void, onClear: @escaping () -> Void) {
+         onSave: @escaping (_ quantity: Double, _ averageCost: Double) -> Void,
+         onClear: @escaping () -> Void) {
         self.item = item
         self.quote = quote
         self.palette = palette
@@ -30,11 +33,17 @@ struct PositionEditorView: View {
         VStack(alignment: .leading, spacing: 14) {
             header
 
-            Form {
-                TextField(PulseLocalization.localizedString("position.quantity"), text: $quantityText)
-                TextField(PulseLocalization.localizedString("position.costPrice"), text: $costText)
+            HStack(spacing: 8) {
+                PositionInputCell(
+                    label: PulseLocalization.localizedString("position.quantity"),
+                    text: $quantityText,
+                    autofocus: true
+                )
+                PositionInputCell(
+                    label: PulseLocalization.localizedString("position.costPrice"),
+                    text: $costText
+                )
             }
-            .formStyle(.grouped)
 
             if let metrics {
                 VStack(spacing: 6) {
@@ -46,6 +55,17 @@ struct PositionEditorView: View {
                 }
                 .padding(.top, 2)
             }
+
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 9))
+                Text(PulseLocalization.localizedString("position.calibrationNotice"))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .font(.system(size: 9.5))
+            .foregroundStyle(.tertiary)
+
+            Spacer(minLength: 0)
 
             HStack {
                 if item.hasPosition {
@@ -65,13 +85,13 @@ struct PositionEditorView: View {
             }
             .controlSize(.small)
         }
-        .padding(18)
+        .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(PulseLocalization.localizedString("position.editTitle"))
+            Text(PulseLocalization.localizedString("position.quickEditTitle"))
                 .font(.headline)
             HStack(spacing: 5) {
                 Text(item.resolvedDisplayName)
@@ -126,7 +146,7 @@ struct PositionEditorView: View {
 
     private func save() {
         guard let quantity = parsedQuantity, let cost = parsedCost else { return }
-        onSave([CostLot(price: cost, quantity: quantity)])
+        onSave(quantity, cost)
     }
 
     private func parseDecimal(_ text: String) -> Double? {

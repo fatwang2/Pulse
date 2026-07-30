@@ -10,6 +10,27 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.8.0",
+    date: "2026-07-30",
+    kind: "release",
+    highlights: {
+      zh: [
+        "K 线图升级为标准蜡烛图，成交量与蜡烛严格对齐，并支持鼠标滚轮、触控板缩放和横向浏览。",
+        "新增 5 分、15 分、30 分和 1 小时 K 线，可通过紧凑的分段按钮与下拉菜单切换，均配有成交量。",
+        "美股分时图默认展示 04:00–20:00 的盘前与盘后行情，也可在设置中关闭。",
+        "Longbridge 分钟历史会在需要时自动向前补页，补齐更早的盘前数据；补页失败时仍保留最新行情。",
+        "周 K 悬停卡显示完整交易周区间，并优化了图表标签、悬停性能和搜索输入体验。",
+      ],
+      en: [
+        "K-line charts now use true candlesticks with precisely aligned volume, mouse-wheel and trackpad zoom, and horizontal browsing.",
+        "Added 5-minute, 15-minute, 30-minute, and 1-hour K-lines with volume, selected through a compact split control.",
+        "US intraday charts show pre-market and post-market trading from 04:00 to 20:00 ET by default, with a Settings toggle.",
+        "Longbridge minute history pages backward when needed to recover earlier pre-market data while preserving the latest page if backfill fails.",
+        "Weekly hover cards show the full trading-week range, alongside refined chart labels, hover performance, and search focus.",
+      ],
+    },
+  },
+  {
     version: "0.7.0",
     date: "2026-07-29",
     kind: "release",

@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { FeatureShowcase } from "../components/feature-showcase";
 import { InteractivePreview } from "../components/interactive-preview";
+import { RecentUpdates } from "../components/recent-updates";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -51,9 +53,9 @@ const translations = {
     headlineFirst: "你的市场，",
     headlineSecond: "一眼掌握。",
     intro:
-      "Pulse 把你关心的价格、走势和持仓盈亏放进菜单栏。不打断工作，也能随时知道市场发生了什么。",
+      "Pulse 把你关心的价格、走势和持仓盈亏放进菜单栏。从盘前到盘后，不打断工作，也能随时知道市场发生了什么。",
     featuresLabel: "主要功能",
-    features: ["自选列表", "持仓盈亏", "分时与 K 线"],
+    features: ["多分组自选", "持仓盈亏", "蜡烛图与盘前盘后", "一键分享卡"],
     downloadLabel: "下载最新版",
     githubLabel: "GitHub 开源",
     screenshotAlt:
@@ -72,9 +74,14 @@ const translations = {
     headlineFirst: "Your market,",
     headlineSecond: "at a glance.",
     intro:
-      "Pulse puts the prices, trends, and position performance you care about in the menu bar—so you can stay informed without leaving what you’re doing.",
+      "Pulse puts the prices, trends, and position performance you care about in the menu bar—from pre-market to after hours, without leaving what you’re doing.",
     featuresLabel: "Key features",
-    features: ["Watchlist", "Position P&L", "Intraday & candles"],
+    features: [
+      "Multi-list watchlists",
+      "Position P&L",
+      "Candles & extended hours",
+      "Share cards",
+    ],
     downloadLabel: "Download for macOS",
     githubLabel: "View on GitHub",
     screenshotAlt:
@@ -179,11 +186,12 @@ function Home() {
           <p className="intro">{copy.intro}</p>
 
           <div className="feature-line" aria-label={copy.featuresLabel}>
-            <span>{copy.features[0]}</span>
-            <i />
-            <span>{copy.features[1]}</span>
-            <i />
-            <span>{copy.features[2]}</span>
+            {copy.features.map((feature, index) => (
+              <span key={feature} className="feature-line-item">
+                {index > 0 ? <i /> : null}
+                <span>{feature}</span>
+              </span>
+            ))}
           </div>
 
           <div className="actions">
@@ -217,6 +225,10 @@ function Home() {
           </div>
         </div>
       </section>
+
+      <FeatureShowcase language={language} />
+
+      <RecentUpdates language={language} />
 
       <section
         className="data-sources shell"

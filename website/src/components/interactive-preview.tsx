@@ -102,6 +102,8 @@ const copy = {
     modeAction: "切换列表指标，当前为",
     updated: "刚刚更新",
     reference: "静态演示数据",
+    listsLabel: "切换自选分组",
+    lists: { all: "全部", positions: "持仓", watching: "关注" },
   },
   en: {
     tagline: "Your market, at a glance.",
@@ -109,10 +111,21 @@ const copy = {
     modeAction: "Change list metric, currently",
     updated: "Updated just now",
     reference: "Static demo data",
+    listsLabel: "Switch watchlist",
+    lists: { all: "All", positions: "Positions", watching: "Watching" },
   },
 } as const;
 
 const modeOrder: MetricMode[] = ["change", "today", "total"];
+
+type ListId = "all" | "positions" | "watching";
+
+const listOrder: ListId[] = ["all", "positions", "watching"];
+
+const listMembers: Record<Exclude<ListId, "all">, ReadonlySet<string>> = {
+  positions: new Set(["ONDS", "688018", "700", "BTC-USD"]),
+  watching: new Set(["601138", "603986", "6181"]),
+};
 
 function lineColor(positive: boolean) {
   return positive ? "#ff414b" : "#00a962";
@@ -247,7 +260,13 @@ export function InteractivePreview({
 }) {
   const text = copy[language];
   const [mode, setMode] = useState<MetricMode>("change");
+  const [activeList, setActiveList] = useState<ListId>("all");
   const [hoveredSymbol, setHoveredSymbol] = useState<string | null>(null);
+
+  const visibleItems =
+    activeList === "all"
+      ? marketItems
+      : marketItems.filter((item) => listMembers[activeList].has(item.symbol));
 
   function cycleMode() {
     setMode((current) => modeOrder[(modeOrder.indexOf(current) + 1) % modeOrder.length]);
@@ -267,8 +286,28 @@ export function InteractivePreview({
             </div>
           </header>
 
-          <ul className="preview-list">
-            {marketItems.map((item) => {
+          <div
+            className="preview-list-tabs"
+            role="tablist"
+            aria-label={text.listsLabel}
+            data-testid="preview-list-tabs"
+          >
+            {listOrder.map((listId) => (
+              <button
+                key={listId}
+                type="button"
+                role="tab"
+                aria-selected={activeList === listId}
+                className={activeList === listId ? "active" : undefined}
+                onClick={() => setActiveList(listId)}
+              >
+                {text.lists[listId]}
+              </button>
+            ))}
+          </div>
+
+          <ul className="preview-list preview-panel-enter" key={activeList}>
+            {visibleItems.map((item) => {
               const active = hoveredSymbol === item.symbol;
               const metric = mode === "change" ? item.change : mode === "today" ? item.today : item.total;
               return (

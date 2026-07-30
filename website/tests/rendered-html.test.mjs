@@ -51,6 +51,30 @@ test("server-renders the Pulse landing page", async () => {
   assert.match(html, /aria-pressed="true"[^>]*>EN<\/button>/);
 });
 
+test("server-renders the feature showcase and recent updates", async () => {
+  const response = await render();
+  const html = await response.text();
+
+  assert.match(html, /Multi-list watchlists/);
+  assert.match(html, /data-testid="feature-showcase"/);
+  assert.match(html, /data-testid="candle-demo"/);
+  assert.match(html, /data-testid="extended-hours-demo"/);
+  assert.match(html, /data-testid="share-demo"/);
+  assert.match(html, /data-testid="search-demo"/);
+  assert.match(html, /True candlesticks/);
+  assert.match(html, /Extended hours built in/);
+  assert.match(html, /Share cards in one click/);
+  assert.match(html, /Search &amp; lists/);
+
+  assert.match(html, /data-testid="preview-list-tabs"/);
+  assert.match(html, /role="tab" aria-selected="true"/);
+
+  assert.match(html, /data-testid="recent-updates"/);
+  assert.match(html, /Pulse \d+\.\d+\.\d+/);
+  const recentEntries = html.match(/class="recent-update-meta"/g) ?? [];
+  assert.equal(recentEntries.length, 2);
+});
+
 test("server-renders the full bilingual release timeline", async () => {
   const response = await render("/changelog");
   assert.equal(response.status, 200);

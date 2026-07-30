@@ -22,6 +22,7 @@ struct WatchlistShareSnapshot {
     let title: String
     let dateText: String
     let updatedAtText: String
+    let includesExtendedHours: Bool
 
     /// Layout constants shared with `WatchlistShareContent`; `preferredImageHeight` must stay
     /// an upper bound of the natural content height so rows stretch instead of clipping.
@@ -72,12 +73,14 @@ struct WatchlistShareSnapshot {
         return ups > downs ? 1 : -1
     }
 
-    init(rows: [Row], redUp: Bool, title: String, dateText: String, updatedAtText: String) {
+    init(rows: [Row], redUp: Bool, title: String, dateText: String, updatedAtText: String,
+         includesExtendedHours: Bool = false) {
         self.rows = rows
         self.redUp = redUp
         self.title = title
         self.dateText = dateText
         self.updatedAtText = updatedAtText
+        self.includesExtendedHours = includesExtendedHours
     }
 
     @MainActor
@@ -125,7 +128,8 @@ struct WatchlistShareSnapshot {
                 Date.now.formatted(
                     Date.FormatStyle(locale: locale).hour().minute()
                 )
-            )
+            ),
+            includesExtendedHours: appState.settings.showsUSExtendedHours
         )
     }
 }
@@ -169,7 +173,8 @@ struct WatchlistShareContent: View {
                     palette: ChangePalette(redUp: snapshot.redUp),
                     titleColumnWidth: snapshot.titleColumnWidth,
                     priceColumnWidth: snapshot.priceColumnWidth,
-                    pillColumnWidth: snapshot.pillColumnWidth
+                    pillColumnWidth: snapshot.pillColumnWidth,
+                    includesExtendedHours: snapshot.includesExtendedHours
                 )
             }
         }
@@ -185,6 +190,7 @@ private struct WatchlistShareRow: View {
     let titleColumnWidth: CGFloat
     let priceColumnWidth: CGFloat
     let pillColumnWidth: CGFloat
+    let includesExtendedHours: Bool
 
     private var metricColor: Color? {
         row.metricColorValue.map(palette.color(for:))
@@ -210,7 +216,8 @@ private struct WatchlistShareRow: View {
                 candles: row.sparkline,
                 previousClose: row.previousClose,
                 market: row.market,
-                tint: row.change.map(palette.color(for:)) ?? .secondary
+                tint: row.change.map(palette.color(for:)) ?? .secondary,
+                includesExtendedHours: includesExtendedHours
             )
             .frame(maxWidth: .infinity, minHeight: 32, maxHeight: 32)
 

@@ -229,6 +229,9 @@ public final class RefreshEngine {
         // A fetch that carries no regular-session bars yet (e.g. Yahoo during the US
         // pre-market) must not wipe a sparkline that still shows the prior session.
         guard !trend.candles.isEmpty || (store.sparklines[symbol]?.isEmpty ?? true) else { return }
-        store.apply(sparkline: trend.candles, for: symbol)
+        // Store the full series (US bars include pre/post sessions): the watch row and
+        // share cards frame it with their own IntradayTrendSnapshot, extended or regular,
+        // exactly like the detail chart frames its cache.
+        store.apply(sparkline: candles.sorted { $0.time < $1.time }, for: symbol)
     }
 }

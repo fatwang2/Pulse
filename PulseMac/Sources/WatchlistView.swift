@@ -1217,7 +1217,8 @@ struct WatchRow: View {
                     candles: appState.market.sparklines[item.symbol] ?? [],
                     previousClose: quote?.previousClose,
                     market: item.symbol.market,
-                    tint: color
+                    tint: color,
+                    includesExtendedHours: appState.settings.showsUSExtendedHours
                 )
                 .frame(maxWidth: .infinity, minHeight: 30, maxHeight: 30)
             }

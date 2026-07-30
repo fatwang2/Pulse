@@ -35,7 +35,11 @@ test("server-renders the Pulse landing page", async () => {
   assert.match(html, /Your market,/);
   assert.match(html, /data-testid="interactive-preview"/);
   assert.match(html, /Ondas Inc\./);
-  assert.match(html, /工业富联/);
+  assert.match(html, /NVIDIA Corp\./);
+  // The server renders the English locale, which only shows symbols with
+  // English names: no A-share or Hong Kong listings.
+  assert.doesNotMatch(html, /工业富联/);
+  assert.doesNotMatch(html, /腾讯控股/);
   assert.match(html, /class="market-pulse" aria-hidden="true"/);
   assert.match(html, /class="brand-mark"/);
   assert.match(html, /href="\/download"/);
@@ -51,7 +55,7 @@ test("server-renders the Pulse landing page", async () => {
   assert.match(html, /aria-pressed="true"[^>]*>EN<\/button>/);
 });
 
-test("server-renders the feature showcase and recent updates", async () => {
+test("server-renders the feature showcase and release link", async () => {
   const response = await render();
   const html = await response.text();
 
@@ -59,20 +63,24 @@ test("server-renders the feature showcase and recent updates", async () => {
   assert.match(html, /data-testid="feature-showcase"/);
   assert.match(html, /data-testid="candle-demo"/);
   assert.match(html, /data-testid="extended-hours-demo"/);
-  assert.match(html, /data-testid="share-demo"/);
-  assert.match(html, /data-testid="search-demo"/);
+  assert.match(html, /data-testid="positions-demo"/);
+  assert.match(html, /data-testid="lists-demo"/);
   assert.match(html, /True candlesticks/);
   assert.match(html, /Extended hours built in/);
-  assert.match(html, /Share cards in one click/);
-  assert.match(html, /Search &amp; lists/);
+  assert.match(html, /Position P&amp;L at a glance/);
+  assert.match(html, /Multi-list watchlists/);
+  assert.match(html, /Hover for time and price/);
+  assert.match(html, /Click a tab to switch lists/);
+  assert.match(html, />1M<\/button>/);
+  assert.doesNotMatch(html, />1Y<\/button>/);
 
   assert.match(html, /data-testid="preview-list-tabs"/);
   assert.match(html, /role="tab" aria-selected="true"/);
 
-  assert.match(html, /data-testid="recent-updates"/);
-  assert.match(html, /Pulse \d+\.\d+\.\d+/);
-  const recentEntries = html.match(/class="recent-update-meta"/g) ?? [];
-  assert.equal(recentEntries.length, 2);
+  assert.match(html, /data-testid="whats-new"/);
+  assert.match(html, /class="whats-new-badge">v\d+\.\d+\.\d+</);
+  assert.match(html, /View changelog/);
+  assert.match(html, /Released /);
 });
 
 test("server-renders the full bilingual release timeline", async () => {

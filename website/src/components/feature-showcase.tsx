@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type PointerEvent, useEffect, useRef, useState } from "react";
 
 type Language = "zh" | "en";
 
@@ -9,10 +9,9 @@ const gridLine = "rgba(120, 128, 138, 0.2)";
 
 const copy = {
   zh: {
-    overline: "功能亮点",
     title: "把专业行情装进菜单栏。",
     subtitle:
-      "蜡烛图、盘前盘后、分享卡与多分组自选——每个细节都为快速看盘设计。",
+      "蜡烛图、盘前盘后、持仓盈亏与标签分组——每个细节都为快速看盘设计。",
     candles: {
       title: "真正的蜡烛图",
       description:
@@ -24,35 +23,29 @@ const copy = {
       title: "盘前盘后行情",
       description:
         "美股分时覆盖美东 04:00–20:00，盘前盘后以灰色翼区呈现，9:30 与 16:00 边界清晰可辨，可在设置中关闭。",
-      chartLabel: "盘前盘后分时演示，灰色翼区为延长时段",
+      hint: "悬停查看时间与价格",
+      chartLabel: "盘前盘后分时演示，灰色翼区为延长时段，悬停显示十字线与对应时间价格",
     },
-    share: {
-      title: "一键分享卡",
+    positions: {
+      title: "持仓盈亏，一眼可见",
       description:
-        "自选列表 1:1 卡片与个股 16:9 海报，跟随系统深浅色与红涨绿跌设置；K 线分享精确还原屏幕上的可见区间。",
-      listCardTitle: "核心自选",
-      listCardDate: "07-30 收盘",
-      symbolName: "腾讯控股",
-      symbolMeta: "700 · HK",
-      rangeLow: "459.20",
-      rangeHigh: "470.80",
-      demoLabel: "分享卡样式演示",
+        "为标的录入成本与数量后，点击金额就能在涨跌幅、今日盈亏与持仓盈亏之间切换整列指标，偏好在重启后保留。",
+      modeLabel: "当前指标",
+      hint: "点击金额切换指标",
+      modes: { change: "涨跌幅", today: "今日盈亏", total: "持仓盈亏" },
     },
-    search: {
-      title: "搜索与多分组",
+    lists: {
+      title: "标签分组管理自选",
       description:
-        "⌘F 即刻搜索，未关注的标的也能直接打开详情；自选按需分组管理，⌘1–9 一键切换。",
-      placeholder: "搜索代码或名称…",
-      recentLabel: "最近搜索",
-      lists: ["全部", "持仓", "关注"],
-      demoLabel: "搜索面板与分组演示",
+        "自选可整理进多个命名分组，顶部标签栏一键切换，支持拖拽排序与 ⌘1–9 快捷键；菜单栏轮播也能只跟随指定分组。",
+      hint: "点击标签切换分组",
+      tabsLabel: "切换演示分组",
     },
   },
   en: {
-    overline: "Feature highlights",
     title: "A full quote terminal, in your menu bar.",
     subtitle:
-      "Candlesticks, extended hours, share cards, and multi-list watchlists—every detail built for a quick read.",
+      "Candlesticks, extended hours, position P&L, and multi-list watchlists—every detail built for a quick read.",
     candles: {
       title: "True candlesticks",
       description:
@@ -64,28 +57,24 @@ const copy = {
       title: "Extended hours built in",
       description:
         "US intraday covers 04:00–20:00 ET. Pre- and post-market sessions render as gray wings with clear 9:30 / 16:00 boundaries—toggle them in Settings.",
-      chartLabel: "Extended-hours intraday demo with gray session wings",
+      hint: "Hover for time and price",
+      chartLabel:
+        "Extended-hours intraday demo with gray session wings; hover shows a crosshair with the time and price",
     },
-    share: {
-      title: "Share cards in one click",
+    positions: {
+      title: "Position P&L at a glance",
       description:
-        "A 1:1 watchlist card and a 16:9 symbol poster that follow your appearance and rise/fall colors. K-line shares match the visible window exactly.",
-      listCardTitle: "Core watchlist",
-      listCardDate: "Jul 30 close",
-      symbolName: "Tencent",
-      symbolMeta: "700 · HK",
-      rangeLow: "459.20",
-      rangeHigh: "470.80",
-      demoLabel: "Share card style demo",
+        "Add cost and quantity, then click any value to flip the whole list between change, today's P&L, and total P&L—your metric choice sticks across restarts.",
+      modeLabel: "Metric",
+      hint: "Click a value to switch metric",
+      modes: { change: "Change", today: "Today P&L", total: "Position P&L" },
     },
-    search: {
-      title: "Search & lists",
+    lists: {
+      title: "Multi-list watchlists",
       description:
-        "Hit ⌘F to search and open any symbol—watched or not. Organize your watchlist into lists and jump with ⌘1–9.",
-      placeholder: "Search symbol or name…",
-      recentLabel: "Recent",
-      lists: ["All", "Positions", "Watching"],
-      demoLabel: "Search panel and list demo",
+        "Organize symbols into named lists and switch from the list bar on top—drag to reorder, jump with ⌘1–9, and point the menu-bar ticker at any list.",
+      hint: "Click a tab to switch lists",
+      tabsLabel: "Switch demo list",
     },
   },
 } as const;
@@ -153,6 +142,8 @@ const candleResolutions = [
   { id: "30m", label: { zh: "30分", en: "30m" }, seed: 37, count: 40, volatility: 0.011, drift: 0.0015 },
   { id: "1h", label: { zh: "1时", en: "1h" }, seed: 53, count: 38, volatility: 0.014, drift: 0.0019 },
   { id: "1d", label: { zh: "日K", en: "1D" }, seed: 71, count: 34, volatility: 0.024, drift: 0.0028 },
+  { id: "1w", label: { zh: "周K", en: "1W" }, seed: 89, count: 32, volatility: 0.032, drift: 0.0042 },
+  { id: "1mo", label: { zh: "月K", en: "1M" }, seed: 103, count: 30, volatility: 0.042, drift: 0.007 },
 ] as const;
 
 const candleData = new Map(
@@ -343,10 +334,24 @@ const extendedHoursSeries = (() => {
   return { series, preEnd, regularEnd };
 })();
 
+function extendedHoursTime(index: number) {
+  const minutes = Math.round(
+    4 * 60 + (index / (extendedHoursSeries.series.length - 1)) * 16 * 60,
+  );
+  const hours = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${hours.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+}
+
+function extendedHoursPrice(value: number) {
+  return 180 + value * 0.1;
+}
+
 function drawExtendedHours(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
+  hoverIndex: number | null,
 ) {
   context.clearRect(0, 0, width, height);
 
@@ -433,11 +438,60 @@ function drawExtendedHours(
   context.fillText("16:00", regularX, labelY);
   context.textAlign = "right";
   context.fillText("20:00", width - 2, labelY);
+
+  if (hoverIndex === null) return;
+
+  const index = Math.max(0, Math.min(series.length - 1, hoverIndex));
+  const x = pointX(index);
+  const y = pointY(series[index]);
+  const detail = `${extendedHoursTime(index)}  $${extendedHoursPrice(series[index]).toFixed(2)}`;
+
+  context.save();
+  context.setLineDash([3, 3]);
+  context.strokeStyle = "rgba(62, 68, 76, 0.48)";
+  context.lineWidth = 0.8;
+  context.beginPath();
+  context.moveTo(x, chartTop);
+  context.lineTo(x, chartBottom);
+  context.moveTo(0, y);
+  context.lineTo(width, y);
+  context.stroke();
+  context.setLineDash([]);
+
+  context.beginPath();
+  context.arc(x, y, 3, 0, Math.PI * 2);
+  context.fillStyle = "#ffffff";
+  context.fill();
+  context.strokeStyle = "#343940";
+  context.lineWidth = 1.4;
+  context.stroke();
+
+  context.font = '10px ui-monospace, "SF Mono", Menlo, monospace';
+  const tooltipWidth = context.measureText(detail).width + 14;
+  const tooltipHeight = 24;
+  const tooltipX =
+    x + tooltipWidth + 10 <= width ? x + 8 : Math.max(2, x - tooltipWidth - 8);
+  const tooltipY = Math.max(
+    3,
+    Math.min(chartBottom - tooltipHeight - 3, y - tooltipHeight - 8),
+  );
+
+  context.fillStyle = "rgba(37, 38, 40, 0.94)";
+  context.beginPath();
+  context.roundRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight, 6);
+  context.fill();
+  context.fillStyle = "#ffffff";
+  context.textAlign = "left";
+  context.textBaseline = "middle";
+  context.fillText(detail, tooltipX + 7, tooltipY + tooltipHeight / 2);
+  context.restore();
 }
 
 function ExtendedHoursDemo({ language }: { language: Language }) {
   const text = copy[language].extended;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hoverIndexRef = useRef<number | null>(null);
+  const renderRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -448,11 +502,13 @@ function ExtendedHoursDemo({ language }: { language: Language }) {
       if (!canvas) return;
       const { context, width, height } = fitCanvas(canvas);
       if (!context) return;
-      drawExtendedHours(context, width, height);
+      drawExtendedHours(context, width, height, hoverIndexRef.current);
     }
 
+    renderRef.current = render;
     frame = requestAnimationFrame(render);
     const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
       frame = requestAnimationFrame(render);
     });
     observer.observe(canvas);
@@ -460,202 +516,232 @@ function ExtendedHoursDemo({ language }: { language: Language }) {
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      renderRef.current = () => undefined;
     };
   }, []);
 
+  function updateCrosshair(event: PointerEvent<HTMLCanvasElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    const nextIndex = Math.round(
+      ratio * (extendedHoursSeries.series.length - 1),
+    );
+    if (nextIndex === hoverIndexRef.current) return;
+    hoverIndexRef.current = nextIndex;
+    renderRef.current();
+  }
+
+  function clearCrosshair() {
+    if (hoverIndexRef.current === null) return;
+    hoverIndexRef.current = null;
+    renderRef.current();
+  }
+
   return (
     <div className="feature-demo" data-testid="extended-hours-demo">
+      <div className="extended-hint">{text.hint}</div>
       <canvas
         ref={canvasRef}
         className="extended-canvas"
         role="img"
         aria-label={text.chartLabel}
+        onPointerMove={updateCrosshair}
+        onPointerLeave={clearCrosshair}
       />
     </div>
   );
 }
 
-const shareListRows = [
-  { name: "NVDA", spark: "M0 14 L6 12 L12 13 L18 9 L24 10 L30 6 L36 7 L42 3", change: "+2.41%", positive: true },
-  { name: "700", spark: "M0 6 L6 8 L12 7 L18 10 L24 9 L30 12 L36 11 L42 13", change: "-0.34%", positive: false },
-  { name: "BTC-USD", spark: "M0 12 L6 13 L12 10 L18 11 L24 7 L30 8 L36 5 L42 6", change: "+0.97%", positive: true },
-] as const;
+type PositionMetric = "change" | "today" | "total";
 
-function ShareDemo({ language }: { language: Language }) {
-  const text = copy[language].share;
+const positionMetricOrder: PositionMetric[] = ["change", "today", "total"];
+
+type PositionRow = {
+  symbol: string;
+  name: string;
+  market: string;
+  marketLabel: string;
+  price: string;
+  change: string;
+  today: string;
+  total: string;
+};
+
+const positionRowsByLanguage: Record<Language, readonly PositionRow[]> = {
+  zh: [
+    { symbol: "688018", name: "乐鑫科技", market: "sh", marketLabel: "沪", price: "129.39", change: "+6.67%", today: "+¥1,624", total: "+¥8,960" },
+    { symbol: "700", name: "腾讯控股", market: "hk", marketLabel: "港股", price: "468.00", change: "-0.34%", today: "-HK$136", total: "+HK$6,240" },
+    { symbol: "BTC-USD", name: "比特币", market: "crypto", marketLabel: "加密", price: "63797.28", change: "+0.97%", today: "+$187.20", total: "+$3,482" },
+  ],
+  en: [
+    { symbol: "NVDA", name: "NVIDIA Corp.", market: "us", marketLabel: "US", price: "183.24", change: "+2.41%", today: "+$412.80", total: "+$5,214" },
+    { symbol: "TSLA", name: "Tesla, Inc.", market: "us", marketLabel: "US", price: "412.66", change: "-1.85%", today: "-$318.40", total: "+$2,905" },
+    { symbol: "BTC-USD", name: "Bitcoin USD", market: "crypto", marketLabel: "Crypto", price: "63797.28", change: "+0.97%", today: "+$187.20", total: "+$3,482" },
+  ],
+};
+
+function PositionsDemo({ language }: { language: Language }) {
+  const text = copy[language].positions;
+  const positionRows = positionRowsByLanguage[language];
+  const [metric, setMetric] = useState<PositionMetric>("total");
+
+  function cycleMetric() {
+    setMetric(
+      (current) =>
+        positionMetricOrder[
+          (positionMetricOrder.indexOf(current) + 1) % positionMetricOrder.length
+        ],
+    );
+  }
 
   return (
-    <div
-      className="feature-demo share-demo"
-      data-testid="share-demo"
-      role="img"
-      aria-label={text.demoLabel}
-    >
-      <div className="share-card share-card--list" aria-hidden="true">
-        <header>
-          <strong>{text.listCardTitle}</strong>
-          <span>{text.listCardDate}</span>
-        </header>
-        <ul>
-          {shareListRows.map((row) => (
-            <li key={row.name}>
-              <span className="share-row-name">{row.name}</span>
-              <svg viewBox="0 0 42 16" preserveAspectRatio="none" aria-hidden="true">
-                <path
-                  d={row.spark}
-                  fill="none"
-                  stroke={row.positive ? riseColor : fallColor}
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span
-                className={`share-row-change ${row.positive ? "positive" : "negative"}`}
-              >
-                {row.change}
+    <div className="feature-demo positions-demo" data-testid="positions-demo">
+      <div className="positions-mode">
+        <span>
+          {text.modeLabel}
+          <strong key={metric}>{text.modes[metric]}</strong>
+        </span>
+        <span className="positions-hint">{text.hint}</span>
+      </div>
+      <ul className="positions-list">
+        {positionRows.map((row) => {
+          const value = row[metric];
+          const positive = value.startsWith("+");
+          return (
+            <li key={row.symbol}>
+              <span className="position-row-title">
+                <strong>{row.name}</strong>
+                <span>
+                  <span className={`preview-market preview-market-${row.market}`}>
+                    {row.marketLabel}
+                  </span>
+                  {row.symbol}
+                </span>
               </span>
+              <button
+                type="button"
+                className="position-row-value"
+                aria-label={`${text.hint}: ${row.name}, ${row.price}, ${text.modes[metric]} ${value}`}
+                onClick={cycleMetric}
+              >
+                <strong>{row.price}</strong>
+                <span
+                  key={`${row.symbol}-${metric}`}
+                  className={`preview-metric ${positive ? "positive" : "negative"}`}
+                >
+                  {value}
+                </span>
+              </button>
             </li>
-          ))}
-        </ul>
-        <footer>pulseticker.app</footer>
-      </div>
-
-      <div className="share-card share-card--symbol" aria-hidden="true">
-        <header>
-          <div>
-            <strong>{text.symbolName}</strong>
-            <span>{text.symbolMeta}</span>
-          </div>
-          <div className="share-symbol-price">
-            <strong>468.00</strong>
-            <span className="negative">-0.34%</span>
-          </div>
-        </header>
-        <svg
-          className="share-symbol-chart"
-          viewBox="0 0 100 30"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M0 20 L8 18 L16 21 L24 16 L32 17 L40 12 L48 14 L56 9 L64 11 L72 7 L80 9 L88 5 L100 8 L100 30 L0 30 Z"
-            fill="rgba(0, 169, 98, 0.08)"
-          />
-          <path
-            d="M0 20 L8 18 L16 21 L24 16 L32 17 L40 12 L48 14 L56 9 L64 11 L72 7 L80 9 L88 5 L100 8"
-            fill="none"
-            stroke={fallColor}
-            strokeWidth="1.1"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        <div className="share-range">
-          <span>{text.rangeLow}</span>
-          <div className="share-range-bar">
-            <i style={{ left: "62%" }} />
-          </div>
-          <span>{text.rangeHigh}</span>
-        </div>
-        <footer>
-          <span className="share-brand">● Pulse</span>
-          <span>pulseticker.app</span>
-        </footer>
-      </div>
+          );
+        })}
+      </ul>
     </div>
   );
 }
 
-const searchResults = [
-  {
-    symbol: "NVDA",
-    name: { zh: "英伟达", en: "NVIDIA Corp." },
-    market: "us",
-    marketLabel: "US",
-    price: "183.24",
-    change: "+2.41%",
-    positive: true,
-  },
-  {
-    symbol: "700",
-    name: { zh: "腾讯控股", en: "Tencent Holdings" },
-    market: "hk",
-    marketLabel: "HK",
-    price: "468.00",
-    change: "-0.34%",
-    positive: false,
-  },
-  {
-    symbol: "BTC-USD",
-    name: { zh: "比特币", en: "Bitcoin USD" },
-    market: "crypto",
-    marketLabel: "Crypto",
-    price: "63797.28",
-    change: "+0.97%",
-    positive: true,
-  },
+type DemoListId = "core" | "us" | "crypto";
+
+const demoLists = [
+  { id: "core", label: { zh: "核心", en: "Core" } },
+  { id: "us", label: { zh: "美股", en: "US" } },
+  { id: "crypto", label: { zh: "加密", en: "Crypto" } },
 ] as const;
 
-function SearchDemo({ language }: { language: Language }) {
-  const text = copy[language].search;
+type ListRow = {
+  symbol: string;
+  name: string;
+  market: string;
+  marketLabel: string;
+  price: string;
+  change: string;
+};
+
+const listRowsByLanguage: Record<Language, Record<DemoListId, readonly ListRow[]>> = {
+  zh: {
+    core: [
+      { symbol: "700", name: "腾讯控股", market: "hk", marketLabel: "港股", price: "468.00", change: "-0.34%" },
+      { symbol: "688018", name: "乐鑫科技", market: "sh", marketLabel: "沪", price: "129.39", change: "+6.67%" },
+      { symbol: "BTC-USD", name: "比特币", market: "crypto", marketLabel: "加密", price: "63797.28", change: "+0.97%" },
+    ],
+    us: [
+      { symbol: "NVDA", name: "英伟达", market: "us", marketLabel: "美股", price: "183.24", change: "+2.41%" },
+      { symbol: "AAPL", name: "苹果", market: "us", marketLabel: "美股", price: "229.35", change: "+0.58%" },
+      { symbol: "ONDS", name: "Ondas", market: "us", marketLabel: "美股", price: "7.67", change: "+0.26%" },
+    ],
+    crypto: [
+      { symbol: "BTC-USD", name: "比特币", market: "crypto", marketLabel: "加密", price: "63797.28", change: "+0.97%" },
+      { symbol: "ETH-USD", name: "以太坊", market: "crypto", marketLabel: "加密", price: "3290.12", change: "+1.85%" },
+      { symbol: "SOL-USD", name: "索拉纳", market: "crypto", marketLabel: "加密", price: "186.42", change: "-1.24%" },
+    ],
+  },
+  en: {
+    core: [
+      { symbol: "NVDA", name: "NVIDIA Corp.", market: "us", marketLabel: "US", price: "183.24", change: "+2.41%" },
+      { symbol: "TSLA", name: "Tesla, Inc.", market: "us", marketLabel: "US", price: "412.66", change: "-1.85%" },
+      { symbol: "BTC-USD", name: "Bitcoin USD", market: "crypto", marketLabel: "Crypto", price: "63797.28", change: "+0.97%" },
+    ],
+    us: [
+      { symbol: "NVDA", name: "NVIDIA Corp.", market: "us", marketLabel: "US", price: "183.24", change: "+2.41%" },
+      { symbol: "AAPL", name: "Apple Inc.", market: "us", marketLabel: "US", price: "229.35", change: "+0.58%" },
+      { symbol: "ONDS", name: "Ondas Inc.", market: "us", marketLabel: "US", price: "7.67", change: "+0.26%" },
+    ],
+    crypto: [
+      { symbol: "BTC-USD", name: "Bitcoin USD", market: "crypto", marketLabel: "Crypto", price: "63797.28", change: "+0.97%" },
+      { symbol: "ETH-USD", name: "Ethereum USD", market: "crypto", marketLabel: "Crypto", price: "3290.12", change: "+1.85%" },
+      { symbol: "SOL-USD", name: "Solana USD", market: "crypto", marketLabel: "Crypto", price: "186.42", change: "-1.24%" },
+    ],
+  },
+};
+
+function ListsDemo({ language }: { language: Language }) {
+  const text = copy[language].lists;
+  const listRows = listRowsByLanguage[language];
+  const [activeList, setActiveList] = useState<DemoListId>("core");
 
   return (
-    <div
-      className="feature-demo search-demo"
-      data-testid="search-demo"
-      role="img"
-      aria-label={text.demoLabel}
-    >
-      <div className="search-panel" aria-hidden="true">
-        <div className="search-input">
-          <svg viewBox="0 0 14 14" aria-hidden="true">
-            <circle cx="6" cy="6" r="4.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
-            <path d="M9.4 9.4 L12.6 12.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          </svg>
-          <span>{text.placeholder}</span>
-          <kbd>⌘F</kbd>
-        </div>
-        <div className="search-recent">
-          <span>{text.recentLabel}</span>
-          <i>NVDA</i>
-          <i>700</i>
-          <i>BTC-USD</i>
-        </div>
-        <ul className="search-results">
-          {searchResults.map((result) => (
-            <li key={result.symbol}>
-              <span className="search-result-title">
-                <strong>{result.name[language]}</strong>
-                <span>
-                  <span className={`preview-market preview-market-${result.market}`}>
-                    {result.marketLabel}
-                  </span>
-                  {result.symbol}
-                </span>
-              </span>
-              <span className="search-result-quote">
-                <strong>{result.price}</strong>
-                <span className={result.positive ? "positive" : "negative"}>
-                  {result.change}
-                </span>
-              </span>
-              <span className="search-result-add">+</span>
-            </li>
+    <div className="feature-demo lists-demo" data-testid="lists-demo">
+      <div className="lists-controls">
+        <div className="lists-tabs" role="tablist" aria-label={text.tabsLabel}>
+          {demoLists.map((list) => (
+            <button
+              key={list.id}
+              type="button"
+              role="tab"
+              aria-selected={activeList === list.id}
+              className={activeList === list.id ? "active" : undefined}
+              onClick={() => setActiveList(list.id)}
+            >
+              {list.label[language]}
+            </button>
           ))}
-        </ul>
+        </div>
+        <span className="lists-hint">{text.hint}</span>
       </div>
-      <div className="search-lists" aria-hidden="true">
-        {text.lists.map((list, index) => (
-          <span
-            key={list}
-            className={index === 0 ? "search-list active" : "search-list"}
-          >
-            {list}
-            <kbd>⌘{index + 1}</kbd>
-          </span>
-        ))}
-      </div>
+      <ul className="positions-list preview-panel-enter" key={activeList}>
+        {listRows[activeList].map((row) => {
+          const positive = row.change.startsWith("+");
+          return (
+            <li key={row.symbol}>
+              <span className="position-row-title">
+                <strong>{row.name}</strong>
+                <span>
+                  <span className={`preview-market preview-market-${row.market}`}>
+                    {row.marketLabel}
+                  </span>
+                  {row.symbol}
+                </span>
+              </span>
+              <span className="list-row-value">
+                <strong>{row.price}</strong>
+                <span className={positive ? "positive" : "negative"}>
+                  {row.change}
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -670,7 +756,6 @@ export function FeatureShowcase({ language }: { language: Language }) {
       data-testid="feature-showcase"
     >
       <div className="features-heading">
-        <p className="overline">{text.overline}</p>
         <h2 id="features-title">{text.title}</h2>
         <p>{text.subtitle}</p>
       </div>
@@ -692,20 +777,20 @@ export function FeatureShowcase({ language }: { language: Language }) {
           <ExtendedHoursDemo language={language} />
         </article>
 
-        <article className="feature-card feature-card--share">
+        <article className="feature-card feature-card--positions">
           <div className="feature-card-copy">
-            <h3>{text.share.title}</h3>
-            <p>{text.share.description}</p>
+            <h3>{text.positions.title}</h3>
+            <p>{text.positions.description}</p>
           </div>
-          <ShareDemo language={language} />
+          <PositionsDemo language={language} />
         </article>
 
-        <article className="feature-card feature-card--search">
+        <article className="feature-card feature-card--lists">
           <div className="feature-card-copy">
-            <h3>{text.search.title}</h3>
-            <p>{text.search.description}</p>
+            <h3>{text.lists.title}</h3>
+            <p>{text.lists.description}</p>
           </div>
-          <SearchDemo language={language} />
+          <ListsDemo language={language} />
         </article>
       </div>
     </section>

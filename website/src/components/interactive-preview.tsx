@@ -15,7 +15,7 @@ type MarketItem = {
   series: number[];
 };
 
-const marketItems: MarketItem[] = [
+const marketItemsZh: MarketItem[] = [
   {
     symbol: "ONDS",
     name: "Ondas Inc.",
@@ -95,6 +95,86 @@ const marketItems: MarketItem[] = [
   },
 ];
 
+const marketItemsEn: MarketItem[] = [
+  {
+    symbol: "ONDS",
+    name: "Ondas Inc.",
+    market: "US",
+    price: "7.67",
+    change: "+0.26%",
+    today: "+$12.40",
+    total: "+$184.70",
+    positive: true,
+    series: [72, 68, 73, 70, 71, 69, 74, 55, 64, 57, 52, 58, 49, 57, 57, 69, 67, 91, 94, 88, 98, 91, 95, 89, 94, 87, 92, 88, 82, 79, 72, 75, 68, 44, 47, 46, 20, 22],
+  },
+  {
+    symbol: "NVDA",
+    name: "NVIDIA Corp.",
+    market: "US",
+    price: "183.24",
+    change: "+2.41%",
+    today: "+$412.80",
+    total: "+$5,214",
+    positive: true,
+    series: [34, 38, 48, 48, 66, 55, 48, 44, 40, 35, 61, 66, 71, 74, 65, 70, 67, 64, 62, 60, 69, 63, 63, 61, 64, 68, 64, 65],
+  },
+  {
+    symbol: "AAPL",
+    name: "Apple Inc.",
+    market: "US",
+    price: "229.35",
+    change: "+0.58%",
+    today: "+$96.20",
+    total: "+$1,842",
+    positive: true,
+    series: [44, 28, 26, 39, 35, 42, 45, 47, 50, 53, 55, 55, 51, 56, 52, 58, 69, 67, 87, 89, 94, 92, 86, 88],
+  },
+  {
+    symbol: "TSLA",
+    name: "Tesla, Inc.",
+    market: "US",
+    price: "412.66",
+    change: "-1.85%",
+    today: "-$318.40",
+    total: "+$2,905",
+    positive: false,
+    series: [82, 99, 87, 60, 72, 61, 51, 43, 37, 31, 44, 38, 50, 39, 41, 38, 35, 34, 36, 42, 34, 36, 33, 31, 35, 30, 39],
+  },
+  {
+    symbol: "MSFT",
+    name: "Microsoft",
+    market: "US",
+    price: "521.04",
+    change: "+0.34%",
+    today: "+$88.00",
+    total: "+$3,660",
+    positive: true,
+    series: [41, 30, 27, 51, 75, 54, 43, 36, 66, 55, 57, 45, 48, 51, 45, 68, 70, 47, 52, 62, 63, 61, 58],
+  },
+  {
+    symbol: "BTC-USD",
+    name: "Bitcoin USD",
+    market: "Crypto",
+    price: "63797.28",
+    change: "+0.97%",
+    today: "+$187.20",
+    total: "+$3,482",
+    positive: true,
+    series: [27, 28, 25, 16, 22, 17, 20, 14, 21, 19, 26, 39, 45, 49, 44, 50, 52, 73, 82, 77, 80, 78, 84, 89, 88, 85, 82, 86, 82, 84, 80, 79],
+  },
+  {
+    symbol: "ETH-USD",
+    name: "Ethereum",
+    market: "Crypto",
+    price: "3290.12",
+    change: "-0.62%",
+    today: "-$74.10",
+    total: "+$1,268",
+    positive: false,
+    series: [77, 78, 75, 77, 80, 71, 59, 53, 44, 57, 48, 51, 39, 35, 42, 33, 32, 43, 32, 34, 34, 33, 23, 20, 27],
+  },
+];
+
 const copy = {
   zh: {
     tagline: "你的市场，一眼掌握。",
@@ -123,8 +203,15 @@ type ListId = "all" | "positions" | "watching";
 const listOrder: ListId[] = ["all", "positions", "watching"];
 
 const listMembers: Record<Exclude<ListId, "all">, ReadonlySet<string>> = {
-  positions: new Set(["ONDS", "688018", "700", "BTC-USD"]),
-  watching: new Set(["601138", "603986", "6181"]),
+  positions: new Set(["ONDS", "688018", "700", "BTC-USD", "NVDA", "MSFT"]),
+  watching: new Set(["601138", "603986", "6181", "AAPL", "TSLA", "ETH-USD"]),
+};
+
+const marketBadgeLabels: Record<MarketItem["market"], { zh: string; en: string }> = {
+  US: { zh: "美股", en: "US" },
+  SH: { zh: "沪", en: "SH" },
+  HK: { zh: "港股", en: "HK" },
+  Crypto: { zh: "加密", en: "Crypto" },
 };
 
 function lineColor(positive: boolean) {
@@ -247,8 +334,18 @@ function Sparkline({ item, active }: { item: MarketItem; active: boolean }) {
   );
 }
 
-function MarketBadge({ market }: { market: MarketItem["market"] }) {
-  return <span className={`preview-market preview-market-${market.toLowerCase()}`}>{market}</span>;
+function MarketBadge({
+  market,
+  language,
+}: {
+  market: MarketItem["market"];
+  language: Language;
+}) {
+  return (
+    <span className={`preview-market preview-market-${market.toLowerCase()}`}>
+      {marketBadgeLabels[market][language]}
+    </span>
+  );
 }
 
 export function InteractivePreview({
@@ -263,6 +360,7 @@ export function InteractivePreview({
   const [activeList, setActiveList] = useState<ListId>("all");
   const [hoveredSymbol, setHoveredSymbol] = useState<string | null>(null);
 
+  const marketItems = language === "zh" ? marketItemsZh : marketItemsEn;
   const visibleItems =
     activeList === "all"
       ? marketItems
@@ -319,7 +417,7 @@ export function InteractivePreview({
                 >
                   <span className="preview-row-title">
                     <strong>{item.name}</strong>
-                    <span><MarketBadge market={item.market} />{item.symbol}</span>
+                    <span><MarketBadge market={item.market} language={language} />{item.symbol}</span>
                   </span>
                   <Sparkline item={item} active={active} />
                   <button

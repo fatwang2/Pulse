@@ -34,7 +34,6 @@ const translations = {
     home: "首页",
     changelog: "更新日志",
     languageLabel: "切换网站语言",
-    overline: "版本时间线",
     title: "每一次更新，\n都清楚可见。",
     intro:
       "从首次公开发布到最新版本，按时间查看 Pulse 的新功能、体验改进与问题修复。",
@@ -52,7 +51,6 @@ const translations = {
     home: "Home",
     changelog: "Changelog",
     languageLabel: "Change website language",
-    overline: "Release timeline",
     title: "Every release,\nat a glance.",
     intro:
       "Follow Pulse from its first public release to today, with every new feature, experience improvement, and fix in one place.",
@@ -145,7 +143,6 @@ function Changelog() {
       </header>
 
       <section className="changelog-hero shell">
-        <p className="overline">{copy.overline}</p>
         <h1>
           {copy.title.split("\n").map((line, index) => (
             <span key={line}>

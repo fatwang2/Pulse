@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { FeatureShowcase } from "../components/feature-showcase";
 import { InteractivePreview } from "../components/interactive-preview";
-import { RecentUpdates } from "../components/recent-updates";
+import { releases } from "../data/releases";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -55,9 +55,10 @@ const translations = {
     intro:
       "Pulse 把你关心的价格、走势和持仓盈亏放进菜单栏。从盘前到盘后，不打断工作，也能随时知道市场发生了什么。",
     featuresLabel: "主要功能",
-    features: ["多分组自选", "持仓盈亏", "蜡烛图与盘前盘后", "一键分享卡"],
+    features: ["多分组自选", "持仓盈亏", "蜡烛图与盘前盘后", "菜单栏行情轮播"],
     downloadLabel: "下载最新版",
     githubLabel: "GitHub 开源",
+    whatsNew: "{date}发布 · 查看更新日志",
     screenshotAlt:
       "Pulse 自选列表截图，展示美股、A 股、港股与加密货币的价格和走势图",
     markets: "支持美股、港股、A 股、加密货币、指数与 ETF",
@@ -80,12 +81,13 @@ const translations = {
       "Multi-list watchlists",
       "Position P&L",
       "Candles & extended hours",
-      "Share cards",
+      "Menu bar ticker",
     ],
     downloadLabel: "Download for macOS",
     githubLabel: "View on GitHub",
+    whatsNew: "Released {date} · View changelog",
     screenshotAlt:
-      "Pulse watchlist showing prices and sparklines for US, China, Hong Kong, and crypto markets",
+      "Pulse watchlist showing prices and sparklines for US stocks and crypto",
     markets: "US, Hong Kong and China stocks, crypto, indices, and ETFs",
     dataSourcesLabel: "Market data sources",
     dataSourcesNote:
@@ -94,9 +96,24 @@ const translations = {
   },
 } as const;
 
+function formatReleaseDate(date: string, language: Language) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : "en-US", {
+    year: "numeric",
+    month: language === "zh" ? "long" : "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
 function Home() {
   const [language, setLanguage] = useState<Language>("en");
   const copy = translations[language];
+  const latestRelease = releases[0];
+  const whatsNewLabel = copy.whatsNew.replace(
+    "{date}",
+    formatReleaseDate(latestRelease.date, language),
+  );
 
   useEffect(() => {
     const savedLanguage = window.localStorage.getItem("pulse-language");
@@ -208,6 +225,12 @@ function Home() {
               {copy.githubLabel}
             </a>
           </div>
+
+          <Link className="whats-new" to="/changelog" data-testid="whats-new">
+            <span className="whats-new-badge">{`v${latestRelease.version}`}</span>
+            {whatsNewLabel}
+            <span aria-hidden="true">→</span>
+          </Link>
         </div>
 
         <div className="product-shot">
@@ -227,8 +250,6 @@ function Home() {
       </section>
 
       <FeatureShowcase language={language} />
-
-      <RecentUpdates language={language} />
 
       <section
         className="data-sources shell"

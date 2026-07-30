@@ -10,6 +10,23 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.8.1",
+    date: "2026-07-30",
+    kind: "improvement",
+    highlights: {
+      zh: [
+        "自选列表与分享卡片的趋势线现在跟随延长时段设置：盘前、盘后以灰色翼区呈现，并在 9:30 / 16:00 边界加上细分隔线，与详情页分时图保持一致。",
+        "修复盘前时段趋势线被压缩到图表尾部的问题：当延长时段数据挤占最新分页时，Longbridge 分钟历史会自动补拉上一交易日的盘中数据。",
+        "分享 K 线图现在生成真正的蜡烛图卡片，内容与屏幕上缩放到的区间完全一致，包含成交量、时段底色和交易所时区的起止时间。",
+      ],
+      en: [
+        "Watchlist and share-card trend lines now follow the extended-hours setting, drawing pre/post sessions as gray wings with hairline separators at the 9:30 / 16:00 boundaries to match the detail chart.",
+        "Fixed pre-market trend lines collapsing into the tail of the chart: Longbridge minute history now backfills the prior regular session when extended-hours rows crowd it out of the latest page.",
+        "Sharing a K-line chart now produces a true candlestick card of exactly the visible zoom window, including volume, session tinting, and the window's range in exchange time.",
+      ],
+    },
+  },
+  {
     version: "0.8.0",
     date: "2026-07-30",
     kind: "release",

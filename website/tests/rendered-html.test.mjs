@@ -63,11 +63,11 @@ test("server-renders the full bilingual release timeline", async () => {
   );
   assert.match(html, /data-testid="release-timeline"/);
   assert.match(html, /Every release,/);
-  assert.match(html, /id="v0-8-0"/);
-  assert.match(html, /href="#v0-8-0"/);
+  assert.match(html, /id="v0-8-1"/);
+  assert.match(html, /href="#v0-8-1"/);
   assert.match(html, /id="v0-1-0"/);
   assert.match(html, /href="#v0-1-0"/);
-  assert.ok(html.indexOf("0.8.0") < html.indexOf("0.1.0"));
+  assert.ok(html.indexOf("0.8.1") < html.indexOf("0.1.0"));
   assert.match(html, /dateTime="2026-07-30"/);
   assert.match(html, /href="\/"/);
   assert.match(html, /href="\/download"/);
@@ -76,7 +76,7 @@ test("server-renders the full bilingual release timeline", async () => {
   assert.doesNotMatch(html, /class="release-link"/);
 
   const releaseEntries = html.match(/class="release-entry"/g) ?? [];
-  assert.equal(releaseEntries.length, 19);
+  assert.equal(releaseEntries.length, 20);
 });
 
 test("includes English copy and remembered language selection", async () => {
@@ -152,7 +152,7 @@ test("redirects the stable download URL to a versioned request", async () => {
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.equal(
     response.headers.get("location"),
-    "http://localhost/download?version=0.8.0",
+    "http://localhost/download?version=0.8.1",
   );
 });
 
@@ -163,11 +163,11 @@ test("serves a stored DMG from the Sites R2 binding", async () => {
   const body = new TextEncoder().encode("dmg");
 
   const response = await worker.fetch(
-    new Request("http://localhost/download?version=0.8.0"),
+    new Request("http://localhost/download?version=0.8.1"),
     {
       DOWNLOADS: {
         async get(key) {
-          assert.equal(key, "releases/v0.8.0/Pulse-0.8.0.dmg");
+          assert.equal(key, "releases/v0.8.1/Pulse-0.8.1.dmg");
           return {
             body: new Blob([body]).stream(),
             httpEtag: '"test-etag"',
@@ -185,12 +185,12 @@ test("serves a stored DMG from the Sites R2 binding", async () => {
   assert.equal(response.status, 200);
   assert.equal(
     response.headers.get("content-disposition"),
-    'attachment; filename="Pulse-0.8.0.dmg"',
+    'attachment; filename="Pulse-0.8.1.dmg"',
   );
   assert.equal(
     response.headers.get("content-type"),
     "application/x-apple-diskimage",
   );
-  assert.equal(response.headers.get("x-pulse-version"), "0.8.0");
+  assert.equal(response.headers.get("x-pulse-version"), "0.8.1");
   assert.equal(new TextDecoder().decode(await response.arrayBuffer()), "dmg");
 });

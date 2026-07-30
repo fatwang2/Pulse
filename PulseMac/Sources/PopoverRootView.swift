@@ -4,9 +4,21 @@ import PulseCore
 enum PopoverRoute: Hashable {
     case list
     case detail(SymbolID)
+    /// Position hub: summary, trade actions, and recent transactions.
     case position(SymbolID, PositionReturnRoute)
+    /// Single-trade entry form; the side is fixed by the entry point.
+    case trade(SymbolID, TradeSide, PositionReturnRoute)
+    /// Full transaction log.
+    case transactions(SymbolID, PositionReturnRoute)
+    /// Quick set: overwrite quantity + average cost as one calibration entry.
+    case calibrate(SymbolID, PositionReturnRoute)
     case settings
     case providerDetail(String)
+}
+
+enum TradeSide: Hashable {
+    case buy
+    case sell
 }
 
 enum PositionReturnRoute: Hashable {
@@ -78,19 +90,49 @@ struct PopoverRootView: View {
                     .transition(pushTransition)
             case .position(let symbol, let returnRoute):
                 Group {
+                    if appState.watchlist.item(for: symbol) != nil {
+                        PositionHubView(symbol: symbol, returnRoute: returnRoute, route: $route)
+                    } else {
+                        WatchlistView(route: $route, searchSession: $searchSession)
+                    }
+                }
+                .frame(height: height(for: route))
+                .transition(pushTransition)
+            case .trade(let symbol, let side, let returnRoute):
+                Group {
+                    if appState.watchlist.item(for: symbol) != nil {
+                        TradeEntryView(symbol: symbol, side: side, returnRoute: returnRoute, route: $route)
+                    } else {
+                        WatchlistView(route: $route, searchSession: $searchSession)
+                    }
+                }
+                .frame(height: height(for: route))
+                .transition(pushTransition)
+            case .transactions(let symbol, let returnRoute):
+                Group {
+                    if appState.watchlist.item(for: symbol) != nil {
+                        TransactionListView(symbol: symbol, returnRoute: returnRoute, route: $route)
+                    } else {
+                        WatchlistView(route: $route, searchSession: $searchSession)
+                    }
+                }
+                .frame(height: height(for: route))
+                .transition(pushTransition)
+            case .calibrate(let symbol, let returnRoute):
+                Group {
                     if let item = appState.watchlist.item(for: symbol) {
                         PositionEditorView(
                             item: item,
                             quote: appState.market.quote(for: symbol),
                             palette: appState.palette,
-                            onCancel: { route = returnRoute.popoverRoute },
-                            onSave: { lots in
-                                appState.watchlist.updateLots(symbol, lots: lots)
-                                route = returnRoute.popoverRoute
+                            onCancel: { route = .position(symbol, returnRoute) },
+                            onSave: { quantity, cost in
+                                appState.watchlist.calibratePosition(symbol, quantity: quantity, averageCost: cost)
+                                route = .position(symbol, returnRoute)
                             },
                             onClear: {
                                 appState.watchlist.clearPosition(symbol)
-                                route = returnRoute.popoverRoute
+                                route = .position(symbol, returnRoute)
                             }
                         )
                     } else {
@@ -152,8 +194,18 @@ struct PopoverRootView: View {
             return min(max(content, minimum), Self.maxHeight)
         case .detail:
             return 560
-        case .position:
-            return 360
+        case .position(let symbol, _):
+            // The hub shows either the full summary + trade actions + recent
+            // trades, or a compact empty state (plus history once any exists).
+            guard let item = appState.watchlist.item(for: symbol) else { return 360 }
+            if item.hasPosition { return 420 }
+            return item.transactions.isEmpty ? 300 : 350
+        case .trade:
+            return 330
+        case .transactions:
+            return 500
+        case .calibrate:
+            return 370
         case .settings:
             return 540
         case .providerDetail:

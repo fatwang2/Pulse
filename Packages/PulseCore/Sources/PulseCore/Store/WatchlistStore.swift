@@ -245,8 +245,72 @@ public final class WatchlistStore {
         save()
     }
 
+    /// Clears the open position. Items with transaction history keep it —
+    /// the ledger records a zero adjustment so realized P&L and the trade log
+    /// survive; legacy lot-only items are wiped as before.
     public func clearPosition(_ symbol: SymbolID) {
-        updateLots(symbol, lots: [])
+        guard let index = allItems.firstIndex(where: { $0.symbol == symbol }) else { return }
+        guard !allItems[index].transactions.isEmpty else {
+            updateLots(symbol, lots: [])
+            return
+        }
+        calibratePosition(symbol, quantity: 0, averageCost: 0)
+    }
+
+    // MARK: - Transactions
+
+    /// Appends a trade. The first transaction on a lot-based item folds the
+    /// legacy position into the ledger as an opening adjustment.
+    public func addTransaction(_ symbol: SymbolID, _ transaction: PositionTransaction) {
+        guard let index = allItems.firstIndex(where: { $0.symbol == symbol }),
+              allItems[index].supportsPosition,
+              transaction.quantity > 0, transaction.price > 0 else { return }
+        var transactions = allItems[index].materializedTransactions()
+        transactions.append(transaction)
+        commitTransactions(transactions, at: index)
+    }
+
+    public func deleteTransaction(_ symbol: SymbolID, id: UUID) {
+        guard let index = allItems.firstIndex(where: { $0.symbol == symbol }) else { return }
+        var transactions = allItems[index].transactions
+        let count = transactions.count
+        transactions.removeAll { $0.id == id }
+        guard transactions.count != count else { return }
+        commitTransactions(transactions, at: index)
+    }
+
+    /// Overwrites the position with a target quantity and average cost as an
+    /// `.adjustment` entry ("quick set" / reconciling with a broker).
+    /// Produces no realized P&L.
+    public func calibratePosition(
+        _ symbol: SymbolID,
+        quantity: Double,
+        averageCost: Double,
+        date: Date = .now
+    ) {
+        guard let index = allItems.firstIndex(where: { $0.symbol == symbol }),
+              allItems[index].supportsPosition,
+              quantity >= 0, averageCost >= 0 else { return }
+        var transactions = allItems[index].materializedTransactions()
+        transactions.append(PositionTransaction(
+            kind: .adjustment,
+            price: averageCost,
+            quantity: quantity,
+            date: date
+        ))
+        commitTransactions(transactions, at: index)
+    }
+
+    /// Stores the replay-ordered list and refreshes the derived single-lot
+    /// cache so lot-based consumers (rows, sharing, older builds) keep seeing
+    /// the open position.
+    private func commitTransactions(_ transactions: [PositionTransaction], at index: Int) {
+        allItems[index].transactions = PositionLedger.replayOrdered(transactions)
+        let ledger = PositionLedger(transactions: allItems[index].transactions)
+        allItems[index].lots = ledger.hasOpenPosition
+            ? [CostLot(price: ledger.averageCost, quantity: ledger.quantity, date: nil)]
+            : []
+        save()
     }
 
     /// Replaces a persisted name only when its provider outranks the saved source.
@@ -352,6 +416,12 @@ public final class WatchlistStore {
                 var existingLotIDs = Set(normalizedItems[existingIndex].lots.map(\.id))
                 normalizedItems[existingIndex].lots.append(
                     contentsOf: item.lots.filter { existingLotIDs.insert($0.id).inserted }
+                )
+                var existingTransactionIDs = Set(normalizedItems[existingIndex].transactions.map(\.id))
+                normalizedItems[existingIndex].transactions = PositionLedger.replayOrdered(
+                    normalizedItems[existingIndex].transactions + item.transactions.filter {
+                        existingTransactionIDs.insert($0.id).inserted
+                    }
                 )
                 normalizedItems[existingIndex].addedAt = min(
                     normalizedItems[existingIndex].addedAt,

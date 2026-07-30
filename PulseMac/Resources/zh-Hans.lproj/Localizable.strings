@@ -1,7 +1,7 @@
 "action.addPosition" = "录入持仓";
 "action.back" = "返回";
 "action.cancel" = "取消";
-"action.clearPosition" = "清除持仓";
+"action.clearPosition" = "一键删除";
 "action.copyShareSnapshot" = "复制分享图";
 "action.delete" = "删除";
 "action.done" = "完成";
@@ -255,3 +255,42 @@
 
 "watchRow.dragHelp" = "按住拖动调整顺序";
 "watchRow.metricHelp" = "点击切换：涨跌幅 / 今日盈亏 / 持仓盈亏";
+
+/* 持仓交易记录 */
+"trade.buy" = "买入";
+"trade.sell" = "卖出";
+"trade.recordBuy" = "记录买入";
+"trade.confirmBuy" = "确认买入";
+"trade.confirmSell" = "确认卖出";
+"trade.price" = "价格";
+"trade.date" = "日期";
+"trade.dateToday" = "今天";
+"trade.priceHintCurrent" = "已预填现价";
+"trade.availableToSell" = "可卖 %@";
+"trade.exceedsHolding" = "超过当前持仓数量（%@），请修改后保存。";
+"trade.amount" = "本笔金额";
+"trade.realizedPnL" = "本笔已实现盈亏";
+"trade.resultingPosition" = "成交后持仓";
+"trade.newAverageCost" = "新平均成本";
+"position.realizedPnL" = "已实现收益";
+"position.totalInvested" = "总投入";
+"position.recentTransactions" = "最近交易";
+"position.noTransactions" = "暂无交易记录";
+"position.viewAllTransactions" = "查看全部交易 (%d)";
+"position.quickEdit" = "直接修改持仓…";
+"position.quickSet" = "直接设置持仓…";
+"position.quickEditTitle" = "直接修改持仓";
+"position.calibrationNotice" = "保存后将以此数量与成本覆盖当前持仓，记为一笔「校准」，不产生已实现盈亏。";
+"position.empty.title" = "尚未持有";
+"position.empty.subtitle" = "记录买入卖出，Pulse 自动计算成本与盈亏";
+"position.historySection" = "历史";
+"position.historyTrades" = "历史交易";
+"position.tradeCount" = "%d 笔";
+"transaction.logTitle" = "交易记录";
+"transaction.kind.buy" = "买";
+"transaction.kind.sell" = "卖";
+"transaction.kind.adjustment" = "校准";
+"transaction.overwrite" = "覆盖";
+"transaction.deleteConfirmTitle" = "删除这笔交易？";
+"transaction.deleteConfirmMessage" = "%@ %@ %@ @ %@ 将被删除，持仓与盈亏会自动重算。此操作不可撤销。";
+"trade.dateYesterday" = "昨天";

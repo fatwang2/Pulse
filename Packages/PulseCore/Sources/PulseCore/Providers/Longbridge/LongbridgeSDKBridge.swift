@@ -1394,8 +1394,10 @@ enum LongbridgeMinuteCandleBackfill {
     static let apiPageLimit = 1_000
 
     /// The extra page is only needed when the latest page is full and its oldest row
-    /// has already cut into the displayed 04:00–20:00 session. When the oldest row is
-    /// still overnight, the complete visible session is already present.
+    /// has already cut into a session some chart still displays: the extended chart's
+    /// 04:00–20:00 frame, or — during the overnight/pre-market stretch — the PRIOR
+    /// day's regular session, which the regular-mode sparkline keeps showing while
+    /// "All sessions" rows (overnight + pre alone can be 800) crowd it out of the page.
     static func needsOlderPage(
         _ latest: [Candle],
         market: Market,
@@ -1408,14 +1410,18 @@ enum LongbridgeMinuteCandleBackfill {
               let earliest = latest.min(by: { $0.time < $1.time }) else {
             return false
         }
-        let snapshot = IntradayTrendSnapshot(
+        let extended = IntradayTrendSnapshot(
             candles: latest,
             market: market,
             includesExtendedHours: true
         )
-        guard let preOpen = snapshot.session.preOpen else { return false }
-        return snapshot.session.contains(earliest.time)
-            && earliest.time > preOpen.addingTimeInterval(60)
+        guard let preOpen = extended.session.preOpen else { return false }
+        if extended.session.contains(earliest.time),
+           earliest.time > preOpen.addingTimeInterval(60) {
+            return true
+        }
+        let regular = IntradayTrendSnapshot(candles: latest, market: market)
+        return earliest.time > regular.session.open.addingTimeInterval(60)
     }
 
     static func merge(

@@ -30,6 +30,34 @@ struct LongbridgeMinuteCandleBackfillTests {
         )
     }
 
+    @Test("Backfills when pre-market rows crowd out the prior regular session")
+    func detectsPriorRegularSessionCutDuringPremarket() throws {
+        // 08:29 ET during pre-market: the 1,000-row "All sessions" page reaches back
+        // through today's pre (270) + overnight (480) + yesterday's post (240) and keeps
+        // only the last ~10 minutes of yesterday's regular session — the very session
+        // the regular-mode sparkline still anchors on.
+        let calendar = Self.exchangeCalendar(.us)
+        let today = try #require(
+            calendar.date(from: DateComponents(year: 2026, month: 7, day: 29))
+        )
+        let end = today.addingTimeInterval(TimeInterval((8 * 60 + 29) * 60))
+        let candles = (0..<1_000).map { offset in
+            Self.candle(
+                at: end.addingTimeInterval(TimeInterval(-60 * offset)),
+                close: Double(offset)
+            )
+        }
+
+        #expect(
+            LongbridgeMinuteCandleBackfill.needsOlderPage(
+                candles,
+                market: .us,
+                period: .minute1,
+                latestPageReachedLimit: true
+            )
+        )
+    }
+
     @Test("Does not backfill when the oldest row is still overnight")
     func skipsCompleteVisibleSession() throws {
         let calendar = Self.exchangeCalendar(.us)

@@ -21,20 +21,25 @@ public struct CandlestickChartView: View {
     let market: Market?
     let highlightsExtendedHours: Bool
 
-    @State private var viewport = CandleChartViewport()
+    @State private var viewport: CandleChartViewport
 
+    /// Pass a `viewport` to observe the zoom/pan window from outside (the detail view
+    /// reads it when sharing so the card shows exactly the visible candles). The instance
+    /// from the first render wins; callers must hand in a stable object.
     public init(
         candles: [Candle],
         palette: ChangePalette,
         period: CandlePeriod = .day,
         market: Market? = nil,
-        highlightsExtendedHours: Bool = false
+        highlightsExtendedHours: Bool = false,
+        viewport: CandleChartViewport? = nil
     ) {
         self.candles = candles
         self.palette = palette
         self.period = period
         self.market = market
         self.highlightsExtendedHours = highlightsExtendedHours
+        _viewport = State(initialValue: viewport ?? CandleChartViewport())
     }
 
     public var body: some View {
@@ -262,9 +267,11 @@ public struct CandlestickChartView: View {
 /// intentionally unobserved.
 @MainActor
 @Observable
-final class CandleChartViewport {
+public final class CandleChartViewport {
     static let defaultVisibleCount = 60
     static let minVisibleCount = 20
+
+    public init() {}
 
     var visibleCount = CandleChartViewport.defaultVisibleCount
     /// Bars hidden to the right of the window; 0 = pinned to the latest bar.
@@ -278,7 +285,7 @@ final class CandleChartViewport {
     @ObservationIgnored private var panRemainder: Double = 0
     @ObservationIgnored private var monitor: Any?
 
-    func visibleRange(dataCount: Int) -> Range<Int> {
+    public func visibleRange(dataCount: Int) -> Range<Int> {
         guard dataCount > 0 else { return 0..<0 }
         let count = min(visibleCount, dataCount)
         let maxOffset = dataCount - count

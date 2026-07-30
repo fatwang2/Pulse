@@ -14,6 +14,8 @@ struct DetailView: View {
     @State private var isLoading = false
     @State private var isFirstLoad = true
     @State private var shareFeedback: ShareFeedback?
+    /// Owned here (not in the chart) so sharing can read the zoomed candle window.
+    @State private var candleViewport = CandleChartViewport()
 
     private static let minutePeriods: [CandlePeriod] = [
         .minute5, .minute15, .minute30, .hour1,
@@ -216,11 +218,17 @@ struct DetailView: View {
     @MainActor
     private func copyShareSnapshot() {
         do {
+            // K-line cards share exactly the zoomed window on screen; the intraday
+            // card keeps the full session, whose frame is its own context.
+            let allCandles = chartCandles
+            let shareCandles = period == .minute1
+                ? allCandles
+                : Array(allCandles[candleViewport.visibleRange(dataCount: allCandles.count)])
             let snapshot = DetailShareSnapshot(
                 appState: appState,
                 symbol: symbol,
                 period: period,
-                candles: chartCandles
+                candles: shareCandles
             )
             let palette = ChangePalette(redUp: snapshot.redUp)
             let card = PulseShareCard(
@@ -536,7 +544,8 @@ struct DetailView: View {
                     market: symbol.market,
                     highlightsExtendedHours: symbol.market == .us
                         && period.isMinuteK
-                        && appState.settings.showsUSExtendedHours
+                        && appState.settings.showsUSExtendedHours,
+                    viewport: candleViewport
                 )
                     .transition(.opacity)
             }

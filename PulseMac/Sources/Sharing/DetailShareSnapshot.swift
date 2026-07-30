@@ -20,6 +20,9 @@ struct DetailShareSnapshot {
     let previousClose: Double?
     let period: CandlePeriod
     let periodName: String
+    /// First–last timestamps of the shared K-line window; nil for the intraday chart,
+    /// whose session frame speaks for itself.
+    let rangeText: String?
     let includesExtendedHours: Bool
     let trendCandles: [Candle]
     let stats: [Stat]
@@ -65,6 +68,9 @@ struct DetailShareSnapshot {
                 includesExtendedHours: includesExtendedHours
             ).candles
             : candles.sorted { $0.time < $1.time }
+        rangeText = period == .minute1
+            ? nil
+            : Self.rangeText(for: trendCandles, period: period, market: symbol.market)
         stats = [
             Stat(
                 id: "open",
@@ -113,6 +119,22 @@ struct DetailShareSnapshot {
             ),
             includesExtendedHours: appState.settings.showsUSExtendedHours
         )
+    }
+
+    /// "07/28 09:30 – 07/30 15:59" for minute K, "2025/08/12 – 2026/07/30" for daily
+    /// and weekly bars, "2007/01 – 2026/07" for monthly — always in exchange time.
+    private static func rangeText(for candles: [Candle], period: CandlePeriod, market: Market) -> String? {
+        guard let first = candles.first, let last = candles.last else { return nil }
+        let formatter = DateFormatter()
+        formatter.timeZone = market.timeZone
+        formatter.dateFormat = switch period {
+        case .minute5, .minute15, .minute30, .hour1: "MM/dd HH:mm"
+        case .month: "yyyy/MM"
+        default: "yyyy/MM/dd"
+        }
+        let start = formatter.string(from: first.time)
+        let end = formatter.string(from: last.time)
+        return start == end ? start : "\(start) – \(end)"
     }
 
     private static func priceLabel(for quote: Quote) -> String {
@@ -317,11 +339,18 @@ struct DetailShareContent: View {
                 }
             }
 
-            Text(snapshot.periodName)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.tertiary)
-                .padding(.top, 14)
-                .padding(.trailing, 28)
+            HStack(spacing: 6) {
+                if let rangeText = snapshot.rangeText {
+                    Text(rangeText)
+                        .font(.system(size: 10).monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
+                Text(snapshot.periodName)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.top, 14)
+            .padding(.trailing, 28)
         }
     }
 
@@ -336,17 +365,22 @@ struct DetailShareContent: View {
                 includesExtendedHours: snapshot.includesExtendedHours
             )
         } else {
-            SparklineView(
-                values: snapshot.trendCandles.map(\.close),
-                baseline: snapshot.previousClose,
-                tint: changeColor
+            CandlestickSnapshotView(
+                candles: snapshot.trendCandles,
+                palette: palette,
+                highlightsExtendedHours: snapshot.symbol.market == .us
+                    && snapshot.period.isMinuteK
+                    && snapshot.includesExtendedHours
             )
         }
     }
 
     @ViewBuilder
     private func baselineTag(in size: CGSize) -> some View {
-        if let previousClose = snapshot.previousClose,
+        // Only the intraday chart draws the dashed previous-close rule; candlestick
+        // panels have no baseline for the caption to sit on.
+        if snapshot.period == .minute1,
+           let previousClose = snapshot.previousClose,
            let fraction = baselineFraction(previousClose: previousClose) {
             let plotHeight = size.height - 34 - 26
             Text(PulseLocalization.localizedString("stat.previousClose") + " " + PriceFormatter.price(previousClose))
@@ -357,16 +391,14 @@ struct DetailShareContent: View {
         }
     }
 
-    /// Mirrors the y-domain math of the chart views so the previous-close caption
-    /// lands on the dashed rule they draw (10% padding intraday, 8% otherwise).
+    /// Mirrors the intraday sparkline's y-domain math (10% padding) so the
+    /// previous-close caption lands on the dashed rule it draws.
     private func baselineFraction(previousClose: Double) -> CGFloat? {
         let closes = snapshot.trendCandles.map(\.close)
         guard closes.count > 1 else { return nil }
         var lo = min(closes.min() ?? previousClose, previousClose)
         var hi = max(closes.max() ?? previousClose, previousClose)
-        let pad = snapshot.period == .minute1
-            ? max((hi - lo) * 0.1, hi * 0.001, 0.0001)
-            : max((hi - lo) * 0.08, hi * 0.0005, 0.0001)
+        let pad = max((hi - lo) * 0.1, hi * 0.001, 0.0001)
         lo -= pad
         hi += pad
         guard hi > lo else { return nil }

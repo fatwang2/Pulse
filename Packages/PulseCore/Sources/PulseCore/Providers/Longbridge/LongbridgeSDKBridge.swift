@@ -192,6 +192,18 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
         LBSDKAsyncCallback?,
         UnsafeMutableRawPointer?
     ) -> Void
+    typealias HistoryCandlesticksByOffsetRequest = @convention(c) (
+        OpaquePointer?,
+        UnsafePointer<CChar>?,
+        Int32,
+        Int32,
+        Bool,
+        UnsafePointer<lb_datetime_t>?,
+        UInt,
+        Int32,
+        LBSDKAsyncCallback?,
+        UnsafeMutableRawPointer?
+    ) -> Void
     typealias DecimalToDouble = @convention(c) (OpaquePointer?) -> Double
     typealias ErrorMessage = @convention(c) (OpaquePointer?) -> UnsafePointer<CChar>?
     typealias ErrorCode = @convention(c) (OpaquePointer?) -> Int64
@@ -205,6 +217,7 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
     let setQuoteWebSocketURL: ConfigStringMutation
     let configFree: ConfigFree
     let contextNew: ContextNew
+    let contextRetain: ContextRelease
     let contextRelease: ContextRelease
     let quotePackageDetails: ContextRequest
     let setOnQuote: SetOnQuote
@@ -213,6 +226,7 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
     let subscribe: SubscriptionRequest
     let unsubscribe: SubscriptionRequest
     let candlesticks: CandlesticksRequest
+    let historyCandlesticksByOffset: HistoryCandlesticksByOffsetRequest
     let decimalToDouble: DecimalToDouble
     let errorMessage: ErrorMessage
     let errorCode: ErrorCode
@@ -262,6 +276,11 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
         )
         self.configFree = try Self.resolve(handle, "lb_config_free", as: ConfigFree.self)
         self.contextNew = try Self.resolve(handle, "lb_quote_context_new", as: ContextNew.self)
+        self.contextRetain = try Self.resolve(
+            handle,
+            "lb_quote_context_retain",
+            as: ContextRelease.self
+        )
         self.contextRelease = try Self.resolve(
             handle,
             "lb_quote_context_release",
@@ -297,6 +316,11 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
             handle,
             "lb_quote_context_candlesticks",
             as: CandlesticksRequest.self
+        )
+        self.historyCandlesticksByOffset = try Self.resolve(
+            handle,
+            "lb_quote_context_history_candlesticks_by_offset",
+            as: HistoryCandlesticksByOffsetRequest.self
         )
         self.decimalToDouble = try Self.resolve(
             handle,
@@ -625,19 +649,30 @@ actor LongbridgeSDKBridge {
             throw ProviderError.symbolNotFound(symbol)
         }
         let sdkPeriod = Self.sdkPeriod(period)
+        let requestedCount = max(1, count)
+        let latestPageCount = min(requestedCount, LongbridgeMinuteCandleBackfill.apiPageLimit)
+        // lb_trade_sessions_t: 0 = Intraday, 100 = All. Fetch all US sessions for
+        // intraday resolutions, then let the chart apply the user's pre/post preference.
+        // Overnight bars may come along too and are removed by the presentation filter.
+        let sdkTradeSessions: Int32 = (symbol.market == .us && period.isIntraday) ? 100 : 0
 
         do {
             let context = try await ensureContext()
             let library = try requireLibrary()
+            // The actor can process an auth change or manual reset while either page
+            // awaits its callback. Keep this context alive across the complete paged
+            // operation even if releaseContext() drops the actor-owned reference.
+            library.contextRetain(context)
+            defer { library.contextRelease(context) }
             let snapshots: [LBSDKCandlestick] = try await perform(library: library) { callback, userdata in
                 sdkSymbol.withCString { symbolPointer in
                     library.candlesticks(
                         context,
                         symbolPointer,
                         sdkPeriod,
-                        UInt(max(1, count)),
+                        UInt(latestPageCount),
                         0,
-                        0,
+                        sdkTradeSessions,
                         callback,
                         userdata
                     )
@@ -645,22 +680,71 @@ actor LongbridgeSDKBridge {
             } decode: { result in
                 library.copyCandlesticks(result)
             }
-            let candles = snapshots.compactMap { row -> Candle? in
-                guard let close = row.close,
-                      let open = row.open,
-                      let low = row.low,
-                      let high = row.high else { return nil }
-                return Candle(
-                    time: Date(timeIntervalSince1970: TimeInterval(row.timestamp)),
-                    open: open,
-                    high: high,
-                    low: low,
-                    close: close,
-                    volume: Double(row.volume)
-                )
+            // The SDK request itself is not cancellable. If the user switched periods
+            // while the latest page was in flight, do not amplify that stale request
+            // with another 600-row history page.
+            try Task.checkCancellation()
+            let latestCandles = Self.candles(from: snapshots)
+            var candles = latestCandles
+
+            let olderPageCount = min(
+                max(0, requestedCount - latestPageCount),
+                LongbridgeMinuteCandleBackfill.apiPageLimit
+            )
+            if olderPageCount > 0,
+               LongbridgeMinuteCandleBackfill.needsOlderPage(
+                latestCandles,
+                market: symbol.market,
+                period: period,
+                latestPageReachedLimit: snapshots.count == latestPageCount
+               ),
+               let earliest = latestCandles.min(by: { $0.time < $1.time }) {
+                var before = Self.sdkDateTime(for: earliest.time, market: symbol.market)
+                do {
+                    let olderSnapshots: [LBSDKCandlestick] = try await perform(
+                        library: library
+                    ) { callback, userdata in
+                        sdkSymbol.withCString { symbolPointer in
+                            withUnsafePointer(to: &before) { timePointer in
+                                library.historyCandlesticksByOffset(
+                                    context,
+                                    symbolPointer,
+                                    sdkPeriod,
+                                    0,
+                                    false,
+                                    timePointer,
+                                    UInt(olderPageCount),
+                                    sdkTradeSessions,
+                                    callback,
+                                    userdata
+                                )
+                            }
+                        }
+                    } decode: { result in
+                        library.copyCandlesticks(result)
+                    }
+                    // SDK calls cannot be cancelled in flight. Discard a completed
+                    // backfill if the caller switched periods while it was running.
+                    try Task.checkCancellation()
+                    candles = LongbridgeMinuteCandleBackfill.merge(
+                        older: Self.candles(from: olderSnapshots),
+                        latest: latestCandles,
+                        limit: requestedCount
+                    )
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    // Backfill is an enhancement: the latest page is still complete
+                    // enough to render and must not mark quotes unhealthy.
+                    longbridgeLogger.warning(
+                        "Minute candle backfill failed; using latest page issue=\(Self.issueLabel(for: error), privacy: .public)"
+                    )
+                }
             }
             setStatus(.connected)
-            return candles
+            return candles.sorted { $0.time < $1.time }
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             recordFailure(error)
             throw error
@@ -1119,10 +1203,51 @@ actor LongbridgeSDKBridge {
         switch period {
         case .minute1: 1
         case .minute5: 4
+        case .minute15: 6
+        case .minute30: 8
+        case .hour1: 10
         case .day: 14
         case .week: 15
         case .month: 16
         }
+    }
+
+    private static func candles(from rows: [LBSDKCandlestick]) -> [Candle] {
+        rows.compactMap { row in
+            guard let close = row.close,
+                  let open = row.open,
+                  let low = row.low,
+                  let high = row.high else { return nil }
+            return Candle(
+                time: Date(timeIntervalSince1970: TimeInterval(row.timestamp)),
+                open: open,
+                high: high,
+                low: low,
+                close: close,
+                volume: Double(row.volume)
+            )
+        }
+    }
+
+    private static func sdkDateTime(for date: Date, market: Market) -> lb_datetime_t {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = market.timeZone
+        let components = calendar.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second],
+            from: date
+        )
+        return lb_datetime_t(
+            date: lb_date_t(
+                year: Int32(components.year ?? 1970),
+                month: UInt8(components.month ?? 1),
+                day: UInt8(components.day ?? 1)
+            ),
+            time: lb_time_t(
+                hour: UInt8(components.hour ?? 0),
+                minute: UInt8(components.minute ?? 0),
+                second: UInt8(components.second ?? 0)
+            )
+        )
     }
 
     private static func quote(
@@ -1262,6 +1387,48 @@ actor LongbridgeSDKBridge {
             case .server: "failed.server"
             }
         }
+    }
+}
+
+enum LongbridgeMinuteCandleBackfill {
+    static let apiPageLimit = 1_000
+
+    /// The extra page is only needed when the latest page is full and its oldest row
+    /// has already cut into the displayed 04:00–20:00 session. When the oldest row is
+    /// still overnight, the complete visible session is already present.
+    static func needsOlderPage(
+        _ latest: [Candle],
+        market: Market,
+        period: CandlePeriod,
+        latestPageReachedLimit: Bool
+    ) -> Bool {
+        guard market == .us,
+              period == .minute1,
+              latestPageReachedLimit,
+              let earliest = latest.min(by: { $0.time < $1.time }) else {
+            return false
+        }
+        let snapshot = IntradayTrendSnapshot(
+            candles: latest,
+            market: market,
+            includesExtendedHours: true
+        )
+        guard let preOpen = snapshot.session.preOpen else { return false }
+        return snapshot.session.contains(earliest.time)
+            && earliest.time > preOpen.addingTimeInterval(60)
+    }
+
+    static func merge(
+        older: [Candle],
+        latest: [Candle],
+        limit: Int
+    ) -> [Candle] {
+        var byTime: [Date: Candle] = [:]
+        byTime.reserveCapacity(older.count + latest.count)
+        for candle in older { byTime[candle.time] = candle }
+        // Prefer the latest-page value when the offset endpoint repeats its boundary row.
+        for candle in latest { byTime[candle.time] = candle }
+        return Array(byTime.values.sorted { $0.time < $1.time }.suffix(max(1, limit)))
     }
 }
 #endif

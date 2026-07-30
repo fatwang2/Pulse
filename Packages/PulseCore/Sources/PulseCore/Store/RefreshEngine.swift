@@ -174,10 +174,11 @@ public final class RefreshEngine {
             lastSparklineAt[symbol] = .now
             let count = IntradayTrendSnapshot.recommendedCandleCount(for: symbol.market)
             if let candles = try? await provider.candles(for: symbol, period: .minute1, count: count) {
-                let trend = IntradayTrendSnapshot(candles: candles, market: symbol.market)
-                store.apply(sparkline: trend.candles, for: symbol)
+                applyIntradayTrend(candles, for: symbol)
+                // The cache keeps the full fetch (US bars include pre/post sessions);
+                // every consumer runs it through IntradayTrendSnapshot for its own view.
                 store.cache(
-                    candles: trend.candles,
+                    candles: candles.sorted { $0.time < $1.time },
                     for: CandleCacheKey(symbol: symbol, period: .minute1)
                 )
             }
@@ -201,6 +202,9 @@ public final class RefreshEngine {
             let synchronized = synchronizeIntradayTrend(candles, for: symbol, period: period)
             store.cache(candles: synchronized, for: key)
             return synchronized
+        } catch is CancellationError {
+            let cached = store.cachedCandles(for: key, maxAge: .infinity) ?? []
+            return synchronizeIntradayTrend(cached, for: symbol, period: period)
         } catch {
             store.reportError(String(describing: error))
             let cached = store.cachedCandles(for: key, maxAge: .infinity) ?? []
@@ -214,8 +218,17 @@ public final class RefreshEngine {
         period: CandlePeriod
     ) -> [Candle] {
         guard period == .minute1 else { return candles }
+        applyIntradayTrend(candles, for: symbol)
+        // Return the full series (US bars include pre/post sessions): the detail chart
+        // frames it with its own IntradayTrendSnapshot, extended or regular.
+        return candles.sorted { $0.time < $1.time }
+    }
+
+    private func applyIntradayTrend(_ candles: [Candle], for symbol: SymbolID) {
         let trend = IntradayTrendSnapshot(candles: candles, market: symbol.market)
+        // A fetch that carries no regular-session bars yet (e.g. Yahoo during the US
+        // pre-market) must not wipe a sparkline that still shows the prior session.
+        guard !trend.candles.isEmpty || (store.sparklines[symbol]?.isEmpty ?? true) else { return }
         store.apply(sparkline: trend.candles, for: symbol)
-        return trend.candles
     }
 }

@@ -8,22 +8,36 @@ public struct IntradaySparklineView: View {
     let previousClose: Double?
     let market: Market
     let tint: Color
+    let includesExtendedHours: Bool
 
-    public init(candles: [Candle], previousClose: Double? = nil, market: Market, tint: Color) {
+    public init(
+        candles: [Candle],
+        previousClose: Double? = nil,
+        market: Market,
+        tint: Color,
+        includesExtendedHours: Bool = false
+    ) {
         self.candles = candles
         self.previousClose = previousClose
         self.market = market
         self.tint = tint
+        self.includesExtendedHours = includesExtendedHours
     }
 
     public var body: some View {
-        let trend = IntradayTrendSnapshot(candles: candles, market: market)
+        let trend = IntradayTrendSnapshot(
+            candles: candles,
+            market: market,
+            includesExtendedHours: includesExtendedHours
+        )
         Canvas { context, size in
             guard trend.candles.count > 1 else { return }
             let domain = yDomain(for: trend.candles)
+            let axisSpan = trend.session.axisUpperBound - trend.session.axisLowerBound
 
             func point(for candle: Candle) -> CGPoint {
-                let x = trend.session.minuteOffset(for: candle.time) / trend.session.totalMinutes
+                let offset = trend.session.minuteOffset(for: candle.time)
+                let x = (offset - trend.session.axisLowerBound) / axisSpan
                 let y = 1 - (candle.close - domain.lowerBound) / (domain.upperBound - domain.lowerBound)
                 return CGPoint(x: size.width * CGFloat(x), y: size.height * CGFloat(y))
             }

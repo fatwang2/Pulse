@@ -102,6 +102,23 @@ typedef struct lb_candlestick_t {
     int32_t trade_session;
 } lb_candlestick_t;
 
+typedef struct lb_date_t {
+    int32_t year;
+    uint8_t month;
+    uint8_t day;
+} lb_date_t;
+
+typedef struct lb_time_t {
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+} lb_time_t;
+
+typedef struct lb_datetime_t {
+    lb_date_t date;
+    lb_time_t time;
+} lb_datetime_t;
+
 typedef struct lb_quote_package_detail_t {
     const char *key;
     const char *name;

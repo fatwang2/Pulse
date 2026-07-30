@@ -125,6 +125,10 @@ struct SettingsView: View {
                     Text(PulseLocalization.localizedString("settings.market.redUp")).tag(true)
                     Text(PulseLocalization.localizedString("settings.market.greenUp")).tag(false)
                 }
+                Toggle(
+                    PulseLocalization.localizedString("settings.market.usExtendedHours"),
+                    isOn: $settings.showsUSExtendedHours
+                )
             }
 
             Section {

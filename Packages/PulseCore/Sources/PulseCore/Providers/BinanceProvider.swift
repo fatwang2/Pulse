@@ -195,6 +195,9 @@ public struct BinanceProvider: QuoteProvider {
         switch period {
         case .minute1: "1m"
         case .minute5: "5m"
+        case .minute15: "15m"
+        case .minute30: "30m"
+        case .hour1: "1h"
         case .day: "1d"
         case .week: "1w"
         case .month: "1M"

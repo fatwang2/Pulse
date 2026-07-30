@@ -141,11 +141,37 @@ struct TencentParserTests {
         #expect(provisional.first?.time == now)
     }
 
+    @Test("A-share hourly bars anchor to each continuous trading session")
+    func hourlyCandlesRespectLunchBreak() throws {
+        let rows = [
+            "0930 10.00 10",
+            "1029 11.00 20",
+            "1030 12.00 30",
+            "1130 13.00 40",
+            "1300 14.00 50",
+            "1359 15.00 60",
+            "1400 16.00 70",
+            "1500 17.00 80",
+        ]
+
+        let candles = TencentProvider.parseMinuteCandles(
+            date: "20260710", rows: rows, market: .sh, period: .hour1
+        )
+
+        #expect(candles.count == 4)
+        #expect(candles.map(\.open) == [10, 12, 14, 16])
+        #expect(candles.map(\.close) == [11, 13, 15, 17])
+        #expect(candles.compactMap(\.volume) == [2_000, 2_000, 2_000, 2_000])
+    }
+
     @Test("Tencent candle coverage is limited to A-share intraday periods")
     func candleCoverage() {
         let descriptor = TencentProvider().descriptor
         #expect(descriptor.supports(candles: .minute1, in: .sh))
         #expect(descriptor.supports(candles: .minute5, in: .sz))
+        #expect(descriptor.supports(candles: .minute15, in: .sh))
+        #expect(descriptor.supports(candles: .minute30, in: .sz))
+        #expect(descriptor.supports(candles: .hour1, in: .sh))
         #expect(!descriptor.supports(candles: .day, in: .sh))
         #expect(!descriptor.supports(candles: .minute1, in: .hk))
     }

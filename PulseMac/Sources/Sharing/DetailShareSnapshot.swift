@@ -20,6 +20,7 @@ struct DetailShareSnapshot {
     let previousClose: Double?
     let period: CandlePeriod
     let periodName: String
+    let includesExtendedHours: Bool
     let trendCandles: [Candle]
     let stats: [Stat]
     let dayLowText: String?
@@ -42,6 +43,7 @@ struct DetailShareSnapshot {
         candles: [Candle],
         redUp: Bool,
         updatedAtText: String,
+        includesExtendedHours: Bool = false,
         capturedAt: Date = .now
     ) {
         self.symbol = symbol
@@ -55,8 +57,13 @@ struct DetailShareSnapshot {
         previousClose = quote?.previousClose
         self.period = period
         periodName = period.displayName
-        trendCandles = period.isIntraday
-            ? IntradayTrendSnapshot(candles: candles, market: symbol.market).candles
+        self.includesExtendedHours = includesExtendedHours
+        trendCandles = period == .minute1
+            ? IntradayTrendSnapshot(
+                candles: candles,
+                market: symbol.market,
+                includesExtendedHours: includesExtendedHours
+            ).candles
             : candles.sorted { $0.time < $1.time }
         stats = [
             Stat(
@@ -103,7 +110,8 @@ struct DetailShareSnapshot {
             updatedAtText: PulseLocalization.localizedString(
                 "refresh.updatedAt",
                 Date.now.formatted(date: .omitted, time: .shortened)
-            )
+            ),
+            includesExtendedHours: appState.settings.showsUSExtendedHours
         )
     }
 
@@ -319,12 +327,13 @@ struct DetailShareContent: View {
 
     @ViewBuilder
     private var chart: some View {
-        if snapshot.period.isIntraday {
+        if snapshot.period == .minute1 {
             IntradaySparklineView(
                 candles: snapshot.trendCandles,
                 previousClose: snapshot.previousClose,
                 market: snapshot.symbol.market,
-                tint: changeColor
+                tint: changeColor,
+                includesExtendedHours: snapshot.includesExtendedHours
             )
         } else {
             SparklineView(
@@ -355,7 +364,7 @@ struct DetailShareContent: View {
         guard closes.count > 1 else { return nil }
         var lo = min(closes.min() ?? previousClose, previousClose)
         var hi = max(closes.max() ?? previousClose, previousClose)
-        let pad = snapshot.period.isIntraday
+        let pad = snapshot.period == .minute1
             ? max((hi - lo) * 0.1, hi * 0.001, 0.0001)
             : max((hi - lo) * 0.08, hi * 0.0005, 0.0001)
         lo -= pad

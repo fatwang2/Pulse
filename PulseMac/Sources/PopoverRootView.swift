@@ -125,7 +125,13 @@ struct PopoverRootView: View {
             appState.setPopoverVisible(true)
             PulseTelemetry.signal(.popoverOpened)
         }
-        .onDisappear { appState.setPopoverVisible(false) }
+        .onDisappear {
+            appState.setPopoverVisible(false)
+            // Closing the menu-bar panel ends the current search presentation.
+            // Keep the result cache warm, but reopen on the normal watchlist.
+            searchSession.text = ""
+            searchSession.isActive = false
+        }
         .onChange(of: appState.watchlist.symbols) { _, _ in
             appState.watchlistSymbolsChanged()
         }

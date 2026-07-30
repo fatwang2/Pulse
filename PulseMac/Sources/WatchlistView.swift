@@ -202,7 +202,17 @@ struct WatchlistView: View {
     private func activateSearch() {
         guard !isReordering else { return }
         searchSession.isActive = true
-        searchFieldFocused = true
+        focusSearchField()
+    }
+
+    private func focusSearchField() {
+        Task { @MainActor in
+            // The field is inserted conditionally. Let SwiftUI finish that update
+            // before asking it to become the first responder.
+            await Task.yield()
+            guard searchSession.isActive else { return }
+            searchFieldFocused = true
+        }
     }
 
     private func toggleSearch() {
@@ -405,7 +415,7 @@ struct WatchlistView: View {
                         searchSession.text = ""
                     }
                 }
-                .onAppear { searchFieldFocused = true }
+                .onAppear { focusSearchField() }
             if isSearching {
                 ProgressView().controlSize(.mini)
             } else if !searchSession.text.isEmpty {

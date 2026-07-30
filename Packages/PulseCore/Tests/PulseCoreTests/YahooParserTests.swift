@@ -75,4 +75,18 @@ struct YahooParserTests {
             chartPreviousClose: nil
         ) == 294.38)
     }
+
+    @Test("Intraday candle resolutions map to provider-native intervals")
+    func intradayChartParams() {
+        #expect(YahooProvider.chartParams(for: .minute5).interval == "5m")
+        #expect(YahooProvider.chartParams(for: .minute5).range == "5d")
+        #expect(YahooProvider.chartParams(for: .minute15).interval == "15m")
+        #expect(YahooProvider.chartParams(for: .minute30).interval == "30m")
+        #expect(YahooProvider.chartParams(for: .hour1).interval == "60m")
+
+        #expect(BinanceProvider.interval(for: .minute5) == "5m")
+        #expect(BinanceProvider.interval(for: .minute15) == "15m")
+        #expect(BinanceProvider.interval(for: .minute30) == "30m")
+        #expect(BinanceProvider.interval(for: .hour1) == "1h")
+    }
 }

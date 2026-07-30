@@ -15,7 +15,9 @@ struct DetailView: View {
     @State private var isFirstLoad = true
     @State private var shareFeedback: ShareFeedback?
 
-    private static let periods: [CandlePeriod] = [.minute1, .day, .week, .month]
+    private static let minutePeriods: [CandlePeriod] = [
+        .minute5, .minute15, .minute30, .hour1,
+    ]
 
     // Page flow: price hero → trend chart → market stats → position.
     // Source/time/delay metadata sits at the hero's top-right corner, annotating the price.
@@ -99,12 +101,40 @@ struct DetailView: View {
         quote?.currencyCode ?? symbol.currencyCode
     }
 
+    /// K-line periods load history behind the zoomable window (the chart shows the latest
+    /// ~60 bars by default). Intraday resolutions retain enough bars to pan backward while
+    /// staying inside Longbridge/Binance's 1,000-candle request ceiling.
     private func candleCount(for period: CandlePeriod) -> Int {
-        guard period.isIntraday else { return 90 }
-        if symbol.market == .crypto {
-            return period == .minute1 ? 24 * 60 : 24 * 12
+        switch period {
+        case .minute5, .minute15, .minute30, .hour1:
+            guard let minutes = period.intradayMinutes else { return 240 }
+            let sessionMinutes = switch symbol.market {
+            case .sh, .sz: 240
+            case .hk: 330
+            // Providers fetch all sessions; the presentation setting filters to
+            // regular hours or 04:00–20:00 ET without a second request.
+            case .us: 16 * 60
+            case .crypto: 24 * 60
+            }
+            let historyDays = symbol.market == .crypto ? 1 : 5
+            return min(max(sessionMinutes / minutes * historyDays, 240), 1_000)
+        case .day: return 250
+        case .week: return 260
+        case .month: return 240
+        case .minute1:
+            return IntradayTrendSnapshot.recommendedCandleCount(for: symbol.market)
         }
-        return 400
+    }
+
+    /// Minute K data is fetched with all US sessions so the setting can switch instantly.
+    /// This also removes overnight bars: Pulse's setting promises pre/post, not 24-hour US trading.
+    private var chartCandles: [Candle] {
+        guard period.isMinuteK else { return candles }
+        return IntradayTradingSession.filterCandles(
+            candles,
+            market: symbol.market,
+            includesExtendedHours: appState.settings.showsUSExtendedHours
+        )
     }
 
     // MARK: - Chrome
@@ -135,8 +165,8 @@ struct DetailView: View {
             ) {
                 copyShareSnapshot()
             }
-            .disabled(quote == nil || candles.isEmpty)
-            .opacity(quote == nil || candles.isEmpty ? 0.45 : 1)
+            .disabled(quote == nil || chartCandles.isEmpty)
+            .opacity(quote == nil || chartCandles.isEmpty ? 0.45 : 1)
             if item == nil {
                 // Opened from search without being watched: offer the add here so
                 // a lookup can graduate into the list without going back.
@@ -190,7 +220,7 @@ struct DetailView: View {
                 appState: appState,
                 symbol: symbol,
                 period: period,
-                candles: candles
+                candles: chartCandles
             )
             let palette = ChangePalette(redUp: snapshot.redUp)
             let card = PulseShareCard(
@@ -357,21 +387,127 @@ struct DetailView: View {
     }
 
     private var picker: some View {
-        Picker(PulseLocalization.localizedString("detail.period"), selection: $period) {
-            ForEach(Self.periods, id: \.self) { p in
-                Text(p.displayName).tag(p)
-            }
+        HStack(spacing: 4) {
+            periodButton(.minute1)
+            minutePeriodMenu
+            periodButton(.day)
+            periodButton(.week)
+            periodButton(.month)
         }
-        .pickerStyle(.segmented)
-        .controlSize(.small)
-        .labelsHidden()
+        .padding(2)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.primary.opacity(colorScheme == .dark ? 0.09 : 0.055))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(.separator.opacity(0.5), lineWidth: 0.5)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(PulseLocalization.localizedString("detail.period"))
+    }
+
+    private func periodButton(_ value: CandlePeriod) -> some View {
+        Button {
+            period = value
+        } label: {
+            periodControlLabel(value.displayName, isSelected: period == value)
+        }
+        .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
+        .help(value.displayName)
+        .accessibilityAddTraits(period == value ? .isSelected : [])
+    }
+
+    private var minutePeriodMenu: some View {
+        let selected = appState.settings.minuteCandlePeriod.isMinuteK
+            ? appState.settings.minuteCandlePeriod
+            : CandlePeriod.minute5
+        return HStack(spacing: 0) {
+            // Main segment action: return to the last chosen minute resolution.
+            Button {
+                period = selected
+            } label: {
+                Text(selected.displayName)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity)
+            .help(selected.displayName)
+            .accessibilityAddTraits(period.isMinuteK ? .isSelected : [])
+
+            // Secondary action: only the small trailing chevron opens the resolution menu.
+            Menu {
+                ForEach(Self.minutePeriods, id: \.self) { value in
+                    Button {
+                        appState.settings.minuteCandlePeriod = value
+                        period = value
+                    } label: {
+                        if value == selected {
+                            Label(value.displayName, systemImage: "checkmark")
+                        } else {
+                            Text(value.displayName)
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 5.5, weight: .semibold))
+                    .frame(width: 18, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .help(selected.displayName)
+        }
+        .font(.system(size: 9, weight: period.isMinuteK ? .semibold : .medium))
+        .foregroundStyle(period.isMinuteK ? .primary : .secondary)
+        .frame(maxWidth: .infinity)
+        .background {
+            periodSelectionBackground(isSelected: period.isMinuteK)
+        }
+    }
+
+    private func periodControlLabel(
+        _ title: String,
+        isSelected: Bool
+    ) -> some View {
+        Text(title)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .fixedSize(horizontal: true, vertical: false)
+            .font(.system(size: 9, weight: isSelected ? .semibold : .medium))
+            .foregroundStyle(isSelected ? .primary : .secondary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 20)
+            .contentShape(Rectangle())
+            .background {
+                periodSelectionBackground(isSelected: isSelected)
+            }
+    }
+
+    @ViewBuilder
+    private func periodSelectionBackground(isSelected: Bool) -> some View {
+        if isSelected {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.primary.opacity(colorScheme == .dark ? 0.16 : 0.10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(.separator.opacity(0.6), lineWidth: 0.5)
+                )
+        }
     }
 
     @ViewBuilder
     private var chart: some View {
         ZStack {
-            if candles.isEmpty {
+            if chartCandles.isEmpty {
                 if isLoading {
                     ProgressView().controlSize(.small)
                         .transition(.opacity)
@@ -383,16 +519,25 @@ struct DetailView: View {
                     }
                     .transition(.opacity)
                 }
-            } else if period.isIntraday {
+            } else if period == .minute1 {
                 IntradayChartView(
                     candles: candles,
                     previousClose: quote?.previousClose ?? candles.first?.open ?? 0,
                     market: symbol.market,
-                    palette: appState.palette
+                    palette: appState.palette,
+                    showsExtendedHours: appState.settings.showsUSExtendedHours
                 )
                 .transition(.opacity)
             } else {
-                CandlestickChartView(candles: candles, palette: appState.palette, period: period)
+                CandlestickChartView(
+                    candles: chartCandles,
+                    palette: appState.palette,
+                    period: period,
+                    market: symbol.market,
+                    highlightsExtendedHours: symbol.market == .us
+                        && period.isMinuteK
+                        && appState.settings.showsUSExtendedHours
+                )
                     .transition(.opacity)
             }
         }

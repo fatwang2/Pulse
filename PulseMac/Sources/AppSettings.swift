@@ -90,6 +90,10 @@ final class AppSettings {
     var watchRowMetricMode: WatchRowMetricMode = .totalPnL { didSet { save() } }
     /// Red-up/green-down (A-share convention); false means green-up/red-down
     var redUp: Bool = true { didSet { save() } }
+    /// Show US pre/post-market sessions on every intraday chart (on by default).
+    var showsUSExtendedHours: Bool = true { didSet { save() } }
+    /// Last resolution chosen from the intraday candlestick menu.
+    var minuteCandlePeriod: CandlePeriod = .minute5 { didSet { save() } }
     var languagePreference: PulseLanguagePreference = .system {
         didSet {
             UserDefaults.standard.set(languagePreference.rawValue, forKey: PulseLocalization.languagePreferenceKey)
@@ -179,6 +183,10 @@ final class AppSettings {
                 .totalPnL
             }
             redUp = snapshot.redUp
+            showsUSExtendedHours = snapshot.showsUSExtendedHours ?? true
+            if let restoredPeriod = snapshot.minuteCandlePeriod, restoredPeriod.isMinuteK {
+                minuteCandlePeriod = restoredPeriod
+            }
             disabledProviderIDs = snapshot.disabledProviderIDs ?? []
             recentSearchQueries = snapshot.recentSearchQueries ?? []
             showPriceInMenuBar = snapshot.showPriceInMenuBar ?? false
@@ -203,6 +211,8 @@ final class AppSettings {
         var rotateGroupID: UUID?
         var watchRowMetricMode: WatchRowMetricMode?
         var redUp: Bool
+        var showsUSExtendedHours: Bool?
+        var minuteCandlePeriod: CandlePeriod?
         var disabledProviderIDs: Set<String>?
         var recentSearchQueries: [String]?
         var showPriceInMenuBar: Bool?
@@ -217,6 +227,8 @@ final class AppSettings {
                                 rotateInterval: rotateInterval,
                                 rotateGroupID: rotateGroupID,
                                 watchRowMetricMode: watchRowMetricMode, redUp: redUp,
+                                showsUSExtendedHours: showsUSExtendedHours,
+                                minuteCandlePeriod: minuteCandlePeriod,
                                 disabledProviderIDs: disabledProviderIDs,
                                 recentSearchQueries: recentSearchQueries,
                                 showPriceInMenuBar: showPriceInMenuBar,

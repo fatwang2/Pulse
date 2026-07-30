@@ -87,7 +87,10 @@
 "number.compact.tenThousand" = "%@万";
 
 "period.day" = "日K";
+"period.hour1" = "1小时";
 "period.minute1" = "分时";
+"period.minute15" = "15分";
+"period.minute30" = "30分";
 "period.minute5" = "5分";
 "period.month" = "月K";
 "period.week" = "周K";
@@ -182,7 +185,7 @@
 "search.viewDetail" = "查看 %@ 行情";
 "search.recent.title" = "最近搜索";
 "search.recent.clear" = "清除";
-"search.placeholder" = "代码 / 名称 / 拼音，如 AAPL、腾讯、600519";
+"search.placeholder" = "搜索代码或公司";
 
 "share.watchlist.title" = "我的自选";
 "share.copyFailed" = "无法复制分享图";
@@ -197,6 +200,7 @@
 "settings.market.colorRule" = "涨跌颜色";
 "settings.market.greenUp" = "绿涨红跌";
 "settings.market.redUp" = "红涨绿跌";
+"settings.market.usExtendedHours" = "美股盘中图表显示盘前盘后";
 "settings.menuBar.displayMode" = "显示模式";
 "settings.menuBar.firstWatchlistItem" = "自选第一个";
 "settings.menuBar.fixedSymbol" = "固定标的";

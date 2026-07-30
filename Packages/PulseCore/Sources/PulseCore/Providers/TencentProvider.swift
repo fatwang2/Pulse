@@ -17,7 +17,7 @@ public struct TencentProvider: QuoteProvider {
             markets: [.us, .hk, .sh, .sz],
             capabilities: [.quotes, .search, .candles],
             candleMarkets: [.sh, .sz],
-            candlePeriods: [.minute1, .minute5],
+            candlePeriods: [.minute1, .minute5, .minute15, .minute30, .hour1],
             delay: [.us: 0, .hk: 900, .sh: 0, .sz: 0],
             rateLimit: RateLimitPolicy(minInterval: 2, batchSize: 60),
             suggestedPollInterval: 15
@@ -279,13 +279,28 @@ public struct TencentProvider: QuoteProvider {
             ))
         }
 
-        guard period == .minute5 else { return minutes }
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = market.timeZone
+        guard let span = period.intradayMinutes, span > 1 else { return minutes }
         let grouped = Dictionary(grouping: minutes) { candle in
-            let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: candle.time)
-            let minute = (components.minute ?? 0) / 5 * 5
-            return "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)-\(components.hour ?? 0)-\(minute)"
+            // Anchor buckets to each continuous exchange session. This makes an
+            // A-share 60-minute bar start at 09:30/13:00 rather than the wall-clock
+            // hour, and prevents a bucket from crossing the lunch break.
+            let session = IntradayTradingSession(market: market, referenceDate: candle.time)
+            let segments = [
+                (session.open, session.morningEnd ?? session.close),
+                session.afternoonStart.map { ($0, session.close) },
+            ].compactMap { $0 }
+            let segmentIndex = segments.firstIndex { segment in
+                candle.time >= segment.0.addingTimeInterval(-60)
+                    && candle.time <= segment.1.addingTimeInterval(60)
+            } ?? 0
+            let segment = segments[segmentIndex]
+            let segmentMinutes = max(Int(segment.1.timeIntervalSince(segment.0) / 60), 1)
+            let elapsed = max(Int(candle.time.timeIntervalSince(segment.0) / 60), 0)
+            // A provider may stamp the closing sample exactly at 11:30/15:00.
+            // Keep that sample in the final bucket instead of creating a one-point bar.
+            let clampedElapsed = min(elapsed, segmentMinutes - 1)
+            let bucket = clampedElapsed / span
+            return "\(segment.0.timeIntervalSince1970)-\(segmentIndex)-\(bucket)"
         }
         return grouped.values.compactMap { group -> Candle? in
             let sorted = group.sorted { $0.time < $1.time }

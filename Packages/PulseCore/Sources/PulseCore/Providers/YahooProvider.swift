@@ -216,8 +216,14 @@ public struct YahooProvider: QuoteProvider {
 
     public func candles(for symbol: SymbolID, period: CandlePeriod, count: Int) async throws -> [Candle] {
         guard symbol.market != .crypto else { throw ProviderError.unsupported(.candles) }
-        let (interval, range) = Self.chartParams(for: period)
-        let result = try await chart(for: symbol, interval: interval, range: range)
+        var (interval, range) = Self.chartParams(for: period)
+        // Fetch the complete US pre/regular/post series for every intraday resolution.
+        // Presentation applies the user's session preference without another network load.
+        // The trend asks for a second day so a pre-market-only morning can still anchor
+        // its regular-session sparkline on the prior trading day.
+        let includePrePost = symbol.market == .us && period.isIntraday
+        if period == .minute1, includePrePost { range = "2d" }
+        let result = try await chart(for: symbol, interval: interval, range: range, includePrePost: includePrePost)
         guard let timestamps = result.timestamp, let ohlc = result.indicators.quote?.first else {
             return []
         }
@@ -238,7 +244,10 @@ public struct YahooProvider: QuoteProvider {
     static func chartParams(for period: CandlePeriod) -> (interval: String, range: String) {
         switch period {
         case .minute1: ("1m", "1d")
-        case .minute5: ("5m", "1d")
+        case .minute5: ("5m", "5d")
+        case .minute15: ("15m", "1mo")
+        case .minute30: ("30m", "1mo")
+        case .hour1: ("60m", "1mo")
         case .day: ("1d", "1y")
         case .week: ("1wk", "5y")
         case .month: ("1mo", "max")

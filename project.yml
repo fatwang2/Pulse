@@ -90,6 +90,11 @@ targets:
           PRODUCT_BUNDLE_IDENTIFIER: app.pulse.mac.dev
           ENABLE_HARDENED_RUNTIME: false
           ENABLE_USER_SCRIPT_SANDBOXING: false
+          # Ad-hoc signatures change on every build, which makes the Keychain treat each
+          # rebuild as a new app and re-prompt for the Longbridge credentials. A real
+          # development certificate keeps the designated requirement stable across builds.
+          CODE_SIGN_IDENTITY: "Apple Development"
+          DEVELOPMENT_TEAM: N99T75CSKK
         Release:
           PRODUCT_NAME: Pulse
           BUNDLE_DISPLAY_NAME: Pulse

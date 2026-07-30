@@ -87,7 +87,10 @@
 "number.compact.tenThousand" = "%@K";
 
 "period.day" = "Daily";
+"period.hour1" = "1 Hour";
 "period.minute1" = "Intraday";
+"period.minute15" = "15 Min";
+"period.minute30" = "30 Min";
 "period.minute5" = "5 Min";
 "period.month" = "Monthly";
 "period.week" = "Weekly";
@@ -197,6 +200,7 @@
 "settings.market.colorRule" = "Gain Color";
 "settings.market.greenUp" = "Green for Gains";
 "settings.market.redUp" = "Red for Gains";
+"settings.market.usExtendedHours" = "US Pre/Post-Market on Intraday Charts";
 "settings.menuBar.displayMode" = "Display Mode";
 "settings.menuBar.firstWatchlistItem" = "First in Watchlist";
 "settings.menuBar.fixedSymbol" = "Symbol";

@@ -105,19 +105,27 @@ enum LongbridgeSDKErrorClassifier {
                 detail: "Longbridge SDK \(code): \(message)"
             )
         }
-        if lowercased.contains("token")
-            || lowercased.contains("auth")
-            || lowercased.contains("permission")
-            || code == 401
-            || code == 403 {
-            return .clientError(status: Int(code == 0 ? 401 : code), detail: message)
+        // Explicit gateway auth codes (401/403 plus Longbridge's 401xxx/403xxx family)
+        // are authentication regardless of wording.
+        if code == 401 || code == 403
+            || (401_000...401_999).contains(code)
+            || (403_000...403_999).contains(code) {
+            return .clientError(status: Int(code), detail: message)
         }
+        // Transport failures win over auth-sounding wording: a timeout during the auth
+        // handshake is a network problem, and labeling it authentication once sent a
+        // user off to destroy a perfectly valid authorization.
         if lowercased.contains("network")
             || lowercased.contains("connect")
             || lowercased.contains("socket")
             || lowercased.contains("timeout")
             || lowercased.contains("timed out") {
             return .network(underlying: message)
+        }
+        if lowercased.contains("token")
+            || lowercased.contains("auth")
+            || lowercased.contains("permission") {
+            return .clientError(status: Int(code == 0 ? 401 : code), detail: message)
         }
         return .badResponse("Longbridge SDK \(code): \(message)")
     }
@@ -737,7 +745,7 @@ actor LongbridgeSDKBridge {
                     // Backfill is an enhancement: the latest page is still complete
                     // enough to render and must not mark quotes unhealthy.
                     longbridgeLogger.warning(
-                        "Minute candle backfill failed; using latest page issue=\(Self.issueLabel(for: error), privacy: .public)"
+                        "Minute candle backfill failed; using latest page issue=\(Self.issueLabel(for: error), privacy: .public) detail=\(Self.failureDetail(for: error), privacy: .public)"
                     )
                 }
             }
@@ -1052,7 +1060,7 @@ actor LongbridgeSDKBridge {
         } catch {
             negotiatedQuotePackages = []
             longbridgeLogger.error(
-                "Quote package inspection failed issue=\(Self.issueLabel(for: error), privacy: .public)"
+                "Quote package inspection failed issue=\(Self.issueLabel(for: error), privacy: .public) detail=\(Self.failureDetail(for: error), privacy: .public)"
             )
         }
         return context
@@ -1120,10 +1128,11 @@ actor LongbridgeSDKBridge {
             if context != nil { setStatus(.connected) }
             return
         }
+        let detail = Self.failureDetail(for: error)
         longbridgeLogger.error(
-            "Longbridge operation failed issue=\(Self.issueLabel(for: error), privacy: .public)"
+            "Longbridge operation failed issue=\(Self.issueLabel(for: error), privacy: .public) detail=\(detail, privacy: .public)"
         )
-        setStatus(.failed(Self.connectionIssue(for: error)))
+        setStatus(.failed(Self.connectionIssue(for: error), detail: detail))
     }
 
     private func requestQuotePackages(
@@ -1362,8 +1371,11 @@ actor LongbridgeSDKBridge {
         }
         let detail = String(describing: error).lowercased()
         if detail.contains("limit") { return .connectionLimit }
+        // Same precedence as the classifier: transport wording beats auth wording, so a
+        // timeout inside the auth handshake is reported as a network problem.
+        if detail.contains("network") || detail.contains("socket") || detail.contains("timeout")
+            || detail.contains("timed out") || detail.contains("connect") { return .network }
         if detail.contains("auth") || detail.contains("token") { return .authentication }
-        if detail.contains("network") || detail.contains("socket") { return .network }
         return .server
     }
 
@@ -1377,6 +1389,22 @@ actor LongbridgeSDKBridge {
         }
     }
 
+    /// The raw error for logs and the settings UI — classification must never be the
+    /// only surviving record of what the server actually said.
+    private static func failureDetail(for error: any Error) -> String {
+        if let providerError = error as? ProviderError {
+            switch providerError {
+            case .clientError(let status, let detail): return "\(status): \(detail)"
+            case .network(let underlying): return underlying
+            case .badResponse(let detail): return detail
+            case .rateLimited: return "rate limited"
+            case .unsupported(let capability): return "unsupported: \(capability)"
+            case .symbolNotFound(let symbol): return "symbol not found: \(symbol)"
+            }
+        }
+        return String(describing: error)
+    }
+
     private static func fingerprint(_ value: String) -> String {
         let digest = SHA256.hash(data: Data(value.utf8))
         return digest.prefix(6).map { String(format: "%02x", $0) }.joined()
@@ -1388,7 +1416,7 @@ actor LongbridgeSDKBridge {
         case .connecting: "connecting"
         case .reconnecting: "reconnecting"
         case .connected: "connected"
-        case .failed(let issue):
+        case .failed(let issue, _):
             switch issue {
             case .connectionLimit: "failed.connection-limit"
             case .authentication: "failed.authentication"

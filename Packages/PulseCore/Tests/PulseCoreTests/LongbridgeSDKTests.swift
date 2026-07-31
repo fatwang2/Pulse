@@ -26,6 +26,32 @@ struct LongbridgeSDKTests {
             for: SymbolID(cryptoBase: "BTC", quote: "USDT")) == nil)
     }
 
+    @Test("Auth-sounding transport failures classify as network, not authentication")
+    func transportWordingBeatsAuthWording() {
+        let error = LongbridgeSDKErrorClassifier.providerError(
+            code: 0,
+            message: "authentication handshake timed out: connect to openapi-quote failed"
+        )
+        guard case .network = error else {
+            Issue.record("Expected a network error, got \(error)")
+            return
+        }
+    }
+
+    @Test("Longbridge 401xxx gateway codes classify as authentication")
+    func gatewayAuthCodesAreAuthentication() {
+        let error = LongbridgeSDKErrorClassifier.providerError(
+            code: 401_102,
+            message: "the access token has been revoked"
+        )
+        guard case .clientError(let status, let detail) = error else {
+            Issue.record("Expected an authentication client error, got \(error)")
+            return
+        }
+        #expect(status == 401_102)
+        #expect(detail == "the access token has been revoked")
+    }
+
     @Test func invalidSymbolIsARequestError() {
         let error = LongbridgeSDKErrorClassifier.providerError(
             code: 301_600,

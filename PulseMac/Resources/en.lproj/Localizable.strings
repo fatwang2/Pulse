@@ -135,6 +135,8 @@
 "longbridge.oauth.refresh" = "Refresh Longbridge Authorization";
 "longbridge.oauth.waiting" = "Waiting for authorization…";
 "longbridge.oauth.error" = "Authorization failed or timed out — try again";
+"longbridge.oauth.reauthorize" = "Re-authorize Longbridge";
+"longbridge.client.label" = "Authorized client ID";
 "longbridge.access.delayed" = "Longbridge returned delayed access for this session. Your account entitlement may still be active; refresh authorization to renegotiate this app's quote packages.";
 "longbridge.access.downgraded" = "Longbridge returned lower access than the real-time package this app previously negotiated. Refresh authorization; Pulse will never sign you out automatically.";
 "longbridge.account" = "Account";
@@ -150,7 +152,7 @@
 "longbridge.connection.retry" = "Reconnect Market Data";
 "longbridge.connection.fallback.help" = "Longbridge is unavailable. Pulse is temporarily using a fallback market-data source.";
 "longbridge.connection.error.limit" = "Longbridge rejected the connection because the account's live-connection limit is full. Close other OpenAPI sessions, then reconnect.";
-"longbridge.connection.error.authentication" = "Longbridge rejected the market-data session. Reconnect first; reauthorize only if it continues to fail.";
+"longbridge.connection.error.authentication" = "Longbridge rejected the market-data session — the authorization may have expired or been revoked. Re-authorize below; Pulse never signs you out automatically.";
 "longbridge.connection.error.rateLimit" = "Longbridge is rate-limiting connection attempts. Wait briefly, then reconnect.";
 "longbridge.connection.error.network" = "The Longbridge market-data connection was interrupted. Pulse is temporarily using a fallback source.";
 "longbridge.connection.error.server" = "Longbridge returned a server error. Pulse is temporarily using a fallback source.";

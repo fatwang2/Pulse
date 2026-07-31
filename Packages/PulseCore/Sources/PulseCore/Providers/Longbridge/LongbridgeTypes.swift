@@ -44,5 +44,12 @@ public enum LongbridgeConnectionStatus: Sendable, Equatable {
     case connecting
     case reconnecting
     case connected
-    case failed(LongbridgeConnectionIssue)
+    /// `detail` carries the raw SDK/server error (e.g. "401102: the access token has
+    /// been revoked") so diagnostics never depend on the issue classification alone.
+    case failed(LongbridgeConnectionIssue, detail: String?)
+
+    public var failureDetail: String? {
+        if case .failed(_, let detail) = self { return detail }
+        return nil
+    }
 }

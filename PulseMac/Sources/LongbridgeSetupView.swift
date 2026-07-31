@@ -102,7 +102,24 @@ struct LongbridgeSetupView: View {
                 if configured {
                     connectionStatusRow
 
-                    if case .failed = appState.longbridgeConnectionStatus {
+                    // Longbridge's authorization-management list identifies grants by
+                    // client id; surfacing ours lets the user tell this install apart
+                    // from a dev build before revoking anything over there.
+                    if let clientID = appState.longbridgeOAuthClientID {
+                        HStack(spacing: 6) {
+                            Text(PulseLocalization.localizedString("longbridge.client.label"))
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            Spacer()
+                            Text(String(clientID.prefix(8)))
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.tertiary)
+                                .textSelection(.enabled)
+                                .help(clientID)
+                        }
+                    }
+
+                    if case .failed(let issue, let failureDetail) = appState.longbridgeConnectionStatus {
                         Text(PulseLocalization.localizedString(connectionIssueKey))
                             .font(.caption2)
                             .foregroundStyle(.orange)
@@ -110,9 +127,38 @@ struct LongbridgeSetupView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .fixedSize(horizontal: false, vertical: true)
 
+                        // The server's own words (e.g. "401102: the access token has been
+                        // revoked") — the classification above is a summary, not the record.
+                        if let failureDetail, !failureDetail.isEmpty {
+                            Text(failureDetail)
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.tertiary)
+                                .textSelection(.enabled)
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        // A rejected session needs a fresh grant, not another transport
+                        // retry — offer re-authorization in place. The old credentials
+                        // stay untouched unless the new grant validates.
+                        if issue == .authentication, appState.longbridgeAuthState == .oauth {
+                            actionButton(
+                                titleKey: isConnecting
+                                    ? "longbridge.oauth.waiting"
+                                    : "longbridge.oauth.reauthorize",
+                                tint: .accentColor,
+                                showsSpinner: isConnecting
+                            ) {
+                                connectOAuth()
+                            }
+                            .disabled(isConnecting)
+                        }
+
                         actionButton(titleKey: "longbridge.connection.retry", tint: .accentColor) {
                             appState.retryLongbridgeConnection()
                         }
+                        .disabled(isConnecting)
                     }
 
                     if appState.longbridgeHasDelayedQuoteAccess {
@@ -244,7 +290,7 @@ struct LongbridgeSetupView: View {
     }
 
     private var connectionIssueKey: String {
-        guard case .failed(let issue) = appState.longbridgeConnectionStatus else {
+        guard case .failed(let issue, _) = appState.longbridgeConnectionStatus else {
             return "longbridge.connection.fallback.help"
         }
         return switch issue {

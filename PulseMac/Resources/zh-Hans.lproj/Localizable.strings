@@ -135,6 +135,8 @@
 "longbridge.oauth.refresh" = "刷新 Longbridge 授权";
 "longbridge.oauth.waiting" = "等待浏览器授权…";
 "longbridge.oauth.error" = "授权失败或已超时,请重试";
+"longbridge.oauth.reauthorize" = "重新授权 Longbridge";
+"longbridge.client.label" = "授权客户端 ID";
 "longbridge.access.delayed" = "Longbridge 为当前会话返回了延迟行情权限。账户后台权限可能正常，刷新授权可重新协商本应用的行情包。";
 "longbridge.access.downgraded" = "Longbridge 当前返回的行情权限低于本应用此前成功协商的实时权限。请刷新授权；Pulse 不会自动退出登录。";
 "longbridge.account" = "账户";
@@ -150,7 +152,7 @@
 "longbridge.connection.retry" = "重新连接行情";
 "longbridge.connection.fallback.help" = "Longbridge 暂时不可用，Pulse 正在使用备用行情源。";
 "longbridge.connection.error.limit" = "Longbridge 账户的实时连接额度已满。请关闭其他 OpenAPI 会话后重新连接。";
-"longbridge.connection.error.authentication" = "Longbridge 拒绝了行情会话。请先重新连接；持续失败时再重新授权。";
+"longbridge.connection.error.authentication" = "Longbridge 拒绝了行情会话，授权可能已失效或被撤销。请重新授权；Pulse 不会自动退出登录。";
 "longbridge.connection.error.rateLimit" = "Longbridge 暂时限制了连接频率，请稍后重新连接。";
 "longbridge.connection.error.network" = "Longbridge 行情连接已中断，Pulse 正在临时使用备用行情源。";
 "longbridge.connection.error.server" = "Longbridge 服务暂时异常，Pulse 正在临时使用备用行情源。";

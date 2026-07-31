@@ -37,6 +37,10 @@ final class AppState {
     private(set) var longbridgeQuoteAccess: [Market: LongbridgeQuoteAccess] = [:]
     private(set) var longbridgeDelayedMarkets: Set<Market> = []
     private(set) var longbridgeDowngradedMarkets: Set<Market> = []
+    /// OAuth client id of the stored authorization, shown in settings so the user can
+    /// match this install against Longbridge's authorization-management list before
+    /// revoking anything there.
+    private(set) var longbridgeOAuthClientID: String?
     var longbridgeHasDelayedQuoteAccess: Bool { !longbridgeDelayedMarkets.isEmpty }
     var longbridgeNeedsAuthorizationRefresh: Bool {
         longbridgeAuthState == .oauth && longbridgeHasDelayedQuoteAccess
@@ -71,9 +75,16 @@ final class AppState {
         self.binance = binance
         self.longbridge = longbridge
         self.longbridgeAuthState = authState
+        self.longbridgeOAuthClientID = authState == .oauth
+            ? LongbridgeCredentialStore.loadOAuthTokens()?.clientID
+            : nil
+        // Distinct registration names keep the two clients tellable-apart in
+        // Longbridge's authorization-management list; a user once revoked the active
+        // production grant because both entries were just called "Pulse". Existing
+        // registrations keep their original name until they re-register.
         self.longbridgeOAuth = LongbridgeOAuthAuthenticator(
             redirectScheme: Bundle.main.bundleIdentifier ?? "app.pulse.mac",
-            clientName: "Pulse"
+            clientName: Bundle.main.bundleIdentifier == "app.pulse.mac.dev" ? "Pulse Dev" : "Pulse"
         )
         self.engine = RefreshEngine(provider: provider, store: market, watchlist: watchlist,
                                     pollOverrides: settings.providerPollIntervals)
@@ -173,6 +184,7 @@ final class AppState {
         try LongbridgeCredentialStore.saveOAuthTokens(tokens)
         LongbridgeCredentialStore.clear() // OAuth replaces any pasted API-key credentials
         longbridgeAuthState = .oauth
+        longbridgeOAuthClientID = tokens.clientID
         // Connecting is the strongest possible "turn this on" signal — flip the
         // switch that was locked off while unconfigured.
         setProvider(LongbridgeProvider.providerID, enabled: true)
@@ -193,6 +205,7 @@ final class AppState {
         try LongbridgeCredentialStore.save(credentials)
         LongbridgeCredentialStore.clearOAuthTokens() // manual credentials replace OAuth
         longbridgeAuthState = .apiKey
+        longbridgeOAuthClientID = nil
         setProvider(LongbridgeProvider.providerID, enabled: true)
         await refreshLongbridgeQuoteAccess()
     }
@@ -214,6 +227,7 @@ final class AppState {
         longbridgeQuoteAccess = [:]
         longbridgeDelayedMarkets = []
         longbridgeDowngradedMarkets = []
+        longbridgeOAuthClientID = nil
         Task {
             await longbridge.updateAuth(nil)
         }

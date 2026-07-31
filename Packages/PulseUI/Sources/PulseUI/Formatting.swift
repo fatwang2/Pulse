@@ -28,7 +28,10 @@ public enum PriceFormatter {
     }
 
     public static func money(_ value: Double, currencyCode: String?) -> String {
-        currencySymbol(currencyCode) + value.formatted(.number.precision(.fractionLength(2)))
+        // Sign before the symbol ("-$120.00", not "$-120.00") — negative
+        // money shows up once short positions carry negative market value.
+        (value < 0 ? "-" : "") + currencySymbol(currencyCode)
+            + abs(value).formatted(.number.precision(.fractionLength(2)))
     }
 
     public static func signedMoney(_ value: Double, currencyCode: String?) -> String {

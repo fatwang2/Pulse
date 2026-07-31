@@ -8,8 +8,9 @@ public struct PositionTransaction: Codable, Sendable, Hashable, Identifiable {
         case buy
         case sell
         /// Overwrites the position with a target quantity and average cost
-        /// ("I don't want to itemize — here is the result"). Produces no
-        /// realized P&L. Quick-set edits and legacy cost lots land here.
+        /// ("I don't want to itemize — here is the result"). A negative
+        /// target quantity calibrates a short. Produces no realized P&L.
+        /// Quick-set edits and legacy cost lots land here.
         case adjustment
     }
 
@@ -49,14 +50,19 @@ public struct PositionTransaction: Codable, Sendable, Hashable, Identifiable {
 }
 
 /// Replays a transaction list into the current position using the
-/// moving-weighted-average cost method: buys blend into the average cost,
-/// sells realize (price − average cost) × quantity and leave the remaining
-/// units' average cost unchanged.
+/// moving-weighted-average cost method. Quantity is signed: positive is a
+/// long, negative a short (opened by selling first). On the long side buys
+/// blend into the average cost and sells realize (price − average cost) ×
+/// quantity; on the short side the roles mirror — sells blend into the
+/// average short price and buys cover, realizing (average cost − price) ×
+/// quantity. A trade crossing zero closes the open side first, then opens
+/// the opposite side at the trade price with the remainder.
 public struct PositionLedger: Sendable, Hashable {
     /// A transaction annotated with its replay outcome, in replay order.
     public struct Entry: Sendable, Hashable, Identifiable {
         public var transaction: PositionTransaction
-        /// P&L realized by this entry (sells only).
+        /// P&L realized by this entry (sells closing a long, buys covering
+        /// a short).
         public var realizedPnL: Double?
         public var resultingQuantity: Double
         public var resultingAverageCost: Double
@@ -65,10 +71,13 @@ public struct PositionLedger: Sendable, Hashable {
     }
 
     public var entries: [Entry]
+    /// Signed: positive units held long, negative units sold short.
     public var quantity: Double
-    /// Moving-weighted-average cost of the currently held units.
+    /// Moving-weighted-average entry price of the open side (long cost or
+    /// short sale price); always non-negative.
     public var averageCost: Double
-    /// Cost basis of the currently held units (quantity × average cost).
+    /// Cost basis of the open position (quantity × average cost); negative
+    /// for a short, where it represents the short-sale proceeds.
     public var costBasis: Double
     /// Cumulative realized P&L across all sells, surviving a flat position.
     public var realizedPnL: Double
@@ -84,26 +93,55 @@ public struct PositionLedger: Sendable, Hashable {
             switch transaction.kind {
             case .buy:
                 let bought = max(transaction.quantity, 0)
-                let newQuantity = quantity + bought
-                if newQuantity > 0 {
-                    averageCost = (averageCost * quantity + transaction.price * bought) / newQuantity
+                if quantity >= 0 {
+                    let newQuantity = quantity + bought
+                    if newQuantity > 0 {
+                        averageCost = (averageCost * quantity + transaction.price * bought) / newQuantity
+                    }
+                    quantity = newQuantity
+                } else {
+                    // Buying against a short covers first, realizing
+                    // (average short price − buy price) × covered; anything
+                    // past flat flips into a long opened at the trade price.
+                    let covered = min(bought, -quantity)
+                    let realized = (averageCost - transaction.price) * covered
+                    realizedPnL += realized
+                    entryRealized = realized
+                    quantity += bought
+                    if quantity > 0 {
+                        averageCost = transaction.price
+                    } else if quantity == 0 {
+                        averageCost = 0
+                    }
                 }
-                quantity = newQuantity
             case .sell:
-                // A backdated entry can momentarily exceed what was held at
-                // that point in the replay; sell what exists and never go short.
-                let sold = min(max(transaction.quantity, 0), quantity)
-                let realized = (transaction.price - averageCost) * sold
-                realizedPnL += realized
-                entryRealized = realized
-                quantity -= sold
-                if quantity <= 0 {
-                    quantity = 0
-                    averageCost = 0
+                let sold = max(transaction.quantity, 0)
+                if quantity > 0 {
+                    // Selling closes the long first, realizing (price −
+                    // average cost) × closed; anything past flat flips into
+                    // a short opened at the trade price.
+                    let closed = min(sold, quantity)
+                    let realized = (transaction.price - averageCost) * closed
+                    realizedPnL += realized
+                    entryRealized = realized
+                    quantity -= sold
+                    if quantity < 0 {
+                        averageCost = transaction.price
+                    } else if quantity == 0 {
+                        averageCost = 0
+                    }
+                } else {
+                    // Selling while flat or short opens/extends the short;
+                    // the average blends the short entry prices.
+                    let short = -quantity + sold
+                    if short > 0 {
+                        averageCost = (averageCost * -quantity + transaction.price * sold) / short
+                    }
+                    quantity = -short
                 }
             case .adjustment:
-                quantity = max(transaction.quantity, 0)
-                averageCost = quantity > 0 ? max(transaction.price, 0) : 0
+                quantity = transaction.quantity
+                averageCost = quantity != 0 ? max(transaction.price, 0) : 0
             }
             entries.append(Entry(
                 transaction: transaction,
@@ -120,7 +158,7 @@ public struct PositionLedger: Sendable, Hashable {
         self.realizedPnL = realizedPnL
     }
 
-    public var hasOpenPosition: Bool { quantity > 0 }
+    public var hasOpenPosition: Bool { quantity != 0 }
 
     /// Chronological replay order: trade date first, insertion order breaking
     /// same-day ties so re-sorting never shuffles what the user entered.

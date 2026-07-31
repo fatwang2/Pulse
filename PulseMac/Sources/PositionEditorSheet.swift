@@ -108,8 +108,10 @@ struct PositionEditorView: View {
         quote?.currencyCode ?? item.symbol.currencyCode
     }
 
+    /// Negative quantity calibrates a short position; zero goes through the
+    /// explicit "clear position" action instead.
     private var parsedQuantity: Double? {
-        parseDecimal(quantityText).flatMap { $0 > 0 ? $0 : nil }
+        parseDecimal(quantityText).flatMap { $0 != 0 && $0.isFinite ? $0 : nil }
     }
 
     private var parsedCost: Double? {
@@ -118,13 +120,15 @@ struct PositionEditorView: View {
 
     private var metrics: PositionMetrics? {
         guard let quote, let quantity = parsedQuantity, let cost = parsedCost else { return nil }
+        // Draft through the ledger (not legacy lots): lots are long-only, and
+        // this is exactly the adjustment that saving will record.
         let draft = WatchItem(
             symbol: item.symbol,
             displayName: item.displayName,
             displayNameSource: item.displayNameSource,
             instrumentType: item.instrumentType,
             addedAt: item.addedAt,
-            lots: [CostLot(price: cost, quantity: quantity)]
+            transactions: [PositionTransaction(kind: .adjustment, price: cost, quantity: quantity)]
         )
         return PositionMetrics(item: draft, quote: quote)
     }

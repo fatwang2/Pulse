@@ -56,14 +56,107 @@ struct PositionLedgerTests {
         #expect(ledger.realizedPnL == 100)
     }
 
-    @Test("A backdated oversell clamps to what was held at that point")
-    func oversellClamps() {
+    @Test("A sell past the holding closes the long, then flips short at the trade price")
+    func sellPastFlatFlipsShort() {
         let ledger = PositionLedger(transactions: [
             PositionTransaction(kind: .buy, price: 100, quantity: 5, date: day(0)),
             PositionTransaction(kind: .sell, price: 120, quantity: 50, date: day(1)),
         ])
-        #expect(ledger.quantity == 0)
+        // 5 close at +20 each; the remaining 45 open a short at 120.
+        #expect(ledger.quantity == -45)
+        #expect(ledger.averageCost == 120)
         #expect(ledger.realizedPnL == 100)
+        #expect(ledger.hasOpenPosition)
+    }
+
+    @Test("Selling first opens a short whose average blends the entry prices")
+    func sellFirstOpensShort() {
+        let ledger = PositionLedger(transactions: [
+            PositionTransaction(kind: .sell, price: 100, quantity: 10, date: day(0)),
+            PositionTransaction(kind: .sell, price: 200, quantity: 10, date: day(1)),
+        ])
+        #expect(ledger.quantity == -20)
+        #expect(ledger.averageCost == 150)
+        #expect(ledger.costBasis == -3_000)
+        #expect(ledger.realizedPnL == 0)
+        #expect(ledger.hasOpenPosition)
+    }
+
+    @Test("A buy covers a short, realizing (average short price − price) × covered")
+    func buyCoversShort() {
+        let ledger = PositionLedger(transactions: [
+            PositionTransaction(kind: .sell, price: 150, quantity: 10, date: day(0)),
+            PositionTransaction(kind: .buy, price: 100, quantity: 4, date: day(1)),
+        ])
+        #expect(ledger.quantity == -6)
+        #expect(ledger.averageCost == 150)
+        #expect(ledger.realizedPnL == 200)
+        #expect(ledger.entries.last?.realizedPnL == 200)
+    }
+
+    @Test("Covering the whole short flattens it; realized P&L survives")
+    func coveringOutKeepsRealizedPnL() {
+        let ledger = PositionLedger(transactions: [
+            PositionTransaction(kind: .sell, price: 150, quantity: 10, date: day(0)),
+            PositionTransaction(kind: .buy, price: 170, quantity: 10, date: day(1)),
+        ])
+        #expect(ledger.quantity == 0)
+        #expect(!ledger.hasOpenPosition)
+        #expect(ledger.averageCost == 0)
+        #expect(ledger.realizedPnL == -200)
+    }
+
+    @Test("A buy past the short covers it, then flips long at the trade price")
+    func buyPastFlatFlipsLong() {
+        let ledger = PositionLedger(transactions: [
+            PositionTransaction(kind: .sell, price: 150, quantity: 5, date: day(0)),
+            PositionTransaction(kind: .buy, price: 100, quantity: 8, date: day(1)),
+        ])
+        #expect(ledger.quantity == 3)
+        #expect(ledger.averageCost == 100)
+        #expect(ledger.realizedPnL == 250)
+    }
+
+    @Test("A negative-quantity adjustment calibrates a short without realizing P&L")
+    func adjustmentCalibratesShort() {
+        let ledger = PositionLedger(transactions: [
+            PositionTransaction(kind: .adjustment, price: 90, quantity: -12, date: day(0)),
+        ])
+        #expect(ledger.quantity == -12)
+        #expect(ledger.averageCost == 90)
+        #expect(ledger.realizedPnL == 0)
+        #expect(ledger.hasOpenPosition)
+    }
+
+    @Test("Short position metrics profit when the price falls")
+    func shortPositionMetrics() throws {
+        var item = WatchItem(
+            symbol: SymbolID(market: .us, code: "AAPL"),
+            displayName: "Apple"
+        )
+        item.transactions = [
+            PositionTransaction(kind: .sell, price: 150, quantity: 10, date: day(0)),
+        ]
+        #expect(item.hasPosition)
+        #expect(item.isShortPosition)
+        #expect(item.positionQuantity == -10)
+        #expect(item.averageCost == 150)
+
+        let quote = Quote(
+            symbol: item.symbol,
+            price: 120,
+            previousClose: 130,
+            timestamp: day(1)
+        )
+        let metrics = try #require(PositionMetrics(item: item, quote: quote))
+        #expect(metrics.marketValue == -1_200)
+        #expect(metrics.costBasis == -1_500)
+        // Shorted at 150, now 120 → +30 per unit.
+        #expect(metrics.totalPnL == 300)
+        #expect(metrics.totalReturnPercent == 20)
+        // Price fell 10 today → a short gains 100 and the percent agrees in sign.
+        #expect(metrics.todayPnL == 100)
+        #expect(metrics.todayReturnPercent > 0)
     }
 
     @Test("Replay sorts by trade date, breaking same-day ties by insertion time")
@@ -250,6 +343,62 @@ struct WatchlistStoreTransactionTests {
         #expect(item.transactions.count == 2)
         #expect(item.positionQuantity == 6)
         #expect(item.realizedPnL == 120)
+    }
+
+    @MainActor
+    @Test("Sell-first then buy records a short round trip through the store")
+    func shortRoundTrip() throws {
+        let (store, defaults, suiteName) = try makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        store.add(apple)
+        store.addTransaction(apple.symbol, PositionTransaction(kind: .sell, price: 150, quantity: 10))
+        var item = try #require(store.item(for: apple.symbol))
+        #expect(item.positionQuantity == -10)
+        #expect(item.averageCost == 150)
+        #expect(item.isShortPosition)
+        // Lot cache mirrors the short as a negative lot; old builds treat it as no position.
+        #expect(item.lots.first?.quantity == -10)
+
+        store.addTransaction(apple.symbol, PositionTransaction(kind: .buy, price: 100, quantity: 10))
+        item = try #require(store.item(for: apple.symbol))
+        #expect(item.positionQuantity == 0)
+        #expect(!item.hasPosition)
+        #expect(item.realizedPnL == 500)
+        #expect(item.lots.isEmpty)
+    }
+
+    @MainActor
+    @Test("Calibrating to a negative quantity sets up a short")
+    func calibrationSupportsShort() throws {
+        let (store, defaults, suiteName) = try makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        store.add(apple)
+        store.calibratePosition(apple.symbol, quantity: -30, averageCost: 187.2)
+
+        let item = try #require(store.item(for: apple.symbol))
+        #expect(item.positionQuantity == -30)
+        #expect(item.averageCost == 187.2)
+        #expect(item.realizedPnL == 0)
+        #expect(item.isShortPosition)
+    }
+
+    @MainActor
+    @Test("Clearing a short position keeps its history")
+    func clearShortKeepsHistory() throws {
+        let (store, defaults, suiteName) = try makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        store.add(apple)
+        store.addTransaction(apple.symbol, PositionTransaction(kind: .sell, price: 150, quantity: 10))
+        store.addTransaction(apple.symbol, PositionTransaction(kind: .buy, price: 120, quantity: 5))
+        store.clearPosition(apple.symbol)
+
+        let item = try #require(store.item(for: apple.symbol))
+        #expect(!item.hasPosition)
+        #expect(item.realizedPnL == 150)
+        #expect(item.transactions.count == 3)
     }
 
     @MainActor

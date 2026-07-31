@@ -116,6 +116,7 @@ public struct WatchItem: Codable, Sendable, Hashable, Identifiable {
 
     public var averageCost: Double? {
         if let ledger { return ledger.hasOpenPosition ? ledger.averageCost : nil }
+        // Legacy lots are long-only; shorts exist solely in the ledger.
         let quantity = positionQuantity
         guard quantity > 0 else { return nil }
         return costBasis / quantity
@@ -127,8 +128,14 @@ public struct WatchItem: Codable, Sendable, Hashable, Identifiable {
         ledger?.realizedPnL ?? 0
     }
 
+    /// True for an open position on either side (long or short).
     public var hasPosition: Bool {
-        positionQuantity > 0 && averageCost != nil
+        positionQuantity != 0 && averageCost != nil
+    }
+
+    /// An open short (sell-first) position: negative ledger quantity.
+    public var isShortPosition: Bool {
+        positionQuantity < 0 && averageCost != nil
     }
 
     /// Whether the item carries any position data worth showing: an open
@@ -170,8 +177,11 @@ public struct PositionMetrics: Sendable, Hashable {
     public init?(item: WatchItem, quote: Quote) {
         guard item.supportsPosition else { return nil }
         let quantity = item.positionQuantity
-        guard quantity > 0, let averageCost = item.averageCost else { return nil }
+        guard quantity != 0, let averageCost = item.averageCost else { return nil }
 
+        // Signed quantity makes the arithmetic side-agnostic: a short's
+        // market value and cost basis are negative, so totalPnL and todayPnL
+        // come out positive when the price falls.
         let costBasis = item.costBasis
         let marketValue = quote.price * quantity
         let totalPnL = marketValue - costBasis
@@ -182,8 +192,10 @@ public struct PositionMetrics: Sendable, Hashable {
         self.costBasis = costBasis
         self.marketValue = marketValue
         self.totalPnL = totalPnL
-        self.totalReturnPercent = costBasis == 0 ? 0 : totalPnL / costBasis * 100
+        self.totalReturnPercent = costBasis == 0 ? 0 : totalPnL / abs(costBasis) * 100
         self.todayPnL = todayPnL
-        self.todayReturnPercent = quote.previousClose == 0 ? 0 : quote.change / quote.previousClose * 100
+        self.todayReturnPercent = quote.previousClose == 0
+            ? 0
+            : quote.change / quote.previousClose * 100 * (quantity < 0 ? -1 : 1)
     }
 }

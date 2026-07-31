@@ -280,8 +280,8 @@ public final class WatchlistStore {
     }
 
     /// Overwrites the position with a target quantity and average cost as an
-    /// `.adjustment` entry ("quick set" / reconciling with a broker).
-    /// Produces no realized P&L.
+    /// `.adjustment` entry ("quick set" / reconciling with a broker). A
+    /// negative quantity calibrates a short. Produces no realized P&L.
     public func calibratePosition(
         _ symbol: SymbolID,
         quantity: Double,
@@ -290,7 +290,7 @@ public final class WatchlistStore {
     ) {
         guard let index = allItems.firstIndex(where: { $0.symbol == symbol }),
               allItems[index].supportsPosition,
-              quantity >= 0, averageCost >= 0 else { return }
+              quantity.isFinite, averageCost >= 0 else { return }
         var transactions = allItems[index].materializedTransactions()
         transactions.append(PositionTransaction(
             kind: .adjustment,
@@ -303,7 +303,8 @@ public final class WatchlistStore {
 
     /// Stores the replay-ordered list and refreshes the derived single-lot
     /// cache so lot-based consumers (rows, sharing, older builds) keep seeing
-    /// the open position.
+    /// the open position. A short caches as a negative-quantity lot, which
+    /// older builds simply treat as no position rather than corrupting it.
     private func commitTransactions(_ transactions: [PositionTransaction], at index: Int) {
         allItems[index].transactions = PositionLedger.replayOrdered(transactions)
         let ledger = PositionLedger(transactions: allItems[index].transactions)

@@ -182,7 +182,12 @@ public struct YahooProvider: QuoteProvider {
     }
 
     private func extendedHoursQuote(for symbol: SymbolID) async throws -> Quote {
-        let result = try await chart(for: symbol, interval: "1m", range: "1d", includePrePost: true)
+        // Two days, not one: during pre-market the chart window is then "last
+        // regular day + today", making `chartPreviousClose` the close *before*
+        // the last regular session — the reference that session's own change
+        // needs. `previousClose` stays the prior trading day's close
+        // regardless of range (verified against the live API).
+        let result = try await chart(for: symbol, interval: "1m", range: "2d", includePrePost: true)
         let meta = result.meta
         guard let regularPrice = meta.regularMarketPrice else {
             throw ProviderError.symbolNotFound(symbol)
@@ -204,14 +209,58 @@ public struct YahooProvider: QuoteProvider {
             name: meta.longName ?? meta.shortName,
             price: price,
             previousClose: prevClose,
-            open: result.indicators.quote?.first?.open?.compactMap(\.self).first,
+            open: Self.regularSessionOpen(from: result),
             high: meta.regularMarketDayHigh,
             low: meta.regularMarketDayLow,
             volume: meta.regularMarketVolume,
             currencyCode: meta.currency,
             timestamp: timestamp,
-            marketState: state
+            marketState: state,
+            regularSession: Self.regularSessionClose(
+                for: state,
+                regularPrice: regularPrice,
+                previousClose: meta.previousClose,
+                chartPreviousClose: meta.chartPreviousClose
+            )
         )
+    }
+
+    /// The last completed regular session and its own reference close.
+    /// Post-market/overnight: today's close against `previousClose` (yesterday).
+    /// Pre-market: the current trading day hasn't opened, so the last regular
+    /// close *is* `previousClose`/`regularPrice`; its reference is the close
+    /// before the 2-day chart window (`chartPreviousClose`).
+    static func regularSessionClose(
+        for state: MarketState,
+        regularPrice: Double,
+        previousClose: Double?,
+        chartPreviousClose: Double?
+    ) -> Quote.RegularSessionClose? {
+        switch state {
+        case .preMarket:
+            return Quote.RegularSessionClose(price: regularPrice, previousClose: chartPreviousClose)
+        case .postMarket, .overnight:
+            return Quote.RegularSessionClose(price: regularPrice, previousClose: previousClose)
+        case .regular, .closed:
+            return nil
+        }
+    }
+
+    /// Today's regular-session open: the first bar at/after the regular period
+    /// start. The window's first bar no longer works with a 2-day range (it is
+    /// yesterday's 04:00 pre-market bar), and before the open there is no
+    /// "today's open" to show at all.
+    private static func regularSessionOpen(from result: ChartResponse.Result) -> Double? {
+        guard let start = result.meta.currentTradingPeriod?.regular?.start,
+              let timestamps = result.timestamp,
+              let opens = result.indicators.quote?.first?.open else {
+            return nil
+        }
+        let count = min(timestamps.count, opens.count)
+        for index in 0..<count where timestamps[index] >= start {
+            if let open = opens[index] { return open }
+        }
+        return nil
     }
 
     public func candles(for symbol: SymbolID, period: CandlePeriod, count: Int) async throws -> [Candle] {

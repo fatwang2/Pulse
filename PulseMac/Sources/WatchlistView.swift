@@ -262,7 +262,9 @@ struct WatchlistView: View {
                 palette: appState.palette
             )
             let priceText = quote.map { PriceFormatter.price($0.price) } ?? "—"
-            let sessionLabel = quote?.marketState?.extendedSessionLabel
+            let sessionLabel = appState.isIndex(item.symbol)
+                ? nil
+                : quote?.marketState?.extendedSessionLabel
             return WatchRowColumnLayout.metricWidth(
                 priceText: priceText,
                 metricText: display.text,
@@ -733,36 +735,22 @@ struct WatchlistView: View {
                                 route = .position(item.symbol, .list)
                             }
                         }
+                        // Multi-select membership: deselecting a checked group
+                        // removes the symbol from it — including the current
+                        // group (the row leaves this list) and the last one
+                        // (the symbol leaves the watchlist entirely), which is
+                        // why there is no separate "remove from …" item.
                         Menu(PulseLocalization.localizedString("watchlist.group.membership")) {
                             ForEach(appState.watchlist.groups) { group in
-                                let included = appState.watchlist.contains(item.symbol, in: group.id)
-                                Button {
-                                    appState.watchlist.setMembership(
-                                        item.symbol,
-                                        in: group.id,
-                                        included: !included
-                                    )
-                                } label: {
-                                    if included {
-                                        Label(group.name, systemImage: "checkmark")
-                                    } else {
-                                        Text(group.name)
-                                    }
-                                }
-                                .disabled(included && membershipCount(for: item.symbol) == 1)
+                                // Toggle renders as a native checkmark menu
+                                // item; a Label's icon does not survive menu
+                                // rendering on macOS.
+                                Toggle(group.name, isOn: membershipBinding(item.symbol, group.id))
                             }
                         }
                         Divider()
-                        Button(
-                            PulseLocalization.localizedString(
-                                "watchlist.group.removeFromCurrent",
-                                appState.watchlist.selectedGroup?.name ?? ""
-                            ),
-                            role: .destructive
-                        ) {
-                            withAnimation(.snappy(duration: 0.22)) {
-                                appState.watchlist.remove(item.symbol)
-                            }
+                        Button(PulseLocalization.localizedString("watchlist.sort.adjust")) {
+                            beginAdjustingOrder()
                         }
                     }
                 }
@@ -782,8 +770,18 @@ struct WatchlistView: View {
         .scrollEdgeEffectStyle(.soft, for: .vertical)
     }
 
-    private func membershipCount(for symbol: SymbolID) -> Int {
-        appState.watchlist.groups.count { $0.symbols.contains(symbol) }
+    /// Membership as a menu Toggle binding: unchecking the current group slides
+    /// the row out of this list; unchecking the last group removes the symbol
+    /// from the watchlist entirely.
+    private func membershipBinding(_ symbol: SymbolID, _ groupID: UUID) -> Binding<Bool> {
+        Binding(
+            get: { appState.watchlist.contains(symbol, in: groupID) },
+            set: { included in
+                withAnimation(.snappy(duration: 0.22)) {
+                    appState.watchlist.setMembership(symbol, in: groupID, included: included)
+                }
+            }
+        )
     }
 
     /// State switch: bring back the remembered custom order. Does not enter the reorder UI.
@@ -1196,7 +1194,11 @@ struct WatchRow: View {
             palette: appState.palette
         )
         let priceText = quote.map { PriceFormatter.price($0.price) } ?? "—"
-        let sessionLabel = quote?.marketState?.extendedSessionLabel
+        // Indices don't trade pre/post; their quote is just the last regular
+        // print, so a session label would mislabel it.
+        let sessionLabel = appState.isIndex(item.symbol)
+            ? nil
+            : quote?.marketState?.extendedSessionLabel
 
         // In manual sort mode, row tap gestures are fully detached so List's reorder drag can own mousedown.
         HStack(spacing: 8) {
@@ -1213,12 +1215,15 @@ struct WatchRow: View {
                 }
                 .frame(width: titleColumnWidth, alignment: .leading)
 
+                // The list sparkline always frames the regular session: at row
+                // size the pre/post wings read as noise. The detail chart is
+                // where the extended-hours setting applies.
                 IntradaySparklineView(
                     candles: appState.market.sparklines[item.symbol] ?? [],
                     previousClose: quote?.previousClose,
                     market: item.symbol.market,
                     tint: color,
-                    includesExtendedHours: appState.settings.showsUSExtendedHours
+                    includesExtendedHours: false
                 )
                 .frame(maxWidth: .infinity, minHeight: 30, maxHeight: 30)
             }

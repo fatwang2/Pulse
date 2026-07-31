@@ -377,6 +377,19 @@ final class AppState {
         return market.quote(for: symbol)?.name ?? symbol.displayCode
     }
 
+    /// Calculated benchmarks, not traded securities: catalog indices carry an
+    /// `indexID`; search-classified ones rely on the stored instrument type.
+    func isIndex(_ symbol: SymbolID) -> Bool {
+        symbol.indexID != nil || watchlist.item(for: symbol)?.resolvedInstrumentType == .index
+    }
+
+    /// The US pre/post setting only applies to instruments that trade those
+    /// sessions. Indices (NASDAQ Composite, S&P 500, …) compute during regular
+    /// hours only, so their charts never get extended-hours wings.
+    func showsExtendedHours(for symbol: SymbolID) -> Bool {
+        settings.showsUSExtendedHours && symbol.market == .us && !isIndex(symbol)
+    }
+
     private func shortName(for item: WatchItem) -> String {
         // US stocks use the ticker (AAPL is shorter than "Apple Inc."); Chinese names are truncated to the first 5 characters
         if item.symbol.market == .us { return item.symbol.code }

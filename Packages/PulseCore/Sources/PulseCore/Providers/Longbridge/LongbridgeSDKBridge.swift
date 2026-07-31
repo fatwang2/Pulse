@@ -1263,6 +1263,7 @@ actor LongbridgeSDKBridge {
         var reference = previousClose
         var marketState: MarketState = .regular
         var timestamp = snapshot.timestamp
+        var regularSession: Quote.RegularSessionClose?
 
         if symbol.market == .us {
             let session: (LBSDKPrePostQuote?, MarketState)? =
@@ -1281,6 +1282,14 @@ actor LongbridgeSDKBridge {
                 reference = sessionQuote.previousClose ?? regularPrice
                 marketState = session.1
                 timestamp = sessionQuote.timestamp
+                // Post/overnight: `prev_close` is yesterday's close, so the
+                // regular day's change is computable. Once the trading day
+                // rolls (pre-market), `prev_close` becomes the last regular
+                // close itself and the session's own reference is gone.
+                regularSession = Quote.RegularSessionClose(
+                    price: regularPrice,
+                    previousClose: previousClose == regularPrice ? nil : previousClose
+                )
             }
         }
 
@@ -1305,7 +1314,8 @@ actor LongbridgeSDKBridge {
             timestamp: timestamp > 0
                 ? Date(timeIntervalSince1970: TimeInterval(timestamp))
                 : receivedAt,
-            marketState: marketState
+            marketState: marketState,
+            regularSession: regularSession
         )
     }
 

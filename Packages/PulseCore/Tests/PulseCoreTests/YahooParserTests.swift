@@ -76,6 +76,51 @@ struct YahooParserTests {
         ) == 294.38)
     }
 
+    @Test("Extended sessions carry the last regular session's own result")
+    func extendedSessionRegularClose() throws {
+        // Post-market: today's close (333.43) against yesterday's (338.19).
+        let post = try #require(YahooProvider.regularSessionClose(
+            for: .postMarket,
+            regularPrice: 333.43,
+            previousClose: 338.19,
+            chartPreviousClose: 340.08
+        ))
+        #expect(post.price == 333.43)
+        #expect(post.previousClose == 338.19)
+        #expect(post.change.map { abs($0 - -4.76) < 0.0001 } == true)
+
+        // Pre-market: the last regular close is yesterday's; its reference is
+        // the close before the 2-day chart window.
+        let pre = try #require(YahooProvider.regularSessionClose(
+            for: .preMarket,
+            regularPrice: 338.19,
+            previousClose: 338.19,
+            chartPreviousClose: 340.08
+        ))
+        #expect(pre.price == 338.19)
+        #expect(pre.previousClose == 340.08)
+
+        // In or after regular hours without an extended print, there is no
+        // separate "yesterday" to attach.
+        #expect(YahooProvider.regularSessionClose(
+            for: .regular, regularPrice: 333.43, previousClose: 338.19, chartPreviousClose: 340.08
+        ) == nil)
+        #expect(YahooProvider.regularSessionClose(
+            for: .closed, regularPrice: 333.43, previousClose: 338.19, chartPreviousClose: 340.08
+        ) == nil)
+    }
+
+    @Test("Regular session close derives change and guards a missing reference")
+    func regularSessionCloseDerivations() {
+        let known = Quote.RegularSessionClose(price: 110, previousClose: 100)
+        #expect(known.change == 10)
+        #expect(known.changePercent == 10)
+
+        let unknown = Quote.RegularSessionClose(price: 110)
+        #expect(unknown.change == nil)
+        #expect(unknown.changePercent == nil)
+    }
+
     @Test("Intraday candle resolutions map to provider-native intervals")
     func intradayChartParams() {
         #expect(YahooProvider.chartParams(for: .minute5).interval == "5m")

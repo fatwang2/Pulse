@@ -167,6 +167,8 @@
 
 "quote.delay.minutes" = "Delayed ~%d min";
 "quote.price.close" = "Close";
+"quote.regularClose.previous" = "Prev Close";
+"quote.regularClose.today" = "At Close";
 "quote.price.current" = "Price";
 "quote.price.overnight" = "Overnight";
 "quote.price.postMarket" = "Post-market";
@@ -250,7 +252,6 @@
 "watchlist.group.nameError" = "Enter a unique list name.";
 "watchlist.group.namePlaceholder" = "List Name";
 "watchlist.group.new" = "New List";
-"watchlist.group.removeFromCurrent" = "Remove from %@";
 "watchlist.group.rename" = "Rename List";
 
 "watchRow.dragHelp" = "Drag to reorder";
@@ -260,6 +261,7 @@
 "trade.buy" = "Buy";
 "trade.sell" = "Sell";
 "trade.recordBuy" = "Record a Buy";
+"trade.recordSell" = "Record a Sell";
 "trade.confirmBuy" = "Confirm Buy";
 "trade.confirmSell" = "Confirm Sell";
 "trade.price" = "Price";
@@ -267,7 +269,6 @@
 "trade.dateToday" = "Today";
 "trade.priceHintCurrent" = "Prefilled with live price";
 "trade.availableToSell" = "Available: %@";
-"trade.exceedsHolding" = "Exceeds your current holding (%@). Adjust the quantity to save.";
 "trade.amount" = "Trade Amount";
 "trade.realizedPnL" = "Realized P&L (this trade)";
 "trade.resultingPosition" = "Position After Trade";
@@ -276,9 +277,7 @@
 "position.totalInvested" = "Total Invested";
 "position.recentTransactions" = "Recent Trades";
 "position.noTransactions" = "No trades recorded yet";
-"position.viewAllTransactions" = "View All Trades (%d)";
 "position.quickEdit" = "Set Position Directly…";
-"position.quickSet" = "Set Position Directly…";
 "position.quickEditTitle" = "Set Position Directly";
 "position.calibrationNotice" = "Saving overwrites your position with this quantity and cost, recorded as an “adjustment” — no realized P&L.";
 "position.empty.title" = "Not Holding Yet";

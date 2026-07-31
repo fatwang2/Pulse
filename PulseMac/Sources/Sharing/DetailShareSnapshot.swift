@@ -117,7 +117,7 @@ struct DetailShareSnapshot {
                 "refresh.updatedAt",
                 Date.now.formatted(date: .omitted, time: .shortened)
             ),
-            includesExtendedHours: appState.settings.showsUSExtendedHours
+            includesExtendedHours: appState.showsExtendedHours(for: symbol)
         )
     }
 

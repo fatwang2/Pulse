@@ -135,7 +135,7 @@ struct DetailView: View {
         return IntradayTradingSession.filterCandles(
             candles,
             market: symbol.market,
-            includesExtendedHours: appState.settings.showsUSExtendedHours
+            includesExtendedHours: appState.showsExtendedHours(for: symbol)
         )
     }
 
@@ -296,6 +296,10 @@ struct DetailView: View {
                             .font(.system(size: 12, weight: .semibold).monospacedDigit())
                     }
                     .foregroundStyle(color)
+                    if let regularClose = regularCloseDisplay(for: quote) {
+                        regularCloseRow(regularClose)
+                            .padding(.top, 3)
+                    }
                 } else {
                     Text(PulseLocalization.localizedString("quote.price.current"))
                         .font(.system(size: 9, weight: .medium))
@@ -344,6 +348,46 @@ struct DetailView: View {
         .minimumScaleFactor(0.8)
         .allowsTightening(true)
         .frame(maxWidth: 132, alignment: .trailing)
+    }
+
+    /// The last regular session's result, shown under the live extended-session
+    /// price. Pre-market labels it "昨收" (that close was yesterday's); post and
+    /// overnight label it "收盘" (today's just-finished session). During regular
+    /// hours there is no "yesterday" to show and the row disappears.
+    private func regularCloseDisplay(for quote: Quote) -> (label: String, close: Quote.RegularSessionClose)? {
+        guard let regularSession = quote.regularSession else { return nil }
+        switch quote.marketState {
+        case .preMarket:
+            return (PulseLocalization.localizedString("quote.regularClose.previous"), regularSession)
+        case .postMarket, .overnight:
+            return (PulseLocalization.localizedString("quote.regularClose.today"), regularSession)
+        case .regular, .closed, .none:
+            return nil
+        }
+    }
+
+    private func regularCloseRow(_ display: (label: String, close: Quote.RegularSessionClose)) -> some View {
+        let close = display.close
+        let color = close.change.map { appState.palette.color(for: $0) }
+        return HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(display.label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+            Text(PriceFormatter.price(close.price))
+                .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                .foregroundStyle(color ?? .secondary)
+            if let change = close.change, let percent = close.changePercent {
+                Text(PriceFormatter.change(change))
+                    .font(.system(size: 11, weight: .medium).monospacedDigit())
+                    .foregroundStyle(color ?? .secondary)
+                Text(PriceFormatter.percent(percent))
+                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(color ?? .secondary)
+            }
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .allowsTightening(true)
     }
 
     private func quotePriceLabel(for quote: Quote) -> String {
@@ -533,7 +577,7 @@ struct DetailView: View {
                     previousClose: quote?.previousClose ?? candles.first?.open ?? 0,
                     market: symbol.market,
                     palette: appState.palette,
-                    showsExtendedHours: appState.settings.showsUSExtendedHours
+                    showsExtendedHours: appState.showsExtendedHours(for: symbol)
                 )
                 .transition(.opacity)
             } else {
@@ -542,9 +586,8 @@ struct DetailView: View {
                     palette: appState.palette,
                     period: period,
                     market: symbol.market,
-                    highlightsExtendedHours: symbol.market == .us
-                        && period.isMinuteK
-                        && appState.settings.showsUSExtendedHours,
+                    highlightsExtendedHours: period.isMinuteK
+                        && appState.showsExtendedHours(for: symbol),
                     viewport: candleViewport
                 )
                     .transition(.opacity)
@@ -594,37 +637,57 @@ struct DetailView: View {
 
     @ViewBuilder
     private var positionSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionHeaderText(PulseLocalization.localizedString("detail.section.position"))
+        Group {
             if let item, item.hasPosition {
-                if let quote, let metrics = PositionMetrics(item: item, quote: quote) {
-                    HStack(spacing: 8) {
-                        pnlCell(PulseLocalization.localizedString("metric.todayPnL"), amount: metrics.todayPnL, percent: metrics.todayReturnPercent)
-                        pnlCell(PulseLocalization.localizedString("metric.totalPnL"), amount: metrics.totalPnL, percent: metrics.totalReturnPercent)
-                    }
-                    HStack(spacing: 8) {
-                        stat(PulseLocalization.localizedString("position.quantity"), PriceFormatter.quantity(metrics.quantity))
-                        stat(PulseLocalization.localizedString("position.cost"), PriceFormatter.price(metrics.averageCost))
-                        stat(PulseLocalization.localizedString("position.marketValue"), PriceFormatter.money(metrics.marketValue, currencyCode: currencyCode))
-                    }
-                } else {
-                    Text(PulseLocalization.localizedString("position.waitingQuote"))
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(.tertiary)
-                }
-            } else {
-                HStack {
-                    Text(PulseLocalization.localizedString("position.notSet"))
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(.tertiary)
-                    Spacer()
-                    if let item {
-                        Button(PulseLocalization.localizedString("action.addPosition")) {
-                            route = .position(item.symbol, .detail(symbol))
+                // The whole summary is the way into the position hub — same
+                // destination as the header briefcase, but where the eye
+                // already is.
+                Button {
+                    route = .position(item.symbol, .detail(symbol))
+                } label: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 4) {
+                            sectionHeaderText(PulseLocalization.localizedString("detail.section.position"))
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundStyle(.tertiary)
                         }
-                        .buttonStyle(.pressable)
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(.tint)
+                        if let quote, let metrics = PositionMetrics(item: item, quote: quote) {
+                            HStack(spacing: 8) {
+                                pnlCell(PulseLocalization.localizedString("metric.todayPnL"), amount: metrics.todayPnL, percent: metrics.todayReturnPercent)
+                                pnlCell(PulseLocalization.localizedString("metric.totalPnL"), amount: metrics.totalPnL, percent: metrics.totalReturnPercent)
+                            }
+                            HStack(spacing: 8) {
+                                stat(PulseLocalization.localizedString("position.quantity"), PriceFormatter.quantity(metrics.quantity))
+                                stat(PulseLocalization.localizedString("position.cost"), PriceFormatter.price(metrics.averageCost))
+                                stat(PulseLocalization.localizedString("position.marketValue"), PriceFormatter.money(metrics.marketValue, currencyCode: currencyCode))
+                            }
+                        } else {
+                            Text(PulseLocalization.localizedString("position.waitingQuote"))
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.pressable)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    sectionHeaderText(PulseLocalization.localizedString("detail.section.position"))
+                    HStack {
+                        Text(PulseLocalization.localizedString("position.notSet"))
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.tertiary)
+                        Spacer()
+                        if let item {
+                            Button(PulseLocalization.localizedString("action.addPosition")) {
+                                route = .position(item.symbol, .detail(symbol))
+                            }
+                            .buttonStyle(.pressable)
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundStyle(.tint)
+                        }
                     }
                 }
             }

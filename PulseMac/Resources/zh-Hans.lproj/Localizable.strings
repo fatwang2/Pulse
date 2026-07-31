@@ -167,6 +167,8 @@
 
 "quote.delay.minutes" = "延时约%d分钟";
 "quote.price.close" = "收盘价";
+"quote.regularClose.previous" = "昨收";
+"quote.regularClose.today" = "收盘";
 "quote.price.current" = "现价";
 "quote.price.overnight" = "夜盘价";
 "quote.price.postMarket" = "盘后价";
@@ -250,7 +252,6 @@
 "watchlist.group.nameError" = "请输入未被使用的列表名称。";
 "watchlist.group.namePlaceholder" = "列表名称";
 "watchlist.group.new" = "新建列表";
-"watchlist.group.removeFromCurrent" = "从“%@”移除";
 "watchlist.group.rename" = "重命名列表";
 
 "watchRow.dragHelp" = "按住拖动调整顺序";
@@ -260,6 +261,7 @@
 "trade.buy" = "买入";
 "trade.sell" = "卖出";
 "trade.recordBuy" = "记录买入";
+"trade.recordSell" = "记录卖出";
 "trade.confirmBuy" = "确认买入";
 "trade.confirmSell" = "确认卖出";
 "trade.price" = "价格";
@@ -267,7 +269,6 @@
 "trade.dateToday" = "今天";
 "trade.priceHintCurrent" = "已预填现价";
 "trade.availableToSell" = "可卖 %@";
-"trade.exceedsHolding" = "超过当前持仓数量（%@），请修改后保存。";
 "trade.amount" = "本笔金额";
 "trade.realizedPnL" = "本笔已实现盈亏";
 "trade.resultingPosition" = "成交后持仓";
@@ -276,9 +277,7 @@
 "position.totalInvested" = "总投入";
 "position.recentTransactions" = "最近交易";
 "position.noTransactions" = "暂无交易记录";
-"position.viewAllTransactions" = "查看全部交易 (%d)";
 "position.quickEdit" = "直接修改持仓…";
-"position.quickSet" = "直接设置持仓…";
 "position.quickEditTitle" = "直接修改持仓";
 "position.calibrationNotice" = "保存后将以此数量与成本覆盖当前持仓，记为一笔「校准」，不产生已实现盈亏。";
 "position.empty.title" = "尚未持有";

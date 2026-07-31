@@ -21,7 +21,11 @@ struct PositionHubView: View {
                 symbol: symbol,
                 title: nil,
                 onBack: { route = returnRoute.popoverRoute },
-                onEdit: { route = .calibrate(symbol, returnRoute) }
+                // Quick set exists to calibrate an open position; with no
+                // position, recording a buy or sell is the only entry.
+                onEdit: item?.hasPosition == true
+                    ? { route = .calibrate(symbol, returnRoute) }
+                    : nil
             )
             if let item {
                 if item.hasPosition {
@@ -73,7 +77,7 @@ struct PositionHubView: View {
 
             separator
 
-            tradeButtons(item, includeSell: true)
+            tradeButtons(recordStyle: false)
 
             separator
 
@@ -86,35 +90,46 @@ struct PositionHubView: View {
     private func recentTransactions(_ item: WatchItem) -> some View {
         let entries = Array((item.ledger?.entries ?? []).reversed())
         VStack(alignment: .leading, spacing: 0) {
-            Text(PulseLocalization.localizedString("position.recentTransactions"))
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
-                .padding(.bottom, 3)
-            ForEach(entries.prefix(3)) { entry in
-                TransactionRow(
-                    entry: entry,
-                    palette: appState.palette,
-                    currencyCode: currencyCode
-                )
-            }
+            // The header row is the way into the full log: a trailing chevron
+            // instead of a separate link line under the rows.
             if entries.isEmpty {
+                sectionHeader(disclosing: false)
                 Text(PulseLocalization.localizedString("position.noTransactions"))
                     .font(.system(size: 10.5))
                     .foregroundStyle(.tertiary)
                     .padding(.vertical, 6)
-            }
-            if !entries.isEmpty {
+            } else {
                 Button {
                     route = .transactions(symbol, returnRoute)
                 } label: {
-                    Text(PulseLocalization.localizedString("position.viewAllTransactions", entries.count))
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(.tint)
+                    sectionHeader(disclosing: true)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.pressable)
-                .padding(.top, 7)
+                ForEach(entries.prefix(3)) { entry in
+                    TransactionRow(
+                        entry: entry,
+                        palette: appState.palette,
+                        currencyCode: currencyCode
+                    )
+                }
             }
         }
+    }
+
+    private func sectionHeader(disclosing: Bool) -> some View {
+        HStack(spacing: 4) {
+            Text(PulseLocalization.localizedString("position.recentTransactions"))
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            if disclosing {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.bottom, 3)
     }
 
     // MARK: - Empty state
@@ -136,46 +151,38 @@ struct PositionHubView: View {
             .padding(.top, 14)
             .padding(.bottom, 14)
 
-            tradeButtons(item, includeSell: false)
+            tradeButtons(recordStyle: true)
                 .frame(maxWidth: 220)
-
-            Button {
-                route = .calibrate(symbol, returnRoute)
-            } label: {
-                Text(PulseLocalization.localizedString("position.quickSet"))
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.tertiary)
-            }
-            .buttonStyle(.pressable)
-            .padding(.top, 12)
 
             if !item.transactions.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
                     separator
-                    Text(PulseLocalization.localizedString("position.historySection"))
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.bottom, 6)
+                    Button {
+                        route = .transactions(symbol, returnRoute)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(PulseLocalization.localizedString("position.historySection"))
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.secondary)
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.pressable)
+                    .padding(.bottom, 6)
                     HStack(spacing: 8) {
                         stat(
                             PulseLocalization.localizedString("position.realizedPnL"),
                             PriceFormatter.signedMoney(item.realizedPnL, currencyCode: currencyCode),
                             color: item.realizedPnL
                         )
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(PulseLocalization.localizedString("position.historyTrades"))
-                                .font(.system(size: 9))
-                                .foregroundStyle(.tertiary)
-                            Button {
-                                route = .transactions(symbol, returnRoute)
-                            } label: {
-                                Text(PulseLocalization.localizedString("position.tradeCount", item.transactions.count))
-                                    .font(.system(size: 10.5, weight: .medium).monospacedDigit())
-                                    .foregroundStyle(.tint)
-                            }
-                            .buttonStyle(.pressable)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        stat(
+                            PulseLocalization.localizedString("position.historyTrades"),
+                            PulseLocalization.localizedString("position.tradeCount", item.transactions.count)
+                        )
                         stat("", "")
                     }
                 }
@@ -187,27 +194,24 @@ struct PositionHubView: View {
 
     // MARK: - Trade actions
 
-    /// Buy/sell as tinted interactive Liquid Glass buttons; the tint follows
-    /// the user's up/down palette so "buy" always reads as the up color.
-    private func tradeButtons(_ item: WatchItem, includeSell: Bool) -> some View {
-        GlassEffectContainer(spacing: 8) {
-            HStack(spacing: 8) {
-                tradeButton(
-                    includeSell
-                        ? PulseLocalization.localizedString("trade.buy")
-                        : PulseLocalization.localizedString("trade.recordBuy"),
-                    color: appState.palette.color(isUp: true)
-                ) {
-                    route = .trade(symbol, .buy, returnRoute)
-                }
-                if includeSell {
-                    tradeButton(
-                        PulseLocalization.localizedString("trade.sell"),
-                        color: appState.palette.color(isUp: false)
-                    ) {
-                        route = .trade(symbol, .sell, returnRoute)
-                    }
-                }
+    /// Buy/sell as flat tinted buttons sharing the input cells' DNA (fill +
+    /// hairline stroke on continuous corners) — glass here read as a heavier
+    /// material than the rest of this quiet page. The tint follows the user's
+    /// up/down palette so "buy" always reads as the up color. Both sides show
+    /// even with no position — selling first opens a short.
+    private func tradeButtons(recordStyle: Bool) -> some View {
+        HStack(spacing: 8) {
+            tradeButton(
+                PulseLocalization.localizedString(recordStyle ? "trade.recordBuy" : "trade.buy"),
+                color: appState.palette.color(isUp: true)
+            ) {
+                route = .trade(symbol, .buy, returnRoute)
+            }
+            tradeButton(
+                PulseLocalization.localizedString(recordStyle ? "trade.recordSell" : "trade.sell"),
+                color: appState.palette.color(isUp: false)
+            ) {
+                route = .trade(symbol, .sell, returnRoute)
             }
         }
     }
@@ -222,9 +226,13 @@ struct PositionHubView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.pressable)
-        .glassEffect(
-            .regular.tint(color.opacity(0.22)).interactive(),
-            in: .rect(cornerRadius: 8, style: .continuous)
+        .background(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(color.opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .stroke(color.opacity(0.25), lineWidth: 0.5)
         )
     }
 

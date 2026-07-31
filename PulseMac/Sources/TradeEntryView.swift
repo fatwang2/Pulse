@@ -48,14 +48,10 @@ struct TradeEntryView: View {
                     PositionInputCell(
                         label: PulseLocalization.localizedString("position.quantity"),
                         text: $quantityText,
-                        hint: sellHint,
-                        hintIsWarning: sellExceedsHolding
+                        hint: quantityHint
                     )
                 }
                 dateRow
-                if sellExceedsHolding {
-                    warningRow
-                }
                 preview
                     .padding(.top, 2)
             }
@@ -78,8 +74,10 @@ struct TradeEntryView: View {
 
     // MARK: - Form rows
 
-    private var sellHint: String? {
-        guard side == .sell, let item else { return nil }
+    /// Selling against a long shows what's sellable. Shorts stay unadorned —
+    /// negative quantities speak for themselves to anyone shorting.
+    private var quantityHint: String? {
+        guard side == .sell, let item, item.positionQuantity > 0 else { return nil }
         return PulseLocalization.localizedString(
             "trade.availableToSell",
             PriceFormatter.quantity(item.positionQuantity)
@@ -148,32 +146,26 @@ struct TradeEntryView: View {
         date = next
     }
 
-    private var warningRow: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 9, weight: .semibold))
-            Text(PulseLocalization.localizedString(
-                "trade.exceedsHolding",
-                PriceFormatter.quantity(item?.positionQuantity ?? 0)
-            ))
-            .fixedSize(horizontal: false, vertical: true)
-        }
-        .font(.system(size: 10))
-        .foregroundStyle(.orange)
-        .padding(.bottom, 4)
-    }
-
     // MARK: - Preview (same row styling as the quick-set editor)
 
     @ViewBuilder
     private var preview: some View {
         let simulated = simulatedOutcome
+        let held = item?.positionQuantity ?? 0
+        // A trade realizes P&L when it closes against the open side (sell on
+        // a long, buy on a short); it moves the average cost when it opens
+        // or extends a side. Before input parses, fall back to what the
+        // current position implies so rows don't pop in mid-typing.
+        let showsRealized = simulated.map { $0.realized != nil }
+            ?? (side == .sell ? held > 0 : held < 0)
+        let showsAverageCost = simulated.map { $0.quantity != 0 }
+            ?? (side == .buy ? held >= 0 : held <= 0)
         VStack(spacing: 6) {
             previewRow(
                 PulseLocalization.localizedString("trade.amount"),
                 simulated.map { PriceFormatter.money($0.amount, currencyCode: currencyCode) } ?? "—"
             )
-            if side == .sell {
+            if showsRealized {
                 previewRow(
                     PulseLocalization.localizedString("trade.realizedPnL"),
                     simulated?.realized.map { PriceFormatter.signedMoney($0, currencyCode: currencyCode) } ?? "—",
@@ -184,7 +176,7 @@ struct TradeEntryView: View {
                 PulseLocalization.localizedString("trade.resultingPosition"),
                 simulated.map { PriceFormatter.quantity($0.quantity) } ?? "—"
             )
-            if side == .buy {
+            if showsAverageCost {
                 previewRow(
                     PulseLocalization.localizedString("trade.newAverageCost"),
                     simulated.map { newAverageCostText($0) } ?? "—"
@@ -217,6 +209,8 @@ struct TradeEntryView: View {
 
     // MARK: - Confirm
 
+    /// Solid fill, not glass: the primary action keeps its weight through
+    /// color, matching the flat component language of the position pages.
     private var confirmButton: some View {
         Button {
             save()
@@ -229,9 +223,9 @@ struct TradeEntryView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.pressable)
-        .glassEffect(
-            .regular.tint(sideColor.opacity(0.85)).interactive(),
-            in: .rect(cornerRadius: 6, style: .continuous)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(sideColor.opacity(0.92))
         )
         .disabled(!isValid)
         .opacity(isValid ? 1 : 0.45)
@@ -247,13 +241,8 @@ struct TradeEntryView: View {
         parseDecimal(quantityText).flatMap { $0 > 0 ? $0 : nil }
     }
 
-    private var sellExceedsHolding: Bool {
-        guard side == .sell, let quantity = parsedQuantity, let item else { return false }
-        return quantity > item.positionQuantity
-    }
-
     private var isValid: Bool {
-        parsedPrice != nil && parsedQuantity != nil && !sellExceedsHolding
+        parsedPrice != nil && parsedQuantity != nil
     }
 
     private struct SimulatedOutcome {
@@ -266,8 +255,7 @@ struct TradeEntryView: View {
     /// Replays the would-be ledger (folding legacy lots in, exactly like the
     /// store will on save) so the preview matches the post-save state.
     private var simulatedOutcome: SimulatedOutcome? {
-        guard let item, let price = parsedPrice, let quantity = parsedQuantity,
-              !sellExceedsHolding else { return nil }
+        guard let item, let price = parsedPrice, let quantity = parsedQuantity else { return nil }
         var transactions = item.materializedTransactions()
         transactions.append(PositionTransaction(
             kind: side == .buy ? .buy : .sell,

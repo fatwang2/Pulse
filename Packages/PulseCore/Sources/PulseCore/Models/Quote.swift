@@ -8,6 +8,30 @@ public enum MarketState: String, Codable, Sendable {
 
 /// A single quote snapshot. change/changePercent are derived from price and previousClose to avoid inconsistent definitions across data sources.
 public struct Quote: Codable, Sendable, Hashable {
+    /// The most recent completed regular session, attached to extended-session
+    /// quotes (pre/post/overnight) so surfaces can show that day's result
+    /// alongside the live extended price. `previousClose` is the close that
+    /// session traded against; nil when the source cannot supply it (the
+    /// session's own change is then unknown).
+    public struct RegularSessionClose: Codable, Sendable, Hashable {
+        public var price: Double
+        public var previousClose: Double?
+
+        public init(price: Double, previousClose: Double? = nil) {
+            self.price = price
+            self.previousClose = previousClose
+        }
+
+        public var change: Double? {
+            previousClose.map { price - $0 }
+        }
+
+        public var changePercent: Double? {
+            guard let previousClose, previousClose != 0 else { return nil }
+            return (price - previousClose) / previousClose * 100
+        }
+    }
+
     public var symbol: SymbolID
     public var name: String?
     public var price: Double
@@ -25,12 +49,15 @@ public struct Quote: Codable, Sendable, Hashable {
     public var sourceDelay: TimeInterval?
     public var timestamp: Date
     public var marketState: MarketState?
+    /// Present only when `marketState` is an extended session (pre/post/overnight).
+    public var regularSession: RegularSessionClose?
 
     public init(symbol: SymbolID, name: String? = nil, price: Double, previousClose: Double,
                 open: Double? = nil, high: Double? = nil, low: Double? = nil,
                 volume: Double? = nil, turnover: Double? = nil,
                 currencyCode: String? = nil, sourceID: String? = nil, sourceName: String? = nil,
-                sourceDelay: TimeInterval? = nil, timestamp: Date = .now, marketState: MarketState? = nil) {
+                sourceDelay: TimeInterval? = nil, timestamp: Date = .now, marketState: MarketState? = nil,
+                regularSession: RegularSessionClose? = nil) {
         self.symbol = symbol
         self.name = name
         self.price = price
@@ -46,6 +73,7 @@ public struct Quote: Codable, Sendable, Hashable {
         self.sourceDelay = sourceDelay
         self.timestamp = timestamp
         self.marketState = marketState
+        self.regularSession = regularSession
     }
 
     public func sourced(by descriptor: ProviderDescriptor) -> Quote {

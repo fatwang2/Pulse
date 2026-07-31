@@ -22,7 +22,6 @@ struct WatchlistShareSnapshot {
     let title: String
     let dateText: String
     let updatedAtText: String
-    let includesExtendedHours: Bool
 
     /// Layout constants shared with `WatchlistShareContent`; `preferredImageHeight` must stay
     /// an upper bound of the natural content height so rows stretch instead of clipping.
@@ -73,14 +72,12 @@ struct WatchlistShareSnapshot {
         return ups > downs ? 1 : -1
     }
 
-    init(rows: [Row], redUp: Bool, title: String, dateText: String, updatedAtText: String,
-         includesExtendedHours: Bool = false) {
+    init(rows: [Row], redUp: Bool, title: String, dateText: String, updatedAtText: String) {
         self.rows = rows
         self.redUp = redUp
         self.title = title
         self.dateText = dateText
         self.updatedAtText = updatedAtText
-        self.includesExtendedHours = includesExtendedHours
     }
 
     @MainActor
@@ -104,7 +101,9 @@ struct WatchlistShareSnapshot {
                 metricColorValue: metricDisplay.colorValue,
                 change: quote?.change,
                 previousClose: quote?.previousClose,
-                sessionLabel: quote?.marketState?.extendedSessionLabel,
+                sessionLabel: appState.isIndex(item.symbol)
+                    ? nil
+                    : quote?.marketState?.extendedSessionLabel,
                 sparkline: appState.market.sparklines[item.symbol] ?? []
             )
         }
@@ -128,8 +127,7 @@ struct WatchlistShareSnapshot {
                 Date.now.formatted(
                     Date.FormatStyle(locale: locale).hour().minute()
                 )
-            ),
-            includesExtendedHours: appState.settings.showsUSExtendedHours
+            )
         )
     }
 }
@@ -173,8 +171,7 @@ struct WatchlistShareContent: View {
                     palette: ChangePalette(redUp: snapshot.redUp),
                     titleColumnWidth: snapshot.titleColumnWidth,
                     priceColumnWidth: snapshot.priceColumnWidth,
-                    pillColumnWidth: snapshot.pillColumnWidth,
-                    includesExtendedHours: snapshot.includesExtendedHours
+                    pillColumnWidth: snapshot.pillColumnWidth
                 )
             }
         }
@@ -190,7 +187,6 @@ private struct WatchlistShareRow: View {
     let titleColumnWidth: CGFloat
     let priceColumnWidth: CGFloat
     let pillColumnWidth: CGFloat
-    let includesExtendedHours: Bool
 
     private var metricColor: Color? {
         row.metricColorValue.map(palette.color(for:))
@@ -212,12 +208,14 @@ private struct WatchlistShareRow: View {
             }
             .frame(width: titleColumnWidth, alignment: .leading)
 
+            // Mirrors the list rows: share sparklines frame the regular
+            // session only.
             IntradaySparklineView(
                 candles: row.sparkline,
                 previousClose: row.previousClose,
                 market: row.market,
                 tint: row.change.map(palette.color(for:)) ?? .secondary,
-                includesExtendedHours: includesExtendedHours
+                includesExtendedHours: false
             )
             .frame(maxWidth: .infinity, minHeight: 32, maxHeight: 32)
 

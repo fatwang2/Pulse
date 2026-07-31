@@ -10,6 +10,29 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.9.0",
+    date: "2026-07-31",
+    kind: "release",
+    highlights: {
+      zh: [
+        "交易记录上线：买入卖出以交易账本重放，自动推导持仓数量、移动平均成本与已实现盈亏；持仓页升级为中心页，含月度交易日志与快捷校准。",
+        "支持空单：先卖后买即开空，空头均价按入场价加权，买入回补自动结算盈亏，穿越翻仓按成交价换边；空头数量以负数直观呈现。",
+        "非盘中时段，详情页在盘前、盘后或夜盘价旁边同时展示上一个盘中的收盘价与当日涨跌幅。",
+        "指数（纳指、标普等）不再显示盘前盘后翼区、时段底色与标签——指数只在常规时段计算。",
+        "自选列表趋势线固定展示盘中时段，盘前盘后开关仅作用于详情页图表。",
+        "右键菜单改为原生多选分组（取消勾选即移除）并新增调整顺序入口；持仓摘要与交易记录标题可直接进入对应页面。",
+      ],
+      en: [
+        "Position trades: buys and sells replay into a transaction ledger deriving quantity, moving-average cost, and realized P&L, with a position hub, monthly trade log, and quick-set calibration.",
+        "Short positions: sell first to open a short, buy back to cover and realize P&L, with trades crossing zero flipping sides at the trade price. Short quantities display as negatives.",
+        "Outside regular hours, the detail page shows the last regular close and its own day change next to the live pre-market, post-market, or overnight price.",
+        "Indices no longer draw pre/post wings, session shading, or session labels — they compute during regular hours only.",
+        "Watchlist trend lines always frame the regular session; the extended-hours setting applies to the detail chart only.",
+        "The context menu gains native multi-select group membership and a reorder entry, and position summaries navigate straight into their pages.",
+      ],
+    },
+  },
+  {
     version: "0.8.1",
     date: "2026-07-30",
     kind: "improvement",

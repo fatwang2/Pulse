@@ -10,6 +10,25 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.10.0",
+    date: "2026-08-03",
+    kind: "release",
+    highlights: {
+      zh: [
+        "新增“复制为文本”：自选列表和详情页可复制固定英文的结构化市场快照，包含标的信息、报价、来源、时间戳与交易时段；详情页同时附带当前图表的 OHLCV 数据，可直接交给大模型分析。",
+        "自选排序升级：每个分组可独立置顶标的，原生拖拽跨越置顶边界会自动置顶或取消置顶；取消置顶会恢复原自定义位置，新加入标的进入非置顶区顶部。",
+        "优化跨市场搜索排序：精确匹配的币种或交易对仍优先；其余情况下，股票、ETF 与指数不再被弱相关的加密结果挤到后面。",
+        "Longbridge 连接错误现在保留并展示服务端原始信息，更准确地区分网络与授权问题；授权失效时可原地重新授权，旧凭据会保留到新授权验证成功。",
+      ],
+      en: [
+        "Copy as Text exports an English, structured market snapshot from a watchlist or detail page, including instrument metadata, quotes, source, timestamp, and session fields; detail exports also include chart OHLCV data ready for analysis in an LLM.",
+        "Watchlist ordering gains group-specific pinning and native drag reordering. Crossing the pinned boundary automatically pins or unpins, unpinning restores the prior custom position, and newly added symbols lead the regular section.",
+        "Cross-market search keeps exact crypto base or pair matches first while placing securities ahead of unrelated crypto results.",
+        "Longbridge failures now preserve and display the server's original error, classify network and authorization failures more accurately, and offer safe in-place re-authorization without discarding the previous grant before validation.",
+      ],
+    },
+  },
+  {
     version: "0.9.0",
     date: "2026-07-31",
     kind: "release",

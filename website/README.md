@@ -38,13 +38,7 @@ npm test
 
 ## 发布
 
-网站部署在 Cloudflare Workers（Worker 名 `pulse-website`）：
-
-```bash
-npm run deploy
-```
-
-等价于 `vite build && wrangler deploy`（`@cloudflare/vite-plugin` 会在 `dist/` 下生成最终 wrangler 配置，`wrangler deploy` 通过 `.wrangler/deploy/config.json` 自动指向它）。
+网站部署在 Cloudflare Workers（Worker 名 `pulse-website`）。推送 `main` 后由 Cloudflare Git 集成自动构建和部署；正常发版不运行单独的部署命令。`npm run deploy` 仅保留为需要人工接管时的应急命令。
 
 生产环境使用自定义域名 [`www.pulseticker.app`](https://www.pulseticker.app/)，预览地址
 `https://pulse-website.fatwang2.workers.dev`。
@@ -54,10 +48,10 @@ npm run deploy
 安装包使用版本化 R2 对象，官网稳定入口 `/download` 会跳转到带版本参数的下载请求：
 
 ```text
-/download?version=0.8.1
+/download?version=<version>
 ```
 
-首次访问版本化请求时，Worker 会从固定的 GitHub Release 地址读取文件，校验预期大小与 SHA-256 后写入 R2；后续请求直接从 R2 返回。**发布新版时需要同步更新 `src/download.ts` 中的版本、文件名、下载地址、大小和 SHA-256，并在 `src/data/releases.ts` 中追加更新日志。**
+首次访问版本化请求时，Worker 会从固定的 GitHub Release 地址读取文件，校验预期大小与 SHA-256 后写入 R2；后续请求直接从 R2 返回。**发布新版时先在 `src/data/releases.ts` 追加更新日志；GitHub Release 生成 DMG 后，再用实际文件的版本、文件名、下载地址、大小和 SHA-256 更新 `src/download.ts`，推送 `main` 触发官网部署。**
 
 ## 行情数据源标识
 

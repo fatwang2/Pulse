@@ -102,11 +102,26 @@ struct WatchlistView: View {
                 }
                 .disabled(isReordering)
                 .opacity(isReordering ? 0.45 : 1)
-                ClusterIcon(
+                ClusterMenu(
                     systemName: "square.and.arrow.up",
-                    help: PulseLocalization.localizedString("action.copyShareSnapshot")
+                    help: PulseLocalization.localizedString("action.share")
                 ) {
-                    copyShareSnapshot()
+                    Button {
+                        copyShareImage()
+                    } label: {
+                        Label(
+                            PulseLocalization.localizedString("action.copyAsImage"),
+                            systemImage: "photo"
+                        )
+                    }
+                    Button {
+                        copyShareText()
+                    } label: {
+                        Label(
+                            PulseLocalization.localizedString("action.copyAsText"),
+                            systemImage: "doc.text"
+                        )
+                    }
                 }
                 .disabled(appState.watchlist.items.isEmpty)
                 .opacity(appState.watchlist.items.isEmpty ? 0.45 : 1)
@@ -358,7 +373,7 @@ struct WatchlistView: View {
     }
 
     @MainActor
-    private func copyShareSnapshot() {
+    private func copyShareImage() {
         do {
             let snapshot = WatchlistShareSnapshot(appState: appState)
             let palette = ChangePalette(redUp: snapshot.redUp)
@@ -376,15 +391,26 @@ struct WatchlistView: View {
                 )
             )
             try ClipboardImageExporter.write(artifact)
-            showShareFeedback(isSuccess: true)
+            showShareFeedback(content: .image, isSuccess: true)
         } catch {
-            showShareFeedback(isSuccess: false)
+            showShareFeedback(content: .image, isSuccess: false)
         }
     }
 
     @MainActor
-    private func showShareFeedback(isSuccess: Bool) {
-        let feedback = ShareFeedback(isSuccess: isSuccess)
+    private func copyShareText() {
+        do {
+            let snapshot = WatchlistTextSnapshot(appState: appState)
+            try ClipboardTextExporter.write(snapshot.renderedText())
+            showShareFeedback(content: .text, isSuccess: true)
+        } catch {
+            showShareFeedback(content: .text, isSuccess: false)
+        }
+    }
+
+    @MainActor
+    private func showShareFeedback(content: ShareFeedback.Content, isSuccess: Bool) {
+        let feedback = ShareFeedback(content: content, isSuccess: isSuccess)
         withAnimation(.snappy(duration: 0.2)) {
             shareFeedback = feedback
         }

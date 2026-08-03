@@ -2,7 +2,8 @@
 "action.back" = "返回";
 "action.cancel" = "取消";
 "action.clearPosition" = "一键删除";
-"action.copyShareSnapshot" = "复制分享图";
+"action.copyAsImage" = "复制为图片";
+"action.copyAsText" = "复制为文本";
 "action.delete" = "删除";
 "action.done" = "完成";
 "action.editPosition" = "编辑持仓";
@@ -13,6 +14,7 @@
 "action.quitPulse" = "退出 Pulse";
 "action.refreshNow" = "立即刷新";
 "action.save" = "保存";
+"action.share" = "分享";
 
 "assetType.fund" = "基金";
 "assetType.index" = "指数";
@@ -192,10 +194,12 @@
 "search.placeholder" = "搜索代码或公司";
 
 "share.watchlist.title" = "我的自选";
-"share.copyFailed" = "无法复制分享图";
-"share.copySuccess" = "分享图已复制";
+"share.image.copyFailed" = "无法复制图片";
+"share.image.copySuccess" = "图片已复制";
 "share.range.intraday" = "日内区间";
 "share.updateUnavailable" = "等待行情数据";
+"share.text.copyFailed" = "无法复制文本";
+"share.text.copySuccess" = "文本已复制";
 
 "settings.general.language" = "语言";
 "settings.general.launchAtLogin" = "开机自启";

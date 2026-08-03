@@ -371,7 +371,7 @@ enum SelfTest {
         }
         if CommandLine.arguments.contains("--share-selftest") {
             Task { @MainActor in
-                exit(runShareImageTest() ? 0 : 1)
+                exit(runShareTest() ? 0 : 1)
             }
             return
         }
@@ -444,7 +444,7 @@ enum SelfTest {
     }
 
     @MainActor
-    private static func runShareImageTest() -> Bool {
+    private static func runShareTest() -> Bool {
         do {
             let metricTestItem = WatchItem(
                 symbol: SymbolID(market: .us, code: "AAPL"),
@@ -748,6 +748,283 @@ enum SelfTest {
                 throw ShareImageError.renderingFailed
             }
 
+            // Fixed-English text exports keep raw data machine-readable, preserve item order
+            // and source metadata, and never receive position or trade fields.
+            let exportedAt = ISO8601DateFormatter().date(from: "2026-07-15T16:00:00Z")!
+            let privateItem = WatchItem(
+                symbol: metricTestItem.symbol,
+                displayName: "Apple",
+                instrumentType: .equity,
+                lots: [CostLot(price: 987_654.321, quantity: 12_345.678)]
+            )
+            var textQuote = detailQuote
+            textQuote.timestamp = detailCandles.last?.time ?? exportedAt
+            textQuote.sourceID = "longbridge"
+            textQuote.sourceName = "Longbridge"
+            textQuote.sourceDelay = 0
+
+            // Exercise the same WatchlistStore + MarketStore constructor used by AppState,
+            // with isolated persistence so this test never touches the user's watchlist.
+            let defaultsSuite = "app.pulse.share-selftest.\(UUID().uuidString)"
+            guard let isolatedDefaults = UserDefaults(suiteName: defaultsSuite) else {
+                throw MarketTextSnapshotError.encodingFailed
+            }
+            isolatedDefaults.removePersistentDomain(forName: defaultsSuite)
+            defer { isolatedDefaults.removePersistentDomain(forName: defaultsSuite) }
+            let productionWatchlist = WatchlistStore(
+                defaults: isolatedDefaults,
+                defaultGroupName: "AI Export"
+            )
+            productionWatchlist.add(SymbolInfo(
+                symbol: privateItem.symbol,
+                name: privateItem.resolvedDisplayName,
+                type: .equity
+            ))
+            productionWatchlist.updateLots(
+                privateItem.symbol,
+                lots: [CostLot(price: 987_654.321, quantity: 12_345.678)]
+            )
+            productionWatchlist.addTransaction(
+                privateItem.symbol,
+                PositionTransaction(kind: .buy, price: 876_543.219, quantity: 54_321.987)
+            )
+            let productionMarket = MarketStore()
+            productionMarket.apply(quotes: [textQuote])
+            productionMarket.apply(sparkline: detailCandles, for: privateItem.symbol)
+            let productionText = try WatchlistTextSnapshot(
+                watchlist: productionWatchlist,
+                market: productionMarket,
+                exportedAt: exportedAt
+            ).renderedText()
+            guard !productionText.contains("987654.321"),
+                  !productionText.contains("12345.678"),
+                  !productionText.contains("876543.219"),
+                  !productionText.contains("54321.987"),
+                  let productionItems = try decodedTextSnapshot(productionText)["items"] as? [[String: Any]],
+                  productionItems.count == 1 else {
+                throw MarketTextSnapshotError.encodingFailed
+            }
+
+            let watchlistText = try WatchlistTextSnapshot(
+                groupName: "AI Export",
+                items: [
+                    .init(
+                        symbol: privateItem.symbol,
+                        name: privateItem.resolvedDisplayName,
+                        instrumentType: privateItem.resolvedInstrumentType,
+                        quote: textQuote,
+                        intradayCandles: detailCandles
+                    ),
+                    .init(
+                        symbol: SymbolID(market: .sh, code: "600519"),
+                        name: "贵州茅台",
+                        instrumentType: .equity,
+                        quote: nil,
+                        intradayCandles: []
+                    ),
+                ],
+                exportedAt: exportedAt
+            ).renderedText()
+            let watchlistPayload = try decodedTextSnapshot(watchlistText)
+            guard watchlistText.hasPrefix("This market snapshot was exported by Pulse."),
+                  !watchlistText.contains("987654.321"),
+                  !watchlistText.contains("12345.678"),
+                  !watchlistText.contains("—"),
+                  watchlistPayload["exported_at"] as? String == "2026-07-15T16:00:00Z",
+                  watchlistPayload["format"] as? String == "pulse_market_snapshot",
+                  let view = watchlistPayload["view"] as? [String: Any],
+                  view["type"] as? String == "watchlist",
+                  view["group_name"] as? String == "AI Export",
+                  let textItems = watchlistPayload["items"] as? [[String: Any]],
+                  textItems.count == 2,
+                  textItems[0]["order"] as? Int == 1,
+                  textItems[1]["order"] as? Int == 2,
+                  let firstQuote = textItems[0]["quote"] as? [String: Any],
+                  firstQuote["session"] as? String == "regular",
+                  firstQuote["timestamp"] as? String == "2026-07-15T11:29:00-04:00",
+                  let firstSource = firstQuote["source"] as? [String: Any],
+                  firstSource["id"] as? String == "longbridge",
+                  let secondInstrument = textItems[1]["instrument"] as? [String: Any],
+                  secondInstrument["name"] as? String == "贵州茅台",
+                  textItems[1]["quote"] is NSNull,
+                  textItems[1]["intraday_summary"] is NSNull else {
+                throw MarketTextSnapshotError.encodingFailed
+            }
+
+            // Exported session scopes are exact even though chart framing tolerates
+            // provider bars one minute outside the opening and closing boundaries.
+            var usCalendar = Calendar(identifier: .gregorian)
+            usCalendar.timeZone = Market.us.timeZone
+            let usDay = usCalendar.date(from: DateComponents(year: 2026, month: 7, day: 15))!
+            func usCandle(hour: Int, minute: Int, price: Double) -> Candle {
+                let time = usCalendar.date(
+                    bySettingHour: hour,
+                    minute: minute,
+                    second: 0,
+                    of: usDay
+                )!
+                return Candle(
+                    time: time,
+                    open: price,
+                    high: price + 0.01,
+                    low: price - 0.01,
+                    close: price,
+                    volume: 1
+                )
+            }
+            let boundaryCandles = [
+                usCandle(hour: 9, minute: 29, price: 7.71),
+                usCandle(hour: 9, minute: 30, price: 7.72),
+                usCandle(hour: 16, minute: 0, price: 7.49),
+                usCandle(hour: 16, minute: 1, price: 7.48),
+            ]
+            let boundaryText = try WatchlistTextSnapshot(
+                groupName: "Boundaries",
+                items: [
+                    .init(
+                        symbol: privateItem.symbol,
+                        name: privateItem.resolvedDisplayName,
+                        instrumentType: privateItem.resolvedInstrumentType,
+                        quote: textQuote,
+                        intradayCandles: boundaryCandles
+                    ),
+                ],
+                exportedAt: exportedAt
+            ).renderedText()
+            let boundaryPayload = try decodedTextSnapshot(boundaryText)
+            guard let boundaryItems = boundaryPayload["items"] as? [[String: Any]],
+                  let boundarySummary = boundaryItems.first?["intraday_summary"] as? [String: Any],
+                  boundarySummary["bar_count"] as? Int == 2,
+                  boundarySummary["start_at"] as? String == "2026-07-15T09:30:00-04:00",
+                  boundarySummary["end_at"] as? String == "2026-07-15T16:00:00-04:00",
+                  boundarySummary["open"] as? Double == 7.72,
+                  boundarySummary["close"] as? Double == 7.49 else {
+                throw MarketTextSnapshotError.encodingFailed
+            }
+
+            let boundaryDetailText = try DetailTextSnapshot(
+                symbol: privateItem.symbol,
+                name: privateItem.resolvedDisplayName,
+                instrumentType: privateItem.resolvedInstrumentType,
+                quote: textQuote,
+                period: .minute1,
+                candles: boundaryCandles,
+                includesExtendedHours: false,
+                exportedAt: exportedAt
+            ).renderedText()
+            let boundaryDetailPayload = try decodedTextSnapshot(boundaryDetailText)
+            guard let boundaryChart = boundaryDetailPayload["chart"] as? [String: Any],
+                  let boundaryAggregation = boundaryChart["aggregation"] as? [String: Any],
+                  boundaryAggregation["input_bar_count"] as? Int == 2,
+                  boundaryChart["visible_from"] as? String == "2026-07-15T09:30:00-04:00",
+                  boundaryChart["visible_to"] as? String == "2026-07-15T16:00:00-04:00" else {
+                throw MarketTextSnapshotError.encodingFailed
+            }
+
+            // Crypto is a continuous session regardless of a provider's stock-shaped
+            // MarketState value, and high-precision quantities remain clean JSON numbers.
+            let bitcoin = SymbolID(cryptoBase: "BTC", quote: "USDT")
+            let cryptoQuote = Quote(
+                symbol: bitcoin,
+                name: "BTC",
+                price: 63_136,
+                previousClose: 63_396.63,
+                high: 63_796.33,
+                low: 62_982.38,
+                volume: 7_696.4130699999996,
+                turnover: 487_579_750.31443441,
+                currencyCode: "USDT",
+                sourceID: "binance",
+                sourceName: "Binance",
+                sourceDelay: 0,
+                timestamp: exportedAt,
+                marketState: .regular
+            )
+            let cryptoText = try WatchlistTextSnapshot(
+                groupName: "Crypto",
+                items: [
+                    .init(
+                        symbol: bitcoin,
+                        name: "BTC",
+                        instrumentType: .crypto,
+                        quote: cryptoQuote,
+                        intradayCandles: []
+                    ),
+                ],
+                exportedAt: exportedAt
+            ).renderedText()
+            let cryptoPayload = try decodedTextSnapshot(cryptoText)
+            guard let cryptoItems = cryptoPayload["items"] as? [[String: Any]],
+                  let exportedCryptoQuote = cryptoItems.first?["quote"] as? [String: Any],
+                  exportedCryptoQuote["session"] as? String == "continuous",
+                  cryptoText.contains("\"volume\" : 7696.41307"),
+                  cryptoText.contains("\"turnover\" : 487579750.31") else {
+                throw MarketTextSnapshotError.encodingFailed
+            }
+
+            let textPasteboard = NSPasteboard.withUniqueName()
+            textPasteboard.clearContents()
+            textPasteboard.setData(Data([0x01]), forType: .png)
+            try ClipboardTextExporter.write(watchlistText, to: textPasteboard)
+            guard textPasteboard.string(forType: .string) == watchlistText,
+                  textPasteboard.data(forType: .png) == nil else {
+                throw ClipboardTextError.writeFailed
+            }
+
+            let chartStart = detailCandles.first?.time ?? exportedAt
+            let longChart = (0..<241).map { index in
+                let base = 200 + Double(index) * 0.1
+                return Candle(
+                    time: chartStart.addingTimeInterval(Double(index) * 5 * 60),
+                    open: base,
+                    high: base + 0.8,
+                    low: base - 0.6,
+                    close: base + 0.2,
+                    volume: Double(index + 1) * 100
+                )
+            }
+            var missingReferenceQuote = textQuote
+            missingReferenceQuote.previousClose = 0
+            missingReferenceQuote.marketState = .postMarket
+            missingReferenceQuote.regularSession = .init(price: 229.5, previousClose: nil)
+            let detailText = try DetailTextSnapshot(
+                symbol: privateItem.symbol,
+                name: privateItem.resolvedDisplayName,
+                instrumentType: privateItem.resolvedInstrumentType,
+                quote: missingReferenceQuote,
+                period: .minute5,
+                candles: longChart,
+                includesExtendedHours: true,
+                exportedAt: exportedAt
+            ).renderedText()
+            let detailPayload = try decodedTextSnapshot(detailText)
+            guard let chart = detailPayload["chart"] as? [String: Any],
+                  chart["period"] as? String == "5m",
+                  chart["includes_extended_hours"] as? Bool == true,
+                  chart["session_scope"] as? String == "pre_market_regular_post_market",
+                  chart["source"] is NSNull,
+                  let aggregation = chart["aggregation"] as? [String: Any],
+                  aggregation["method"] as? String == "contiguous_ohlcv",
+                  aggregation["input_bar_count"] as? Int == 241,
+                  aggregation["output_bar_count"] as? Int == 81,
+                  aggregation["source_bars_per_output_bar"] as? Int == 3,
+                  let bars = chart["bars"] as? [[Any]],
+                  bars.count == 81,
+                  bars.allSatisfy({ $0.count == 6 }),
+                  let exportedQuote = detailPayload["quote"] as? [String: Any],
+                  exportedQuote["previous_close"] is NSNull,
+                  exportedQuote["change"] is NSNull,
+                  exportedQuote["change_percent"] is NSNull,
+                  let regularClose = exportedQuote["regular_session_close"] as? [String: Any],
+                  regularClose["previous_close"] is NSNull,
+                  regularClose["change"] is NSNull,
+                  regularClose["change_percent"] is NSNull,
+                  detailText.split(separator: "\n").filter({ $0.hasPrefix("      [\"") }).count == 81,
+                  !detailText.contains("\"bars\" : [\n      [\n"),
+                  !detailText.contains("200.199999999") else {
+                throw MarketTextSnapshotError.encodingFailed
+            }
+
             let outputURL = URL(fileURLWithPath: NSTemporaryDirectory())
                 .appendingPathComponent("pulse-share-selftest.png")
             try artifact.pngData.write(to: outputURL, options: .atomic)
@@ -761,7 +1038,7 @@ enum SelfTest {
                 .appendingPathComponent("pulse-detail-share-selftest-dark.png")
             try darkDetailArtifact.pngData.write(to: darkDetailOutputURL, options: .atomic)
             print(
-                "SHARE_SELFTEST: ✅ PNG/TIFF copied to isolated pasteboard, "
+                "SHARE_SELFTEST: ✅ image and English text exports copied to isolated pasteboards, "
                     + "images=\(bitmap.pixelsWide)x\(bitmap.pixelsHigh),tall="
                     + "\(tallBitmap.pixelsWide)x\(tallBitmap.pixelsHigh), detail="
                     + "\(detailBitmap.pixelsWide)x\(detailBitmap.pixelsHigh), darkDetail="
@@ -788,5 +1065,19 @@ enum SelfTest {
             print("SHARE_SELFTEST: ❌ \(error)")
             return false
         }
+    }
+
+    private static func decodedTextSnapshot(_ text: String) throws -> [String: Any] {
+        let opening = "```json\n"
+        guard let start = text.range(of: opening),
+              let end = text.range(of: "\n```", options: .backwards),
+              start.upperBound <= end.lowerBound else {
+            throw MarketTextSnapshotError.encodingFailed
+        }
+        let data = Data(text[start.upperBound..<end.lowerBound].utf8)
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw MarketTextSnapshotError.encodingFailed
+        }
+        return object
     }
 }

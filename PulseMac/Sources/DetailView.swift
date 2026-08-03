@@ -161,14 +161,31 @@ struct DetailView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Spacer()
-            ClusterIcon(
+            ClusterMenu(
                 systemName: "square.and.arrow.up",
-                help: PulseLocalization.localizedString("action.copyShareSnapshot")
+                help: PulseLocalization.localizedString("action.share")
             ) {
-                copyShareSnapshot()
+                Button {
+                    copyShareImage()
+                } label: {
+                    Label(
+                        PulseLocalization.localizedString("action.copyAsImage"),
+                        systemImage: "photo"
+                    )
+                }
+                .disabled(quote == nil || chartCandles.isEmpty)
+                Button {
+                    copyShareText()
+                } label: {
+                    Label(
+                        PulseLocalization.localizedString("action.copyAsText"),
+                        systemImage: "doc.text"
+                    )
+                }
+                .disabled(quote == nil)
             }
-            .disabled(quote == nil || chartCandles.isEmpty)
-            .opacity(quote == nil || chartCandles.isEmpty ? 0.45 : 1)
+            .disabled(quote == nil)
+            .opacity(quote == nil ? 0.45 : 1)
             if item == nil {
                 // Opened from search without being watched: offer the add here so
                 // a lookup can graduate into the list without going back.
@@ -216,19 +233,35 @@ struct DetailView: View {
     }
 
     @MainActor
-    private func copyShareSnapshot() {
+    private var sharedCandles: [Candle] {
+        // K-line exports use exactly the zoomed window on screen; the intraday
+        // chart keeps the full session, whose frame is its own context.
+        let allCandles = chartCandles
+        if period == .minute1 {
+            return IntradayTrendSnapshot(
+                candles: allCandles,
+                market: symbol.market,
+                includesExtendedHours: appState.showsExtendedHours(for: symbol)
+            ).candles
+        }
+        return Array(allCandles[candleViewport.visibleRange(dataCount: allCandles.count)])
+    }
+
+    private var sharedInstrumentType: InstrumentType? {
+        if let type = item?.resolvedInstrumentType { return type }
+        if symbol.indexID != nil { return .index }
+        if symbol.cryptoPair != nil { return .crypto }
+        return nil
+    }
+
+    @MainActor
+    private func copyShareImage() {
         do {
-            // K-line cards share exactly the zoomed window on screen; the intraday
-            // card keeps the full session, whose frame is its own context.
-            let allCandles = chartCandles
-            let shareCandles = period == .minute1
-                ? allCandles
-                : Array(allCandles[candleViewport.visibleRange(dataCount: allCandles.count)])
             let snapshot = DetailShareSnapshot(
                 appState: appState,
                 symbol: symbol,
                 period: period,
-                candles: shareCandles
+                candles: sharedCandles
             )
             let palette = ChangePalette(redUp: snapshot.redUp)
             let card = PulseShareCard(
@@ -244,15 +277,38 @@ struct DetailView: View {
                 )
             )
             try ClipboardImageExporter.write(artifact)
-            showShareFeedback(isSuccess: true)
+            showShareFeedback(content: .image, isSuccess: true)
         } catch {
-            showShareFeedback(isSuccess: false)
+            showShareFeedback(content: .image, isSuccess: false)
         }
     }
 
     @MainActor
-    private func showShareFeedback(isSuccess: Bool) {
-        let feedback = ShareFeedback(isSuccess: isSuccess)
+    private func copyShareText() {
+        guard let quote else {
+            showShareFeedback(content: .text, isSuccess: false)
+            return
+        }
+        do {
+            let snapshot = DetailTextSnapshot(
+                symbol: symbol,
+                name: appState.displayName(for: symbol),
+                instrumentType: sharedInstrumentType,
+                quote: quote,
+                period: period,
+                candles: sharedCandles,
+                includesExtendedHours: appState.showsExtendedHours(for: symbol)
+            )
+            try ClipboardTextExporter.write(snapshot.renderedText())
+            showShareFeedback(content: .text, isSuccess: true)
+        } catch {
+            showShareFeedback(content: .text, isSuccess: false)
+        }
+    }
+
+    @MainActor
+    private func showShareFeedback(content: ShareFeedback.Content, isSuccess: Bool) {
+        let feedback = ShareFeedback(content: content, isSuccess: isSuccess)
         withAnimation(.snappy(duration: 0.2)) {
             shareFeedback = feedback
         }

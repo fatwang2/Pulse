@@ -2,7 +2,8 @@
 "action.back" = "Back";
 "action.cancel" = "Cancel";
 "action.clearPosition" = "Remove Position";
-"action.copyShareSnapshot" = "Copy Share Image";
+"action.copyAsImage" = "Copy as Image";
+"action.copyAsText" = "Copy as Text";
 "action.delete" = "Delete";
 "action.done" = "Done";
 "action.editPosition" = "Edit Position";
@@ -13,6 +14,7 @@
 "action.quitPulse" = "Quit Pulse";
 "action.refreshNow" = "Refresh";
 "action.save" = "Save";
+"action.share" = "Share";
 
 "assetType.fund" = "Fund";
 "assetType.index" = "Index";
@@ -192,10 +194,12 @@
 "search.placeholder" = "Search symbols or companies";
 
 "share.watchlist.title" = "My Watchlist";
-"share.copyFailed" = "Couldn’t copy share image";
-"share.copySuccess" = "Copied share image";
+"share.image.copyFailed" = "Couldn’t copy image";
+"share.image.copySuccess" = "Image copied";
 "share.range.intraday" = "Day range";
 "share.updateUnavailable" = "Waiting for quote data";
+"share.text.copyFailed" = "Couldn’t copy text";
+"share.text.copySuccess" = "Text copied";
 
 "settings.general.language" = "Language";
 "settings.general.launchAtLogin" = "Launch at Login";

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const publishedDownloadVersion = "0.9.0";
+const publishedDownloadVersion = "0.10.0";
 
 async function loadWorker(tag) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);

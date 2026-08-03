@@ -503,7 +503,8 @@ public actor CompositeProvider: QuoteProvider {
         if let entry = searchCache[cacheKey], entry.isFresh(maxAge: searchCacheTTL) {
             return entry.value
         }
-        // Search is market-agnostic: query search-capable providers in registration order, then merge and dedupe.
+        // Search is market-agnostic: query search-capable providers in registration order, then merge,
+        // dedupe, and apply one cross-provider relevance ranking.
         // (Tencent excels at Chinese / pinyin / A-share codes, Yahoo at English names / global symbols — merging gives the widest coverage.)
         let enabled = providers.filter {
             $0.descriptor.capabilities.contains(.search) && !disabledIDs.contains($0.descriptor.id)
@@ -553,7 +554,7 @@ public actor CompositeProvider: QuoteProvider {
 
                     if !settleTimerStarted,
                        case .success(let results) = outcome,
-                       !results.isEmpty {
+                       Self.containsPreferredSearchResult(results, for: query) {
                         settleTimerStarted = true
                         group.addTask {
                             do {
@@ -640,14 +641,70 @@ public actor CompositeProvider: QuoteProvider {
             }
         }
 
+        let ranked = Self.rankSearchResults(merged, for: query)
+
         // Cache only a complete, fully successful answer. Partial results are useful
         // for the current interaction but should not mask a recovered source later.
         let allProvidersSucceeded = aggregation.completedAllProviders
             && aggregation.outcomes.allSatisfy { if case .success = $0.1 { true } else { false } }
         if allProvidersSucceeded {
-            searchCache[cacheKey] = CacheEntry(value: merged)
+            searchCache[cacheKey] = CacheEntry(value: ranked)
         }
-        return merged
+        return ranked
+    }
+
+    /// Prevents provider registration order from making crypto an unconditional prefix.
+    /// Explicit base/pair queries keep crypto useful, while every other crypto result
+    /// follows securities. Each bucket preserves the providers' original ranking.
+    private nonisolated static func rankSearchResults(
+        _ results: [SymbolInfo],
+        for query: String
+    ) -> [SymbolInfo] {
+        let compactQuery = compactSearchCode(query)
+        var exactCrypto: [SymbolInfo] = []
+        var securities: [SymbolInfo] = []
+        var otherCrypto: [SymbolInfo] = []
+
+        for info in results {
+            guard let pair = info.symbol.cryptoPair else {
+                securities.append(info)
+                continue
+            }
+            if isExactCryptoMatch(pair, compactQuery: compactQuery) {
+                exactCrypto.append(info)
+            } else {
+                otherCrypto.append(info)
+            }
+        }
+        return exactCrypto + securities + otherCrypto
+    }
+
+    /// A weak crypto-only hit must not close the enrichment window before a slower
+    /// securities source has had a chance to answer. Exact crypto queries remain fast.
+    private nonisolated static func containsPreferredSearchResult(
+        _ results: [SymbolInfo],
+        for query: String
+    ) -> Bool {
+        let compactQuery = compactSearchCode(query)
+        return results.contains { info in
+            guard let pair = info.symbol.cryptoPair else { return true }
+            return isExactCryptoMatch(pair, compactQuery: compactQuery)
+        }
+    }
+
+    private nonisolated static func isExactCryptoMatch(
+        _ pair: CryptoPair,
+        compactQuery: String
+    ) -> Bool {
+        guard !compactQuery.isEmpty else { return false }
+        return compactQuery == compactSearchCode(pair.baseAsset)
+            || compactQuery == compactSearchCode(pair.displayCode)
+    }
+
+    private nonisolated static func compactSearchCode(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+            .filter { $0.isLetter || $0.isNumber }
     }
 
     private enum SearchEvent: Sendable {

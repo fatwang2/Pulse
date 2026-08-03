@@ -250,6 +250,8 @@
 "watchlist.sort.adjust" = "调整顺序";
 "watchlist.sort.adjustActive" = "正在调整顺序";
 "watchlist.sort.manual" = "自定义排序";
+"watchlist.sort.pinToTop" = "置顶";
+"watchlist.sort.pinned" = "已置顶";
 "watchlist.defaultName" = "自选";
 "watchlist.group.delete" = "删除列表";
 "watchlist.group.deleteMessage" = "只属于这个列表的标的会移入其他列表，持仓数据不会被删除。";

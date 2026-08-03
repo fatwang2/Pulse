@@ -107,6 +107,76 @@ struct CompositeProviderTests {
         #expect(elapsed < .milliseconds(500))
     }
 
+    @Test("Weak crypto results rank behind stocks regardless of provider order")
+    func globalSearchRankingPutsWeakCryptoLast() async throws {
+        let crypto = SymbolInfo(
+            symbol: SymbolID(cryptoBase: "APPLECOIN", quote: "USDT"),
+            name: "APPLECOIN",
+            type: .crypto
+        )
+        let stock = SymbolInfo(
+            symbol: SymbolID(market: .us, code: "PINE"),
+            name: "Pineapple Holdings",
+            type: .equity
+        )
+        let cryptoFirst = MockProvider(id: "crypto", searchResults: [crypto])
+        let stocksSecond = MockProvider(id: "stocks", searchResults: [stock])
+        let composite = CompositeProvider(providers: [cryptoFirst, stocksSecond])
+
+        let results = try await composite.search("apple")
+
+        #expect(results.map(\.symbol) == [stock.symbol, crypto.symbol])
+    }
+
+    @Test("A fast weak crypto hit waits for a slower stock result")
+    func weakCryptoDoesNotCloseSearchSettleWindow() async throws {
+        let crypto = SymbolInfo(
+            symbol: SymbolID(cryptoBase: "APPLECOIN", quote: "USDT"),
+            name: "APPLECOIN",
+            type: .crypto
+        )
+        let stock = SymbolInfo(
+            symbol: SymbolID(market: .us, code: "AAPL"),
+            name: "Apple",
+            type: .equity
+        )
+        let fastCrypto = MockProvider(id: "crypto", searchResults: [crypto])
+        let slowerStocks = MockProvider(
+            id: "stocks",
+            searchResults: [stock],
+            searchDelay: .milliseconds(600)
+        )
+        let composite = CompositeProvider(
+            providers: [fastCrypto, slowerStocks],
+            searchDeadline: .seconds(2)
+        )
+
+        let results = try await composite.search("apple")
+
+        #expect(results.map(\.symbol) == [stock.symbol, crypto.symbol])
+    }
+
+    @Test("An exact crypto symbol still outranks a stock prefix match")
+    func globalSearchRankingKeepsExactCryptoFirst() async throws {
+        let crypto = SymbolInfo(
+            symbol: SymbolID(cryptoBase: "BTC", quote: "USDT"),
+            name: "BTC",
+            type: .crypto
+        )
+        let stock = SymbolInfo(
+            symbol: SymbolID(market: .us, code: "BTCM"),
+            name: "BTCM",
+            type: .equity
+        )
+        let cryptoFirst = MockProvider(id: "crypto", searchResults: [crypto])
+        let stocksSecond = MockProvider(id: "stocks", searchResults: [stock])
+        let composite = CompositeProvider(providers: [cryptoFirst, stocksSecond])
+
+        let results = try await composite.search("btc")
+
+        #expect(results.map(\.symbol) == [crypto.symbol, stock.symbol])
+    }
+
     @Test("A stalled source cannot hold useful search results")
     func stalledSourceReturnsPartialResults() async throws {
         let fast = MockProvider(id: "fast", searchResults: [Self.apple])

@@ -155,10 +155,7 @@ public final class WatchlistStore {
             if didUpdateItem { save() }
             return
         }
-        groups[groupIndex].symbols.append(info.symbol)
-        if groups[groupIndex].manualOrder != nil {
-            groups[groupIndex].manualOrder?.append(info.symbol)
-        }
+        insertAtTopOfUnpinned(info.symbol, inGroupAt: groupIndex)
         save()
     }
 
@@ -167,14 +164,12 @@ public final class WatchlistStore {
               let groupIndex = groups.firstIndex(where: { $0.id == groupID }) else { return }
         if included {
             guard !groups[groupIndex].symbols.contains(symbol) else { return }
-            groups[groupIndex].symbols.append(symbol)
-            if groups[groupIndex].manualOrder != nil {
-                groups[groupIndex].manualOrder?.append(symbol)
-            }
+            insertAtTopOfUnpinned(symbol, inGroupAt: groupIndex)
         } else {
             guard groups[groupIndex].symbols.contains(symbol) else { return }
             groups[groupIndex].symbols.removeAll { $0 == symbol }
             groups[groupIndex].manualOrder?.removeAll { $0 == symbol }
+            groups[groupIndex].pinnedSymbols.removeAll { $0 == symbol }
             if !groups.contains(where: { $0.symbols.contains(symbol) }) {
                 allItems.removeAll { $0.symbol == symbol }
             }
@@ -189,18 +184,72 @@ public final class WatchlistStore {
     }
 
     public func move(fromOffsets source: IndexSet, toOffset destination: Int) {
-        guard let id = selectedGroup?.id,
-              let groupIndex = groups.firstIndex(where: { $0.id == id }) else { return }
-        let current = groups[groupIndex].symbols
+        guard let current = selectedGroup?.symbols else { return }
         let validOffsets = source.filter { current.indices.contains($0) }
         let moving = validOffsets.sorted().map { current[$0] }
+        guard !moving.isEmpty else { return }
         let adjusted = destination - validOffsets.filter { $0 < destination }.count
-        groups[groupIndex].symbols.removeAll { moving.contains($0) }
-        groups[groupIndex].symbols.insert(
+        var orderedSymbols = current
+        orderedSymbols.removeAll { moving.contains($0) }
+        orderedSymbols.insert(
             contentsOf: moving,
-            at: min(max(adjusted, 0), groups[groupIndex].symbols.count)
+            at: min(max(adjusted, 0), orderedSymbols.count)
         )
+        _ = commitManualMove(orderedSymbols: orderedSymbols, movingSymbols: moving)
+    }
+
+    /// Atomically commits the final order produced by SwiftUI's native collection move.
+    /// Crossing the pinned boundary changes pin membership so the native drop location
+    /// and the persisted presentation remain identical.
+    @discardableResult
+    public func commitManualMove(
+        orderedSymbols: [SymbolID],
+        movingSymbols: [SymbolID]
+    ) -> Bool {
+        guard let id = selectedGroup?.id,
+              let groupIndex = groups.firstIndex(where: { $0.id == id }) else { return false }
+
+        let currentGroup = groups[groupIndex]
+        let currentSet = Set(currentGroup.symbols)
+        guard orderedSymbols.count == currentGroup.symbols.count,
+              Set(orderedSymbols) == currentSet else { return false }
+
+        let moving = movingSymbols.filter { currentSet.contains($0) }.uniqued()
+        let movingSet = Set(moving)
+        guard !moving.isEmpty,
+              let insertionIndex = orderedSymbols.firstIndex(where: { movingSet.contains($0) }) else {
+            return false
+        }
+
+        let originalPinned = Set(currentGroup.pinnedSymbols)
+        let movingPinnedCount = moving.reduce(into: 0) { count, symbol in
+            if originalPinned.contains(symbol) { count += 1 }
+        }
+        // SwiftUI List currently moves one contiguous selection. Refuse a mixed
+        // pinned/unpinned batch rather than committing an invalid interleaved section.
+        guard movingPinnedCount == 0 || movingPinnedCount == moving.count else { return false }
+
+        let remainingPinnedCount = originalPinned.count - movingPinnedCount
+        var updatedPinned = originalPinned
+        if movingPinnedCount == moving.count {
+            if insertionIndex > remainingPinnedCount {
+                updatedPinned.subtract(movingSet)
+            }
+        } else if insertionIndex < remainingPinnedCount {
+            updatedPinned.formUnion(movingSet)
+        }
+
+        var updatedGroup = currentGroup
+        updatedGroup.symbols = orderedSymbols
+        updatedGroup.pinnedSymbols = orderedSymbols.filter { updatedPinned.contains($0) }
+        updatedGroup.manualOrder = manualOrderPreservingPinnedPositions(
+            visibleOrder: orderedSymbols,
+            pinned: updatedPinned,
+            storedOrder: currentGroup.manualOrder
+        )
+        groups[groupIndex] = updatedGroup
         save()
+        return true
     }
 
     public func reorder(_ orderedSymbols: [SymbolID]) {
@@ -214,10 +263,45 @@ public final class WatchlistStore {
         save()
     }
 
+    public func isPinned(_ symbol: SymbolID, in groupID: UUID? = nil) -> Bool {
+        group(for: groupID ?? selectedGroupID)?.pinnedSymbols.contains(symbol) == true
+    }
+
+    /// Updates only pin membership. The caller decides whether the visible list
+    /// should be automatically sorted or manually moved to the top.
+    @discardableResult
+    public func setPinned(_ symbol: SymbolID, in groupID: UUID? = nil, pinned: Bool) -> Bool {
+        guard let targetID = group(for: groupID ?? selectedGroupID)?.id,
+              let groupIndex = groups.firstIndex(where: { $0.id == targetID }),
+              groups[groupIndex].symbols.contains(symbol) else {
+            return false
+        }
+
+        let wasPinned = groups[groupIndex].pinnedSymbols.contains(symbol)
+        guard wasPinned != pinned else { return false }
+        if pinned {
+            groups[groupIndex].pinnedSymbols.insert(symbol, at: 0)
+        } else {
+            groups[groupIndex].pinnedSymbols.removeAll { $0 == symbol }
+        }
+        save()
+        return true
+    }
+
     public func rememberManualOrder() {
         guard let id = selectedGroup?.id,
               let groupIndex = groups.firstIndex(where: { $0.id == id }) else { return }
-        groups[groupIndex].manualOrder = groups[groupIndex].symbols
+        var updatedGroup = groups[groupIndex]
+        let pinned = Set(updatedGroup.pinnedSymbols)
+        updatedGroup.manualOrder = manualOrderPreservingPinnedPositions(
+            visibleOrder: updatedGroup.symbols,
+            pinned: pinned,
+            storedOrder: updatedGroup.manualOrder
+        )
+        updatedGroup.pinnedSymbols = updatedGroup.symbols
+            .filter { pinned.contains($0) }
+            .uniqued()
+        groups[groupIndex] = updatedGroup
         save()
     }
 
@@ -460,6 +544,10 @@ public final class WatchlistStore {
             if let manualOrder = groups[index].manualOrder {
                 groups[index].manualOrder = manualOrder.filter { known.contains($0) }.uniqued()
             }
+            let members = Set(groups[index].symbols)
+            groups[index].pinnedSymbols = groups[index].pinnedSymbols
+                .filter { members.contains($0) }
+                .uniqued()
         }
 
         let assigned = Set(groups.flatMap(\.symbols))
@@ -475,6 +563,68 @@ public final class WatchlistStore {
         let snapshot = Snapshot(items: allItems, groups: groups, selectedGroupID: selectedGroupID)
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         defaults.set(data, forKey: storageKey)
+    }
+
+    /// Rebuilds the hidden custom-order baseline from a visible pinned-first order.
+    /// Pinned symbols keep their baseline slots; regular symbols adopt their visible
+    /// relative order. With no pins, the visible order is the baseline directly.
+    private func manualOrderPreservingPinnedPositions(
+        visibleOrder: [SymbolID],
+        pinned: Set<SymbolID>,
+        storedOrder: [SymbolID]?
+    ) -> [SymbolID] {
+        guard !pinned.isEmpty else { return visibleOrder }
+
+        let visibleSet = Set(visibleOrder)
+        let stored = (storedOrder ?? visibleOrder)
+            .filter { visibleSet.contains($0) }
+            .uniqued()
+        let storedSet = Set(stored)
+        let baselineOrder = stored + visibleOrder.filter { !storedSet.contains($0) }
+        let visibleUnpinned = visibleOrder.filter { !pinned.contains($0) }
+        var unpinnedIndex = 0
+        var updatedBaseline: [SymbolID] = []
+        updatedBaseline.reserveCapacity(baselineOrder.count)
+
+        for symbol in baselineOrder {
+            if pinned.contains(symbol) {
+                updatedBaseline.append(symbol)
+            } else if unpinnedIndex < visibleUnpinned.count {
+                updatedBaseline.append(visibleUnpinned[unpinnedIndex])
+                unpinnedIndex += 1
+            }
+        }
+        return updatedBaseline.uniqued()
+    }
+
+    /// New members lead the regular section without displacing pinned symbols.
+    /// Keep the hidden custom-order baseline in sync so restoring or unpinning
+    /// cannot send a newly added symbol back to the bottom.
+    private func insertAtTopOfUnpinned(_ symbol: SymbolID, inGroupAt groupIndex: Int) {
+        var updatedGroup = groups[groupIndex]
+        let pinned = Set(updatedGroup.pinnedSymbols)
+        let existingSymbols = updatedGroup.symbols
+        let visiblePinned = existingSymbols.filter { pinned.contains($0) }
+        let visibleUnpinned = existingSymbols.filter { !pinned.contains($0) }
+        updatedGroup.symbols = visiblePinned + [symbol] + visibleUnpinned
+
+        if let storedOrder = updatedGroup.manualOrder {
+            let existingSet = Set(existingSymbols)
+            let normalizedOrder = storedOrder
+                .filter { existingSet.contains($0) }
+                .uniqued()
+            let normalizedSet = Set(normalizedOrder)
+            var manualOrder = normalizedOrder + existingSymbols.filter {
+                !normalizedSet.contains($0)
+            }
+            let baselineInsertionIndex = manualOrder.firstIndex {
+                !pinned.contains($0)
+            } ?? manualOrder.endIndex
+            manualOrder.insert(symbol, at: baselineInsertionIndex)
+            updatedGroup.manualOrder = manualOrder.uniqued()
+        }
+
+        groups[groupIndex] = updatedGroup
     }
 
     private func normalizedName(_ rawName: String) -> String {

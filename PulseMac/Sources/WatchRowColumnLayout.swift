@@ -13,10 +13,11 @@ enum WatchRowColumnLayout {
         name: String,
         symbolCode: String,
         marketName: String,
-        presentation: WatchRowPresentation
+        presentation: WatchRowPresentation,
+        trailingAccessoryWidth: CGFloat = 0
     ) -> CGFloat {
         let metrics = Metrics(presentation)
-        let nameWidth = measure(name, font: metrics.nameFont)
+        let nameWidth = measure(name, font: metrics.nameFont) + trailingAccessoryWidth
         let badgeWidth = measure(marketName, font: metrics.badgeFont) + 7
         let symbolWidth = badgeWidth + metrics.badgeGap + measure(symbolCode, font: metrics.symbolFont)
         return min(max(max(nameWidth, symbolWidth), metrics.minimumTitleWidth), metrics.maximumTitleWidth)

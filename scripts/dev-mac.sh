@@ -163,13 +163,16 @@ case "$MODE" in
   --share-selftest)
     "$APP_BINARY" --share-selftest
     ;;
+  --watchlist-sort-selftest)
+    "$APP_BINARY" --watchlist-sort-selftest
+    ;;
   --verify|verify)
     open_app
     sleep 1
     pgrep -x "$APP_NAME" >/dev/null
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--release|--release-verify|--share-selftest|--settings-persistence-selftest|--release-settings-persistence-selftest|--release-sdk-live-selftest|--release-sdk-watchlist-selftest|--release-sdk-stability-selftest|--longbridge-plugin-state-selftest|--longbridge-plugin-selftest|--longbridge-sdk-live-selftest|--longbridge-sdk-watchlist-selftest|--longbridge-sdk-stability-selftest]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--release|--release-verify|--share-selftest|--watchlist-sort-selftest|--settings-persistence-selftest|--release-settings-persistence-selftest|--release-sdk-live-selftest|--release-sdk-watchlist-selftest|--release-sdk-stability-selftest|--longbridge-plugin-state-selftest|--longbridge-plugin-selftest|--longbridge-sdk-live-selftest|--longbridge-sdk-watchlist-selftest|--longbridge-sdk-stability-selftest]" >&2
     exit 2
     ;;
 esac

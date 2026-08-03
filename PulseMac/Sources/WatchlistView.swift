@@ -258,6 +258,7 @@ struct WatchlistView: View {
             appState.watchlist.selectGroup(id)
             if listOrderMode == WatchlistOrderMode.manual.rawValue {
                 _ = appState.watchlist.restoreManualOrder()
+                enforcePinnedOrder()
             } else if let option = WatchlistSortOption(rawValue: listSortOption) {
                 applySort(option, animated: false)
             }
@@ -296,7 +297,8 @@ struct WatchlistView: View {
                 name: item.resolvedDisplayName,
                 symbolCode: item.symbol.displayCode,
                 marketName: item.symbol.market.displayName,
-                presentation: .popover
+                presentation: .popover,
+                trailingAccessoryWidth: appState.watchlist.isPinned(item.symbol) ? 11 : 0
             )
         }
         return widths.max() ?? 48
@@ -741,6 +743,7 @@ struct WatchlistView: View {
                     item: item,
                     titleColumnWidth: titleColumnWidth,
                     metricColumnWidth: metricColumnWidth,
+                    isPinned: appState.watchlist.isPinned(item.symbol),
                     isReordering: isReordering
                 ) {
                     route = .detail(item.symbol)
@@ -751,6 +754,11 @@ struct WatchlistView: View {
                 .moveDisabled(!isReordering)
                 .contextMenu {
                     if !isReordering {
+                        Toggle(
+                            PulseLocalization.localizedString("watchlist.sort.pinToTop"),
+                            isOn: pinnedBinding(item.symbol)
+                        )
+                        Divider()
                         Button(PulseLocalization.localizedString("action.pinToMenuBar")) {
                             appState.settings.primarySymbol = item.symbol
                             appState.settings.menuBarMode = .single
@@ -782,9 +790,19 @@ struct WatchlistView: View {
                 }
             }
             .onMove { source, destination in
-                appState.watchlist.move(fromOffsets: source, toOffset: destination)
-                appState.watchlist.rememberManualOrder()
-                listOrderMode = WatchlistOrderMode.manual.rawValue
+                let currentSymbols = appState.watchlist.items.map(\.symbol)
+                let movingSymbols = source
+                    .filter { currentSymbols.indices.contains($0) }
+                    .sorted()
+                    .map { currentSymbols[$0] }
+                var orderedSymbols = currentSymbols
+                orderedSymbols.move(fromOffsets: source, toOffset: destination)
+                if appState.watchlist.commitManualMove(
+                    orderedSymbols: orderedSymbols,
+                    movingSymbols: movingSymbols
+                ) {
+                    listOrderMode = WatchlistOrderMode.manual.rawValue
+                }
             }
         }
         .listStyle(.plain)
@@ -810,13 +828,48 @@ struct WatchlistView: View {
         )
     }
 
+    private func pinnedBinding(_ symbol: SymbolID) -> Binding<Bool> {
+        Binding(
+            get: { appState.watchlist.isPinned(symbol) },
+            set: { pinned in
+                let usesAutomaticSort = listOrderMode == WatchlistOrderMode.automatic.rawValue
+                if !usesAutomaticSort {
+                    // Capture the unpinned baseline before the pin membership changes.
+                    appState.watchlist.rememberManualOrder()
+                }
+                guard appState.watchlist.setPinned(symbol, pinned: pinned) else { return }
+                withAnimation(.snappy(duration: 0.16)) {
+                    if usesAutomaticSort,
+                       let option = WatchlistSortOption(rawValue: listSortOption) {
+                        applySort(option)
+                    } else {
+                        _ = appState.watchlist.restoreManualOrder()
+                        enforcePinnedOrder()
+                    }
+                }
+            }
+        )
+    }
+
     /// State switch: bring back the remembered custom order. Does not enter the reorder UI.
     private func selectCustomOrder() {
         searchSession.text = ""
         withAnimation(.snappy(duration: 0.16)) {
             _ = appState.watchlist.restoreManualOrder()
+            enforcePinnedOrder()
         }
         listOrderMode = WatchlistOrderMode.manual.rawValue
+    }
+
+    /// Custom order remains stable within the pinned and unpinned sections.
+    /// Dragging across their boundary cannot leave a pinned row below a regular row.
+    private func enforcePinnedOrder() {
+        appState.watchlist.reorder(
+            WatchlistSortResolver.pinnedFirstSymbols(
+                items: appState.watchlist.items,
+                pinnedSymbols: appState.watchlist.selectedGroup?.pinnedSymbols ?? []
+            )
+        )
     }
 
     /// Action: start adjusting the arrangement currently on screen. Order mode and the remembered
@@ -832,25 +885,12 @@ struct WatchlistView: View {
             appState.watchlist.rememberManualOrder()
         }
 
-        let sortedSymbols = appState.watchlist.items
-            .enumerated()
-            .sorted { lhs, rhs in
-                let left = sortValue(for: lhs.element, option: option)
-                let right = sortValue(for: rhs.element, option: option)
-
-                switch (left, right) {
-                case let (left?, right?):
-                    if left == right { return lhs.offset < rhs.offset }
-                    return left > right
-                case (_?, nil):
-                    return true
-                case (nil, _?):
-                    return false
-                case (nil, nil):
-                    return lhs.offset < rhs.offset
-                }
-            }
-            .map { $0.element.symbol }
+        let sortedSymbols = WatchlistSortResolver.sortedSymbols(
+            items: appState.watchlist.items,
+            pinnedSymbols: appState.watchlist.selectedGroup?.pinnedSymbols ?? []
+        ) { item in
+            sortValue(for: item, option: option)
+        }
 
         searchSession.text = ""
         isReordering = false
@@ -921,6 +961,45 @@ struct WatchlistView: View {
 }
 
 // MARK: - Components
+
+enum WatchlistSortResolver {
+    static func pinnedFirstSymbols(
+        items: [WatchItem],
+        pinnedSymbols: [SymbolID]
+    ) -> [SymbolID] {
+        let itemsBySymbol = Dictionary(uniqueKeysWithValues: items.map { ($0.symbol, $0) })
+        let pinned = Set(pinnedSymbols)
+        return pinnedSymbols.filter { itemsBySymbol[$0] != nil }
+            + items.filter { !pinned.contains($0.symbol) }.map(\.symbol)
+    }
+
+    static func sortedSymbols(
+        items: [WatchItem],
+        pinnedSymbols: [SymbolID],
+        value: (WatchItem) -> Double?
+    ) -> [SymbolID] {
+        let pinned = Set(pinnedSymbols)
+        return items.enumerated().sorted { lhs, rhs in
+            let leftIsPinned = pinned.contains(lhs.element.symbol)
+            let rightIsPinned = pinned.contains(rhs.element.symbol)
+            if leftIsPinned != rightIsPinned { return leftIsPinned }
+
+            let left = value(lhs.element)
+            let right = value(rhs.element)
+            switch (left, right) {
+            case let (left?, right?):
+                if left == right { return lhs.offset < rhs.offset }
+                return left > right
+            case (_?, nil):
+                return true
+            case (nil, _?):
+                return false
+            case (nil, nil):
+                return lhs.offset < rhs.offset
+            }
+        }.map { $0.element.symbol }
+    }
+}
 
 private enum WatchlistOrderMode: String {
     case manual
@@ -1202,6 +1281,7 @@ struct WatchRow: View {
     let item: WatchItem
     let titleColumnWidth: CGFloat
     let metricColumnWidth: CGFloat
+    var isPinned: Bool = false
     var isReordering: Bool = false
     let onOpen: () -> Void
     @State private var hovering = false
@@ -1307,19 +1387,30 @@ struct WatchRow: View {
 
     @ViewBuilder
     private var titleLabel: some View {
-        let label = Text(item.resolvedDisplayName)
-            .font(.system(size: 12.5, weight: .medium))
-            .lineLimit(1)
-            .truncationMode(.tail)
+        HStack(spacing: 3) {
+            let label = Text(item.resolvedDisplayName)
+                .font(.system(size: 12.5, weight: .medium))
+                .lineLimit(1)
+                .truncationMode(.tail)
 
-        if WatchRowColumnLayout.nameIsTruncated(
-            item.resolvedDisplayName,
-            availableWidth: titleColumnWidth,
-            presentation: .popover
-        ) {
-            label.help(item.resolvedDisplayName)
-        } else {
-            label
+            if WatchRowColumnLayout.nameIsTruncated(
+                item.resolvedDisplayName,
+                availableWidth: titleColumnWidth - (isPinned ? 11 : 0),
+                presentation: .popover
+            ) {
+                label.help(item.resolvedDisplayName)
+            } else {
+                label
+            }
+
+            if isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .fixedSize()
+                    .help(PulseLocalization.localizedString("watchlist.sort.pinned"))
+                    .accessibilityLabel(PulseLocalization.localizedString("watchlist.sort.pinned"))
+            }
         }
     }
 

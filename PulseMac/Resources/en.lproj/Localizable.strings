@@ -250,6 +250,8 @@
 "watchlist.sort.adjust" = "Adjust Order";
 "watchlist.sort.adjustActive" = "Adjusting Order";
 "watchlist.sort.manual" = "Custom Order";
+"watchlist.sort.pinToTop" = "Pin to Top";
+"watchlist.sort.pinned" = "Pinned";
 "watchlist.defaultName" = "Watchlist";
 "watchlist.group.delete" = "Delete List";
 "watchlist.group.deleteMessage" = "Symbols that are only in this list will move to another list. Positions will not be deleted.";

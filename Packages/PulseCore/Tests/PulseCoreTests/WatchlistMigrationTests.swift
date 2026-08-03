@@ -120,11 +120,13 @@ struct WatchlistMigrationTests {
         #expect(Set(item.lots.map(\.id)) == Set([firstLot.id, secondLot.id]))
         #expect(store.selectedGroup?.symbols == [SymbolID(index: .sp500)])
         #expect(store.selectedGroup?.manualOrder == [SymbolID(index: .sp500)])
+        #expect(store.selectedGroup?.pinnedSymbols.isEmpty == true)
 
         let reloaded = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
         #expect(reloaded.allItems.first?.symbol.indexID == .sp500)
         #expect(reloaded.allItems.first?.lots.count == 2)
         #expect(reloaded.allItems.first?.supportsPosition == false)
+        #expect(reloaded.selectedGroup?.pinnedSymbols.isEmpty == true)
 
         let replacementLot = CostLot(price: 7_000, quantity: 3)
         reloaded.updateLots(SymbolID(index: .sp500), lots: [replacementLot])
@@ -159,6 +161,277 @@ struct WatchlistMigrationTests {
         #expect(store.items.map(\.symbol) == [apple.symbol])
         store.selectGroup(techGroupID)
         #expect(store.items.map(\.symbol) == [apple.symbol])
+    }
+
+    @MainActor
+    @Test("Pinned symbols persist per group and are cleared with membership")
+    func pinnedSymbolsAreGroupScoped() throws {
+        let suiteName = "WatchlistPinnedSymbolsTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        let apple = SymbolInfo(symbol: SymbolID(market: .us, code: "AAPL"), name: "Apple")
+        let microsoft = SymbolInfo(symbol: SymbolID(market: .us, code: "MSFT"), name: "Microsoft")
+        store.add(apple)
+        store.add(microsoft)
+        let defaultGroupID = try #require(store.selectedGroupID)
+        #expect(store.setPinned(apple.symbol, pinned: true))
+
+        let techGroupID = try #require(store.createGroup(named: "科技"))
+        store.add(apple)
+        store.add(microsoft)
+        #expect(store.setPinned(microsoft.symbol, pinned: true))
+        #expect(!store.setPinned(microsoft.symbol, pinned: true))
+
+        #expect(store.isPinned(apple.symbol, in: defaultGroupID))
+        #expect(!store.isPinned(microsoft.symbol, in: defaultGroupID))
+        #expect(!store.isPinned(apple.symbol, in: techGroupID))
+        #expect(store.isPinned(microsoft.symbol, in: techGroupID))
+
+        let reloaded = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        #expect(reloaded.isPinned(apple.symbol, in: defaultGroupID))
+        #expect(reloaded.isPinned(microsoft.symbol, in: techGroupID))
+
+        reloaded.setMembership(microsoft.symbol, in: techGroupID, included: false)
+        #expect(!reloaded.isPinned(microsoft.symbol, in: techGroupID))
+        #expect(!reloaded.setPinned(microsoft.symbol, in: techGroupID, pinned: true))
+        #expect(reloaded.item(for: microsoft.symbol) != nil)
+        reloaded.setMembership(microsoft.symbol, in: techGroupID, included: true)
+        #expect(!reloaded.isPinned(microsoft.symbol, in: techGroupID))
+    }
+
+    @MainActor
+    @Test("New members lead the unpinned section and keep that baseline after reload")
+    func newMembersLeadUnpinnedSection() throws {
+        let suiteName = "WatchlistNewMemberOrderTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        let apple = SymbolInfo(symbol: SymbolID(market: .us, code: "AAPL"), name: "Apple")
+        let microsoft = SymbolInfo(symbol: SymbolID(market: .us, code: "MSFT"), name: "Microsoft")
+        let tesla = SymbolInfo(symbol: SymbolID(market: .us, code: "TSLA"), name: "Tesla")
+
+        store.add(apple)
+        store.add(microsoft)
+        #expect(store.items.map(\.symbol) == [microsoft.symbol, apple.symbol])
+        store.add(microsoft)
+        #expect(store.items.map(\.symbol) == [microsoft.symbol, apple.symbol])
+
+        store.reorder([apple.symbol, microsoft.symbol])
+        store.rememberManualOrder()
+        #expect(store.setPinned(microsoft.symbol, pinned: true))
+        _ = store.restoreManualOrder()
+        store.reorder([microsoft.symbol])
+
+        store.add(tesla)
+        #expect(store.items.map(\.symbol) == [microsoft.symbol, tesla.symbol, apple.symbol])
+        #expect(store.selectedGroup?.manualOrder == [tesla.symbol, apple.symbol, microsoft.symbol])
+
+        let reloaded = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        #expect(reloaded.items.map(\.symbol) == [microsoft.symbol, tesla.symbol, apple.symbol])
+        #expect(reloaded.selectedGroup?.manualOrder == [tesla.symbol, apple.symbol, microsoft.symbol])
+
+        reloaded.rememberManualOrder()
+        #expect(reloaded.setPinned(microsoft.symbol, pinned: false))
+        #expect(reloaded.restoreManualOrder())
+        #expect(reloaded.items.map(\.symbol) == [tesla.symbol, apple.symbol, microsoft.symbol])
+    }
+
+    @MainActor
+    @Test("New members do not replace the hidden custom order with the automatic presentation")
+    func newMembersPreserveHiddenCustomOrder() throws {
+        let suiteName = "WatchlistNewMemberAutomaticOrderTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        let symbols = ["AAPL", "MSFT", "TSLA", "ONDS"].map {
+            SymbolInfo(symbol: SymbolID(market: .us, code: $0), name: $0)
+        }
+        for symbol in symbols.prefix(3) {
+            store.add(symbol)
+        }
+
+        let customOrder = Array(symbols.prefix(3)).map(\.symbol)
+        store.reorder(customOrder)
+        store.rememberManualOrder()
+
+        let automaticPresentation = Array(customOrder.reversed())
+        store.reorder(automaticPresentation)
+        store.add(symbols[3])
+
+        #expect(store.items.map(\.symbol) == [symbols[3].symbol] + automaticPresentation)
+        #expect(store.selectedGroup?.manualOrder == [symbols[3].symbol] + customOrder)
+        #expect(store.restoreManualOrder())
+        #expect(store.items.map(\.symbol) == [symbols[3].symbol] + customOrder)
+    }
+
+    @MainActor
+    @Test("Adding an existing instrument to another group leads its unpinned section")
+    func membershipAdditionLeadsUnpinnedSection() throws {
+        let suiteName = "WatchlistNewMembershipOrderTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        let apple = SymbolInfo(symbol: SymbolID(market: .us, code: "AAPL"), name: "Apple")
+        let microsoft = SymbolInfo(symbol: SymbolID(market: .us, code: "MSFT"), name: "Microsoft")
+        store.add(apple)
+        let techGroupID = try #require(store.createGroup(named: "科技"))
+        store.add(microsoft)
+        store.rememberManualOrder()
+        #expect(store.setPinned(microsoft.symbol, pinned: true))
+
+        store.setMembership(apple.symbol, in: techGroupID, included: true)
+        #expect(store.items(in: techGroupID).map(\.symbol) == [microsoft.symbol, apple.symbol])
+        #expect(store.group(for: techGroupID)?.manualOrder == [microsoft.symbol, apple.symbol])
+        #expect(store.isPinned(microsoft.symbol, in: techGroupID))
+        #expect(!store.isPinned(apple.symbol, in: techGroupID))
+    }
+
+    @MainActor
+    @Test("Unpinning restores the symbol's custom-order position")
+    func unpinRestoresCustomOrderPosition() throws {
+        let suiteName = "WatchlistPinRestoreTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        let symbols = ["AAPL", "MSFT", "TSLA", "ONDS"].map {
+            SymbolInfo(symbol: SymbolID(market: .us, code: $0), name: $0)
+        }
+        for symbol in symbols {
+            store.add(symbol)
+        }
+        let originalOrder = symbols.map(\.symbol)
+        let tesla = symbols[2].symbol
+        store.reorder(originalOrder)
+
+        store.rememberManualOrder()
+        #expect(store.setPinned(tesla, pinned: true))
+        _ = store.restoreManualOrder()
+        store.reorder([tesla])
+        #expect(store.items.map(\.symbol) == [tesla] + originalOrder.filter { $0 != tesla })
+
+        // This mirrors the view's pre-toggle capture while a pin presentation is active.
+        store.rememberManualOrder()
+        #expect(store.setPinned(tesla, pinned: false))
+        #expect(store.restoreManualOrder())
+        #expect(store.items.map(\.symbol) == originalOrder)
+
+        let reloaded = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        #expect(reloaded.items.map(\.symbol) == originalOrder)
+        #expect(!reloaded.isPinned(tesla))
+    }
+
+    @MainActor
+    @Test("Multiple pins keep their restore positions while custom order changes")
+    func multiplePinsPreserveRestorePositionsDuringDrag() throws {
+        let suiteName = "WatchlistMultiPinRestoreTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        let symbols = ["AAPL", "MSFT", "TSLA", "ONDS"].map {
+            SymbolInfo(symbol: SymbolID(market: .us, code: $0), name: $0)
+        }
+        for symbol in symbols {
+            store.add(symbol)
+        }
+        store.reorder(symbols.map(\.symbol))
+        let apple = symbols[0].symbol
+        let microsoft = symbols[1].symbol
+        let tesla = symbols[2].symbol
+        let ondas = symbols[3].symbol
+
+        func restorePinnedPresentation() {
+            _ = store.restoreManualOrder()
+            store.reorder(store.selectedGroup?.pinnedSymbols ?? [])
+        }
+
+        store.rememberManualOrder()
+        #expect(store.setPinned(microsoft, pinned: true))
+        restorePinnedPresentation()
+        store.rememberManualOrder()
+        #expect(store.setPinned(ondas, pinned: true))
+        restorePinnedPresentation()
+        #expect(store.items.map(\.symbol) == [ondas, microsoft, apple, tesla])
+
+        // Simulate dragging TSLA ahead of AAPL in the unpinned section.
+        store.reorder([ondas, microsoft, tesla, apple])
+        store.rememberManualOrder()
+        restorePinnedPresentation()
+        #expect(store.items.map(\.symbol) == [ondas, microsoft, tesla, apple])
+
+        store.rememberManualOrder()
+        #expect(store.setPinned(ondas, pinned: false))
+        restorePinnedPresentation()
+        #expect(store.items.map(\.symbol) == [microsoft, tesla, apple, ondas])
+
+        store.rememberManualOrder()
+        #expect(store.setPinned(microsoft, pinned: false))
+        _ = store.restoreManualOrder()
+        #expect(store.items.map(\.symbol) == [tesla, microsoft, apple, ondas])
+    }
+
+    @MainActor
+    @Test("Manual drops preserve the native result and switch pin membership across its boundary")
+    func manualDropAtomicallyCrossesPinnedBoundary() throws {
+        let suiteName = "WatchlistAtomicMoveTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        let symbols = ["AAPL", "MSFT", "TSLA", "ONDS"].map {
+            SymbolInfo(symbol: SymbolID(market: .us, code: $0), name: $0)
+        }
+        for symbol in symbols {
+            store.add(symbol)
+        }
+        store.reorder(symbols.map(\.symbol))
+        let apple = symbols[0].symbol
+        let microsoft = symbols[1].symbol
+        let tesla = symbols[2].symbol
+        let ondas = symbols[3].symbol
+
+        store.rememberManualOrder()
+        #expect(store.setPinned(microsoft, pinned: true))
+        _ = store.restoreManualOrder()
+        store.reorder([microsoft])
+
+        // Dropping an unpinned row inside the pinned section pins it at that exact location.
+        #expect(store.commitManualMove(
+            orderedSymbols: [tesla, microsoft, apple, ondas],
+            movingSymbols: [tesla]
+        ))
+        #expect(store.items.map(\.symbol) == [tesla, microsoft, apple, ondas])
+        #expect(store.selectedGroup?.pinnedSymbols == [tesla, microsoft])
+
+        // Dragging the same row below the pinned boundary unpins it without a second reorder.
+        #expect(store.commitManualMove(
+            orderedSymbols: [microsoft, apple, ondas, tesla],
+            movingSymbols: [tesla]
+        ))
+        #expect(store.items.map(\.symbol) == [microsoft, apple, ondas, tesla])
+        #expect(store.selectedGroup?.pinnedSymbols == [microsoft])
+
+        // The boundary itself belongs to the regular section, so this remains unpinned.
+        #expect(store.commitManualMove(
+            orderedSymbols: [microsoft, ondas, apple, tesla],
+            movingSymbols: [ondas]
+        ))
+        #expect(store.items.map(\.symbol) == [microsoft, ondas, apple, tesla])
+        #expect(store.selectedGroup?.pinnedSymbols == [microsoft])
+
+        // Moving above the boundary opts into pinning and keeps the native final order.
+        #expect(store.commitManualMove(
+            orderedSymbols: [ondas, microsoft, apple, tesla],
+            movingSymbols: [ondas]
+        ))
+        #expect(store.items.map(\.symbol) == [ondas, microsoft, apple, tesla])
+        #expect(store.selectedGroup?.pinnedSymbols == [ondas, microsoft])
     }
 
     @MainActor

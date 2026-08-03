@@ -257,6 +257,7 @@
 "watchlist.group.deleteMessage" = "Symbols that are only in this list will move to another list. Positions will not be deleted.";
 "watchlist.group.deleteTitle" = "Delete “%@”?";
 "watchlist.group.membership" = "Lists";
+"watchlist.group.removeCurrent" = "Remove from “%@”";
 "watchlist.group.nameError" = "Enter a unique list name.";
 "watchlist.group.namePlaceholder" = "List Name";
 "watchlist.group.new" = "New List";

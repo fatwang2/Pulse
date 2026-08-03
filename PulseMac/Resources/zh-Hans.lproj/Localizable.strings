@@ -257,6 +257,7 @@
 "watchlist.group.deleteMessage" = "只属于这个列表的标的会移入其他列表，持仓数据不会被删除。";
 "watchlist.group.deleteTitle" = "删除“%@”？";
 "watchlist.group.membership" = "所属列表";
+"watchlist.group.removeCurrent" = "从“%@”中删除";
 "watchlist.group.nameError" = "请输入未被使用的列表名称。";
 "watchlist.group.namePlaceholder" = "列表名称";
 "watchlist.group.new" = "新建列表";

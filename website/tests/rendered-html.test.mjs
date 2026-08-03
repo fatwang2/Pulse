@@ -97,11 +97,11 @@ test("server-renders the full bilingual release timeline", async () => {
   );
   assert.match(html, /data-testid="release-timeline"/);
   assert.match(html, /Every release,/);
-  assert.match(html, /id="v0-10-0"/);
-  assert.match(html, /href="#v0-10-0"/);
+  assert.match(html, /id="v0-10-1"/);
+  assert.match(html, /href="#v0-10-1"/);
   assert.match(html, /id="v0-1-0"/);
   assert.match(html, /href="#v0-1-0"/);
-  assert.ok(html.indexOf("0.10.0") < html.indexOf("0.1.0"));
+  assert.ok(html.indexOf("0.10.1") < html.indexOf("0.1.0"));
   assert.match(html, /dateTime="2026-08-03"/);
   assert.match(html, /href="\/"/);
   assert.match(html, /href="\/download"/);
@@ -110,7 +110,7 @@ test("server-renders the full bilingual release timeline", async () => {
   assert.doesNotMatch(html, /class="release-link"/);
 
   const releaseEntries = html.match(/class="release-entry"/g) ?? [];
-  assert.equal(releaseEntries.length, 22);
+  assert.equal(releaseEntries.length, 23);
 });
 
 test("includes English copy and remembered language selection", async () => {

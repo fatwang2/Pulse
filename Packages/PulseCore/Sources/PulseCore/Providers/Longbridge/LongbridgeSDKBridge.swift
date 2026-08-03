@@ -32,7 +32,7 @@ private let longbridgeSDKAsyncCallback: LBSDKAsyncCallback = { result in
     box.completion(result)
 }
 
-private struct LBSDKPrePostQuote: Sendable {
+struct LBSDKPrePostQuote: Sendable {
     var lastDone: Double?
     var timestamp: Int64
     var volume: Int64
@@ -42,7 +42,7 @@ private struct LBSDKPrePostQuote: Sendable {
     var previousClose: Double?
 }
 
-private struct LBSDKSecurityQuote: Sendable {
+struct LBSDKSecurityQuote: Sendable {
     var symbol: String
     var lastDone: Double?
     var previousClose: Double?
@@ -64,7 +64,7 @@ private struct LBSDKSecurityName: Sendable {
     var nameHK: String
 }
 
-private struct LBSDKPushQuote: Sendable {
+struct LBSDKPushQuote: Sendable {
     var symbol: String
     var lastDone: Double?
     var open: Double?
@@ -74,6 +74,63 @@ private struct LBSDKPushQuote: Sendable {
     var volume: Int64
     var turnover: Double?
     var tradeSession: Int32
+}
+
+/// Selects the latest real trade across Longbridge's regular, pre-market,
+/// post-market, and overnight quote buckets. The SDK represents an empty
+/// session with a decimal zero, which is a missing trade rather than a price.
+enum LongbridgeQuoteSelection {
+    struct Candidate: Sendable {
+        var session: MarketState
+        var price: Double?
+        var previousClose: Double?
+        var timestamp: Int64
+    }
+
+    struct Selection: Sendable, Equatable {
+        var session: MarketState
+        var price: Double
+        var previousClose: Double?
+        var timestamp: Int64
+    }
+
+    static func latestValid(from candidates: [Candidate]) -> Selection? {
+        var latest: Selection?
+        for candidate in candidates {
+            guard let price = validPrice(candidate.price) else { continue }
+            let selection = Selection(
+                session: candidate.session,
+                price: price,
+                previousClose: validPrice(candidate.previousClose),
+                timestamp: candidate.timestamp
+            )
+            if let current = latest {
+                if selection.timestamp > current.timestamp {
+                    latest = selection
+                }
+            } else {
+                latest = selection
+            }
+        }
+        return latest
+    }
+
+    static func validPrice(_ value: Double?) -> Double? {
+        guard let value, value.isFinite, value > 0 else { return nil }
+        return value
+    }
+
+    /// The display label describes the market's current clock session, while
+    /// the selected price may come from an earlier session with the latest trade.
+    static func marketState(at date: Date) -> MarketState {
+        switch TradingCalendar.state(of: .us, at: date) {
+        case .preMarket: .preMarket
+        case .regular: .regular
+        case .postMarket: .postMarket
+        case .overnight: .overnight
+        case .closed, .lunchBreak: .closed
+        }
+    }
 }
 
 private struct LBSDKCandlestick: Sendable {
@@ -948,21 +1005,12 @@ actor LongbridgeSDKBridge {
 
     private func receivePush(_ push: LBSDKPushQuote) {
         guard var quote = streamBase[push.symbol] else { return }
-        if let value = push.lastDone { quote.price = value }
-        if let value = push.open { quote.open = value }
-        if let value = push.high { quote.high = value }
-        if let value = push.low { quote.low = value }
-        quote.volume = Double(push.volume)
-        if let value = push.turnover { quote.turnover = value }
-        if push.timestamp > 0 {
-            quote.timestamp = Date(timeIntervalSince1970: TimeInterval(push.timestamp))
-        }
-        quote.sourceDelay = LongbridgeQuoteFreshness.effectiveDelay(
-            for: quote.symbol,
-            timestamp: quote.timestamp,
-            packages: negotiatedQuotePackages
+        quote = Self.applying(
+            push,
+            to: quote,
+            packages: negotiatedQuotePackages,
+            receivedAt: .now
         )
-        quote.marketState = Self.marketState(forTradeSession: push.tradeSession)
         streamBase[push.symbol] = quote
         if marketsWithLoggedPush.insert(quote.symbol.market).inserted {
             let age = max(0, Int(Date.now.timeIntervalSince(quote.timestamp)))
@@ -1259,73 +1307,145 @@ actor LongbridgeSDKBridge {
         )
     }
 
-    private static func quote(
+    static func quote(
         from snapshot: LBSDKSecurityQuote,
         symbol: SymbolID,
         packages: [LongbridgeQuotePackage],
         receivedAt: Date
     ) -> Quote? {
-        guard let regularPrice = snapshot.lastDone,
-              let previousClose = snapshot.previousClose else { return nil }
+        guard let regularPrice = LongbridgeQuoteSelection.validPrice(snapshot.lastDone),
+              let previousClose = LongbridgeQuoteSelection.validPrice(snapshot.previousClose) else {
+            return nil
+        }
 
-        var price = regularPrice
-        var reference = previousClose
-        var marketState: MarketState = .regular
-        var timestamp = snapshot.timestamp
-        var regularSession: Quote.RegularSessionClose?
-
+        var candidates = [
+            LongbridgeQuoteSelection.Candidate(
+                session: .regular,
+                price: regularPrice,
+                previousClose: previousClose,
+                timestamp: snapshot.timestamp
+            )
+        ]
         if symbol.market == .us {
-            let session: (LBSDKPrePostQuote?, MarketState)? =
-                switch TradingCalendar.state(of: .us) {
-                case .preMarket: (snapshot.preMarket, .preMarket)
-                case .postMarket: (snapshot.postMarket, .postMarket)
-                case .overnight: (snapshot.overnight, .overnight)
-                case .closed: (snapshot.overnight, .overnight)
-                default: nil
-                }
-            if let session,
-               let sessionQuote = session.0,
-               let sessionPrice = sessionQuote.lastDone,
-               sessionQuote.timestamp >= snapshot.timestamp {
-                price = sessionPrice
-                reference = sessionQuote.previousClose ?? regularPrice
-                marketState = session.1
-                timestamp = sessionQuote.timestamp
-                // Post/overnight: `prev_close` is yesterday's close, so the
-                // regular day's change is computable. Once the trading day
-                // rolls (pre-market), `prev_close` becomes the last regular
-                // close itself and the session's own reference is gone.
+            if let quote = snapshot.preMarket {
+                candidates.append(.init(
+                    session: .preMarket,
+                    price: quote.lastDone,
+                    previousClose: quote.previousClose,
+                    timestamp: quote.timestamp
+                ))
+            }
+            if let quote = snapshot.postMarket {
+                candidates.append(.init(
+                    session: .postMarket,
+                    price: quote.lastDone,
+                    previousClose: quote.previousClose,
+                    timestamp: quote.timestamp
+                ))
+            }
+            if let quote = snapshot.overnight {
+                candidates.append(.init(
+                    session: .overnight,
+                    price: quote.lastDone,
+                    previousClose: quote.previousClose,
+                    timestamp: quote.timestamp
+                ))
+            }
+        }
+
+        guard let latest = LongbridgeQuoteSelection.latestValid(from: candidates) else {
+            return nil
+        }
+
+        let marketState: MarketState = symbol.market == .us
+            ? LongbridgeQuoteSelection.marketState(at: receivedAt)
+            : .regular
+        var regularSession: Quote.RegularSessionClose?
+        if latest.session != .regular {
+            switch marketState {
+            case .preMarket, .postMarket, .overnight:
+                // Keep the regular session's own result alongside an extended-hours
+                // price, even when that latest price came from an earlier extended
+                // bucket (for example, overnight carried into an empty pre-market).
                 regularSession = Quote.RegularSessionClose(
                     price: regularPrice,
                     previousClose: previousClose == regularPrice ? nil : previousClose
                 )
+            case .regular, .closed:
+                break
             }
         }
 
         return Quote(
             symbol: symbol,
-            price: price,
-            previousClose: reference,
-            open: snapshot.open,
-            high: snapshot.high,
-            low: snapshot.low,
+            price: latest.price,
+            previousClose: latest.previousClose ?? regularPrice,
+            // Longbridge encodes not-yet-produced daily OHLC values as zero
+            // before the regular session opens. Zero is missing data here,
+            // just as it is for an empty extended-session last_done.
+            open: LongbridgeQuoteSelection.validPrice(snapshot.open),
+            high: LongbridgeQuoteSelection.validPrice(snapshot.high),
+            low: LongbridgeQuoteSelection.validPrice(snapshot.low),
             volume: Double(snapshot.volume),
             turnover: snapshot.turnover,
             currencyCode: symbol.market.currencyCode,
             sourceDelay: LongbridgeQuoteFreshness.effectiveDelay(
                 for: symbol,
-                timestamp: timestamp > 0
-                    ? Date(timeIntervalSince1970: TimeInterval(timestamp))
+                timestamp: latest.timestamp > 0
+                    ? Date(timeIntervalSince1970: TimeInterval(latest.timestamp))
                     : receivedAt,
                 packages: packages,
                 receivedAt: receivedAt
             ),
-            timestamp: timestamp > 0
-                ? Date(timeIntervalSince1970: TimeInterval(timestamp))
+            timestamp: latest.timestamp > 0
+                ? Date(timeIntervalSince1970: TimeInterval(latest.timestamp))
                 : receivedAt,
             marketState: marketState,
             regularSession: regularSession
         )
+    }
+
+    static func applying(
+        _ push: LBSDKPushQuote,
+        to base: Quote,
+        packages: [LongbridgeQuotePackage],
+        receivedAt: Date
+    ) -> Quote {
+        var quote = base
+        let marketState = Self.marketState(forTradeSession: push.tradeSession)
+        let pushedPrice = LongbridgeQuoteSelection.validPrice(push.lastDone)
+        if let pushedPrice { quote.price = pushedPrice }
+        if marketState == .regular {
+            if let value = LongbridgeQuoteSelection.validPrice(push.open) { quote.open = value }
+            if let value = LongbridgeQuoteSelection.validPrice(push.high) { quote.high = value }
+            if let value = LongbridgeQuoteSelection.validPrice(push.low) { quote.low = value }
+            quote.volume = Double(push.volume)
+            if let value = push.turnover { quote.turnover = value }
+            quote.regularSession = nil
+        } else if pushedPrice != nil, base.regularSession == nil {
+            // Extended-session pushes carry that session's own OHLC and volume.
+            // Pulse's market-stats module continues to describe the latest
+            // completed regular session until the next regular session begins.
+            quote.regularSession = .init(
+                price: base.price,
+                previousClose: base.previousClose == base.price ? nil : base.previousClose
+            )
+            quote.previousClose = base.price
+        }
+        // A zero last_done marks an empty session. Its timestamp is the empty
+        // bucket boundary, not the time of a real trade, so preserve the latest
+        // valid trade's timestamp along with its price.
+        if pushedPrice != nil, push.timestamp > 0 {
+            quote.timestamp = Date(timeIntervalSince1970: TimeInterval(push.timestamp))
+        }
+        quote.sourceDelay = LongbridgeQuoteFreshness.effectiveDelay(
+            for: quote.symbol,
+            timestamp: quote.timestamp,
+            packages: packages,
+            receivedAt: receivedAt
+        )
+        quote.marketState = marketState
+        return quote
     }
 
     private static func preferredName(
@@ -1345,7 +1465,7 @@ actor LongbridgeSDKBridge {
             .first { !$0.isEmpty }
     }
 
-    private static func marketState(forTradeSession session: Int32) -> MarketState {
+    static func marketState(forTradeSession session: Int32) -> MarketState {
         switch session {
         case 1: .preMarket
         case 2: .postMarket

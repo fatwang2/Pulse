@@ -769,11 +769,6 @@ struct WatchlistView: View {
                                 route = .position(item.symbol, .list)
                             }
                         }
-                        // Multi-select membership: deselecting a checked group
-                        // removes the symbol from it — including the current
-                        // group (the row leaves this list) and the last one
-                        // (the symbol leaves the watchlist entirely), which is
-                        // why there is no separate "remove from …" item.
                         Menu(PulseLocalization.localizedString("watchlist.group.membership")) {
                             ForEach(appState.watchlist.groups) { group in
                                 // Toggle renders as a native checkmark menu
@@ -785,6 +780,24 @@ struct WatchlistView: View {
                         Divider()
                         Button(PulseLocalization.localizedString("watchlist.sort.adjust")) {
                             beginAdjustingOrder()
+                        }
+                        if let currentGroup = appState.watchlist.selectedGroup {
+                            Divider()
+                            Button(
+                                PulseLocalization.localizedString(
+                                    "watchlist.group.removeCurrent",
+                                    currentGroup.name
+                                ),
+                                role: .destructive
+                            ) {
+                                withAnimation(.snappy(duration: 0.22)) {
+                                    appState.watchlist.setMembership(
+                                        item.symbol,
+                                        in: currentGroup.id,
+                                        included: false
+                                    )
+                                }
+                            }
                         }
                     }
                 }

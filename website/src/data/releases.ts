@@ -10,6 +10,23 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.10.1",
+    date: "2026-08-03",
+    kind: "fix",
+    highlights: {
+      zh: [
+        "修复 Longbridge 在盘前、盘后或夜盘无成交时把 0 误作真实价格的问题：Pulse 现在跨时段按时间选取最近一次有效成交，不再出现错误的 0 价格与 -100% 涨跌幅。",
+        "扩展时段的行情统计继续展示最近一个完整常规交易日的今开、最高、最低、成交量与成交额，不再被盘前、盘后或夜盘推送覆盖。",
+        "自选标的右键菜单新增“从当前列表中删除”；移除后所属列表立即同步，仍属于其他列表的标的与持仓继续保留。",
+      ],
+      en: [
+        "Fixed Longbridge empty-session zeroes being treated as real pre-market, post-market, or overnight prices. Pulse now selects the latest valid trade across sessions, preventing false 0 prices and -100% changes.",
+        "During extended hours, market statistics continue to show the latest completed regular session's open, high, low, volume, and turnover instead of being overwritten by extended-session pushes.",
+        "The watchlist context menu now includes a direct Remove from Current List action. Membership updates immediately, while symbols and positions remain available in any other lists they belong to.",
+      ],
+    },
+  },
+  {
     version: "0.10.0",
     date: "2026-08-03",
     kind: "release",

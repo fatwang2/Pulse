@@ -236,6 +236,216 @@ struct LongbridgeSDKTests {
         )
     }
 
+    @Test("Empty pre-market uses the latest valid overnight trade")
+    func emptyPreMarketUsesOvernightTrade() throws {
+        let regularAt = try #require(Self.marketDate(
+            year: 2026, month: 7, day: 31, hour: 16, minute: 0, market: .us
+        ))
+        let postAt = try #require(Self.marketDate(
+            year: 2026, month: 7, day: 31, hour: 19, minute: 59, market: .us
+        ))
+        let overnightAt = try #require(Self.marketDate(
+            year: 2026, month: 8, day: 3, hour: 3, minute: 59, market: .us
+        ))
+        let preMarketAt = try #require(Self.marketDate(
+            year: 2026, month: 8, day: 3, hour: 4, minute: 0, market: .us
+        ))
+        let receivedAt = try #require(Self.marketDate(
+            year: 2026, month: 8, day: 3, hour: 5, minute: 44, market: .us
+        ))
+        let snapshot = LBSDKSecurityQuote(
+            symbol: "CRAK.US",
+            lastDone: 55.24,
+            previousClose: 55.82,
+            open: 55.79,
+            high: 55.79,
+            low: 54.77,
+            timestamp: Self.timestamp(regularAt),
+            volume: 324_808,
+            turnover: 17_882_060,
+            preMarket: Self.extendedQuote(
+                price: 0,
+                previousClose: 55.24,
+                at: preMarketAt
+            ),
+            postMarket: Self.extendedQuote(
+                price: 55.30,
+                previousClose: 55.24,
+                at: postAt
+            ),
+            overnight: Self.extendedQuote(
+                price: 55.41,
+                previousClose: 55.24,
+                at: overnightAt
+            )
+        )
+
+        let quote = try #require(LongbridgeSDKBridge.quote(
+            from: snapshot,
+            symbol: SymbolID(market: .us, code: "CRAK"),
+            packages: [],
+            receivedAt: receivedAt
+        ))
+
+        #expect(quote.marketState == .preMarket)
+        #expect(quote.price == 55.41)
+        #expect(quote.previousClose == 55.24)
+        #expect(abs(quote.change - 0.17) < 0.000_001)
+        #expect(quote.timestamp == overnightAt)
+        #expect(quote.regularSession?.price == 55.24)
+        #expect(quote.regularSession?.previousClose == 55.82)
+    }
+
+    @Test("Empty extended sessions fall back to regular without losing the clock session")
+    func emptyExtendedSessionsUseRegularTrade() throws {
+        let regularAt = try #require(Self.marketDate(
+            year: 2026, month: 7, day: 31, hour: 16, minute: 0, market: .us
+        ))
+        let preMarketAt = try #require(Self.marketDate(
+            year: 2026, month: 8, day: 3, hour: 4, minute: 0, market: .us
+        ))
+        let receivedAt = try #require(Self.marketDate(
+            year: 2026, month: 8, day: 3, hour: 5, minute: 44, market: .us
+        ))
+        let snapshot = LBSDKSecurityQuote(
+            symbol: "CRAK.US",
+            lastDone: 55.24,
+            previousClose: 55.82,
+            open: 0,
+            high: 0,
+            low: 0,
+            timestamp: Self.timestamp(regularAt),
+            volume: 324_808,
+            turnover: 17_882_060,
+            preMarket: Self.extendedQuote(
+                price: 0,
+                previousClose: 55.24,
+                at: preMarketAt
+            ),
+            postMarket: nil,
+            overnight: nil
+        )
+
+        let quote = try #require(LongbridgeSDKBridge.quote(
+            from: snapshot,
+            symbol: SymbolID(market: .us, code: "CRAK"),
+            packages: [],
+            receivedAt: receivedAt
+        ))
+
+        #expect(quote.marketState == .preMarket)
+        #expect(quote.price == 55.24)
+        #expect(quote.previousClose == 55.82)
+        #expect(quote.timestamp == regularAt)
+        #expect(quote.regularSession == nil)
+        #expect(quote.open == nil)
+        #expect(quote.high == nil)
+        #expect(quote.low == nil)
+    }
+
+    @Test("An empty-session push preserves the last valid price and trade time")
+    func emptySessionPushPreservesLastTrade() throws {
+        let overnightAt = try #require(Self.marketDate(
+            year: 2026, month: 8, day: 3, hour: 3, minute: 59, market: .us
+        ))
+        let preMarketAt = try #require(Self.marketDate(
+            year: 2026, month: 8, day: 3, hour: 4, minute: 0, market: .us
+        ))
+        let receivedAt = try #require(Self.marketDate(
+            year: 2026, month: 8, day: 3, hour: 4, minute: 1, market: .us
+        ))
+        let base = Quote(
+            symbol: SymbolID(market: .us, code: "CRAK"),
+            price: 55.41,
+            previousClose: 55.24,
+            open: 55.20,
+            high: 55.50,
+            low: 55.10,
+            volume: 1_000,
+            timestamp: overnightAt,
+            marketState: .overnight,
+            regularSession: .init(price: 55.24, previousClose: 55.82)
+        )
+        let push = LBSDKPushQuote(
+            symbol: "CRAK.US",
+            lastDone: 0,
+            open: 0,
+            high: 0,
+            low: 0,
+            timestamp: Self.timestamp(preMarketAt),
+            volume: 0,
+            turnover: 0,
+            tradeSession: 1
+        )
+
+        let quote = LongbridgeSDKBridge.applying(
+            push,
+            to: base,
+            packages: [],
+            receivedAt: receivedAt
+        )
+
+        #expect(quote.marketState == .preMarket)
+        #expect(quote.price == 55.41)
+        #expect(quote.timestamp == overnightAt)
+        #expect(quote.open == 55.20)
+        #expect(quote.high == 55.50)
+        #expect(quote.low == 55.10)
+        #expect(quote.regularSession == base.regularSession)
+    }
+
+    @Test("A pre-market push preserves the previous regular-session stats")
+    func preMarketPushPreservesRegularStats() throws {
+        let regularAt = try #require(Self.marketDate(
+            year: 2026, month: 7, day: 31, hour: 16, minute: 0, market: .us
+        ))
+        let preMarketAt = try #require(Self.marketDate(
+            year: 2026, month: 8, day: 3, hour: 7, minute: 56, market: .us
+        ))
+        let base = Quote(
+            symbol: SymbolID(market: .us, code: "CRAK"),
+            price: 55.24,
+            previousClose: 55.82,
+            open: 55.79,
+            high: 55.79,
+            low: 54.77,
+            volume: 324_808,
+            turnover: 17_882_060,
+            timestamp: regularAt,
+            marketState: .preMarket
+        )
+        let push = LBSDKPushQuote(
+            symbol: "CRAK.US",
+            lastDone: 54.80,
+            open: 54.41,
+            high: 54.80,
+            low: 53.32,
+            timestamp: Self.timestamp(preMarketAt),
+            volume: 1_110,
+            turnover: 59_308.79,
+            tradeSession: 1
+        )
+
+        let quote = LongbridgeSDKBridge.applying(
+            push,
+            to: base,
+            packages: [],
+            receivedAt: preMarketAt
+        )
+
+        #expect(quote.marketState == .preMarket)
+        #expect(quote.price == 54.80)
+        #expect(quote.previousClose == 55.24)
+        #expect(quote.timestamp == preMarketAt)
+        #expect(quote.open == 55.79)
+        #expect(quote.high == 55.79)
+        #expect(quote.low == 54.77)
+        #expect(quote.volume == 324_808)
+        #expect(quote.turnover == 17_882_060)
+        #expect(quote.regularSession?.price == 55.24)
+        #expect(quote.regularSession?.previousClose == 55.82)
+    }
+
     @Test("A near-exact market timestamp lag detects delayed data")
     func timestampDetectsDelayedData() throws {
         let receivedAt = try #require(Self.marketDate(
@@ -298,6 +508,26 @@ struct LongbridgeSDKTests {
             hour: hour,
             minute: minute
         ))
+    }
+
+    private static func timestamp(_ date: Date) -> Int64 {
+        Int64(date.timeIntervalSince1970)
+    }
+
+    private static func extendedQuote(
+        price: Double,
+        previousClose: Double,
+        at date: Date
+    ) -> LBSDKPrePostQuote {
+        LBSDKPrePostQuote(
+            lastDone: price,
+            timestamp: timestamp(date),
+            volume: 0,
+            turnover: 0,
+            high: price,
+            low: price,
+            previousClose: previousClose
+        )
     }
 }
 #endif

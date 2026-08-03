@@ -480,6 +480,34 @@ struct WatchlistMigrationTests {
     }
 
     @MainActor
+    @Test("Removing from the selected list updates membership and persists")
+    func removeFromSelectedGroup() throws {
+        let suiteName = "WatchlistGroupRemovalTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        let defaultGroupID = try #require(store.selectedGroupID)
+        let apple = SymbolInfo(symbol: SymbolID(market: .us, code: "AAPL"), name: "Apple")
+        store.add(apple)
+        let techGroupID = try #require(store.createGroup(named: "科技"))
+        store.add(apple)
+
+        store.remove(apple.symbol)
+
+        #expect(store.selectedGroupID == techGroupID)
+        #expect(!store.contains(apple.symbol, in: techGroupID))
+        #expect(store.contains(apple.symbol, in: defaultGroupID))
+        #expect(store.items.isEmpty)
+        #expect(store.item(for: apple.symbol) != nil)
+
+        let reloaded = WatchlistStore(defaults: defaults, defaultGroupName: "自选")
+        #expect(!reloaded.contains(apple.symbol, in: techGroupID))
+        #expect(reloaded.contains(apple.symbol, in: defaultGroupID))
+        #expect(reloaded.item(for: apple.symbol) != nil)
+    }
+
+    @MainActor
     @Test("Instrument type persists and only indices reject positions")
     func instrumentTypeControlsPositions() throws {
         let suiteName = "WatchlistInstrumentTypeTests.\(UUID().uuidString)"

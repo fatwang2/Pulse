@@ -728,6 +728,40 @@ struct DetailView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.pressable)
+            } else if let item, item.hasPositionHistory {
+                // Selling out is not the same as never having held: the trade
+                // log and what it realized outlive the position, and dropping
+                // straight back to "no position" reads as if the record was
+                // lost. Same target and same whole-block tap as an open one.
+                Button {
+                    route = .position(item.symbol, .detail(symbol))
+                } label: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 4) {
+                            sectionHeaderText(PulseLocalization.localizedString("detail.section.position"))
+                            Text(PulseLocalization.localizedString("position.closed"))
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(.tertiary)
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        HStack(spacing: 8) {
+                            stat(
+                                PulseLocalization.localizedString("position.realizedPnL"),
+                                PriceFormatter.signedMoney(item.realizedPnL, currencyCode: currencyCode),
+                                color: item.realizedPnL
+                            )
+                            stat(
+                                PulseLocalization.localizedString("position.historyTrades"),
+                                PulseLocalization.localizedString("position.tradeCount", item.transactions.count)
+                            )
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.pressable)
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     sectionHeaderText(PulseLocalization.localizedString("detail.section.position"))
@@ -813,7 +847,9 @@ struct DetailView: View {
             .fixedSize(horizontal: true, vertical: false)
     }
 
-    private func stat(_ label: String, _ value: String?) -> some View {
+    /// `color` carries a signed amount when the value should read as a gain or
+    /// a loss; without it the stat stays neutral, like quantity or cost.
+    private func stat(_ label: String, _ value: String?, color: Double? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
                 .font(.system(size: 9))
@@ -822,8 +858,8 @@ struct DetailView: View {
                 .minimumScaleFactor(0.8)
                 .allowsTightening(true)
             Text(value ?? "—")
-                .font(.system(size: 10.5, weight: .medium).monospacedDigit())
-                .foregroundStyle(.secondary)
+                .font(.system(size: 10.5, weight: color == nil ? .medium : .semibold).monospacedDigit())
+                .foregroundStyle(color.map { appState.palette.color(for: $0) } ?? .secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
                 .allowsTightening(true)

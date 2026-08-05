@@ -132,10 +132,53 @@ struct PositionHubView: View {
         .padding(.bottom, 3)
     }
 
-    // MARK: - Empty state
+    // MARK: - No open position
 
+    /// Never held and sold out are different situations. Only the first one
+    /// needs the pitch for recording trades; the second one has trades to show,
+    /// and gets the same shape as an open position minus the market numbers.
     @ViewBuilder
     private func emptyBody(_ item: WatchItem) -> some View {
+        if item.transactions.isEmpty {
+            onboardingBody()
+        } else {
+            closedBody(item)
+        }
+    }
+
+    @ViewBuilder
+    private func closedBody(_ item: WatchItem) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(PulseLocalization.localizedString("position.closed"))
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                stat(
+                    PulseLocalization.localizedString("position.realizedPnL"),
+                    PriceFormatter.signedMoney(item.realizedPnL, currencyCode: currencyCode),
+                    color: item.realizedPnL
+                )
+                stat(
+                    PulseLocalization.localizedString("position.historyTrades"),
+                    PulseLocalization.localizedString("position.tradeCount", item.transactions.count)
+                )
+                stat("", "")
+            }
+            .padding(.top, 8)
+
+            separator
+
+            tradeButtons(recordStyle: true)
+
+            separator
+
+            recentTransactions(item)
+        }
+        .padding(.horizontal, 12)
+    }
+
+    @ViewBuilder
+    private func onboardingBody() -> some View {
         VStack(spacing: 0) {
             VStack(spacing: 6) {
                 Image(systemName: "briefcase")
@@ -153,41 +196,6 @@ struct PositionHubView: View {
 
             tradeButtons(recordStyle: true)
                 .frame(maxWidth: 220)
-
-            if !item.transactions.isEmpty {
-                VStack(alignment: .leading, spacing: 0) {
-                    separator
-                    Button {
-                        route = .transactions(symbol, returnRoute)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text(PulseLocalization.localizedString("position.historySection"))
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(.secondary)
-                            Spacer(minLength: 0)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 8, weight: .semibold))
-                                .foregroundStyle(.tertiary)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.pressable)
-                    .padding(.bottom, 6)
-                    HStack(spacing: 8) {
-                        stat(
-                            PulseLocalization.localizedString("position.realizedPnL"),
-                            PriceFormatter.signedMoney(item.realizedPnL, currencyCode: currencyCode),
-                            color: item.realizedPnL
-                        )
-                        stat(
-                            PulseLocalization.localizedString("position.historyTrades"),
-                            PulseLocalization.localizedString("position.tradeCount", item.transactions.count)
-                        )
-                        stat("", "")
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
         }
         .padding(.horizontal, 12)
     }
@@ -341,12 +349,24 @@ struct TransactionRow: View {
     let entry: PositionLedger.Entry
     let palette: ChangePalette
     let currencyCode: String?
-    /// Hover-revealed delete affordance (full log page only).
+    /// Deleting is rare and destructive, so it lives in the row's context menu
+    /// (full log page only) rather than in chrome that appears under the
+    /// pointer and displaces what the row was showing.
     var onDelete: (() -> Void)?
 
-    @State private var hovering = false
-
     var body: some View {
+        if let onDelete {
+            row.contextMenu {
+                Button(PulseLocalization.localizedString("action.delete"), role: .destructive) {
+                    onDelete()
+                }
+            }
+        } else {
+            row
+        }
+    }
+
+    private var row: some View {
         HStack(spacing: 8) {
             Text(PositionDateFormat.monthDay(entry.transaction.date))
                 .font(.system(size: 10).monospacedDigit())
@@ -365,7 +385,6 @@ struct TransactionRow: View {
         }
         .padding(.vertical, 5)
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
     }
 
     private var realizedSuffix: Text {
@@ -377,11 +396,7 @@ struct TransactionRow: View {
 
     @ViewBuilder
     private var trailing: some View {
-        if let onDelete, hovering {
-            IconButton(systemName: "xmark", help: PulseLocalization.localizedString("action.delete")) {
-                onDelete()
-            }
-        } else if entry.transaction.kind == .adjustment {
+        if entry.transaction.kind == .adjustment {
             Text(PulseLocalization.localizedString("transaction.overwrite"))
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)

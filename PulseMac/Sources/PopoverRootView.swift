@@ -195,11 +195,12 @@ struct PopoverRootView: View {
         case .detail:
             return 560
         case .position(let symbol, _):
-            // The hub shows either the full summary + trade actions + recent
-            // trades, or a compact empty state (plus history once any exists).
+            // Summary + trade actions + recent trades once anything has been
+            // traded; only a symbol with no history at all gets the compact
+            // pitch for recording a first trade.
             guard let item = appState.watchlist.item(for: symbol) else { return 360 }
             if item.hasPosition { return 420 }
-            return item.transactions.isEmpty ? 300 : 350
+            return item.transactions.isEmpty ? 300 : 380
         case .trade:
             return 330
         case .transactions:

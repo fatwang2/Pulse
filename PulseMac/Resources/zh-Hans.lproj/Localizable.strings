@@ -97,6 +97,7 @@
 "period.month" = "月K";
 "period.week" = "周K";
 
+"position.closed" = "已清仓";
 "position.cost" = "成本";
 "position.costPrice" = "成本价";
 "position.editTitle" = "编辑持仓";
@@ -291,7 +292,6 @@
 "position.calibrationNotice" = "保存后将以此数量与成本覆盖当前持仓，记为一笔「校准」，不产生已实现盈亏。";
 "position.empty.title" = "尚未持有";
 "position.empty.subtitle" = "记录买入卖出，Pulse 自动计算成本与盈亏";
-"position.historySection" = "历史";
 "position.historyTrades" = "历史交易";
 "position.tradeCount" = "%d 笔";
 "transaction.logTitle" = "交易记录";

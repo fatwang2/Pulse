@@ -62,4 +62,49 @@ public enum TradingCalendar {
     public static func anyActive(_ markets: some Sequence<Market>, at date: Date = .now) -> Bool {
         markets.contains { isActive($0, at: date) }
     }
+
+    /// The trading day a moment belongs to, read in the market's own time zone.
+    /// The US overnight session runs from 20:00 ET into the small hours, so it
+    /// belongs to the session that follows it rather than the date it starts on.
+    public static func tradingDay(of market: Market, at date: Date) -> CalendarDay {
+        let day = CalendarDay(date, in: market.timeZone)
+        guard market == .us, state(of: market, at: date) == .overnight else { return day }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = market.timeZone
+        let hour = calendar.component(.hour, from: date)
+        // The 00:00–04:00 slice already carries the session's own date.
+        guard hour >= 20, let next = calendar.date(byAdding: .day, value: 1, to: date) else { return day }
+        return CalendarDay(next, in: market.timeZone)
+    }
+}
+
+/// A calendar day identity: which day something happened on, not when. Days
+/// read in different time zones (a trade date entered locally, a session date
+/// read in the exchange's zone) compare directly instead of being turned back
+/// into instants that would answer a different question.
+public struct CalendarDay: Comparable, Hashable, Sendable {
+    public var year: Int
+    public var month: Int
+    public var day: Int
+
+    public init(year: Int, month: Int, day: Int) {
+        self.year = year
+        self.month = month
+        self.day = day
+    }
+
+    public init(_ date: Date, in timeZone: TimeZone) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        self.init(
+            year: components.year ?? 0,
+            month: components.month ?? 0,
+            day: components.day ?? 0
+        )
+    }
+
+    public static func < (lhs: CalendarDay, rhs: CalendarDay) -> Bool {
+        (lhs.year, lhs.month, lhs.day) < (rhs.year, rhs.month, rhs.day)
+    }
 }

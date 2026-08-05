@@ -174,7 +174,7 @@ public struct PositionMetrics: Sendable, Hashable {
     public var todayPnL: Double
     public var todayReturnPercent: Double
 
-    public init?(item: WatchItem, quote: Quote) {
+    public init?(item: WatchItem, quote: Quote, now: Date = .now) {
         guard item.supportsPosition else { return nil }
         let quantity = item.positionQuantity
         guard quantity != 0, let averageCost = item.averageCost else { return nil }
@@ -185,7 +185,16 @@ public struct PositionMetrics: Sendable, Hashable {
         let costBasis = item.costBasis
         let marketValue = quote.price * quantity
         let totalPnL = marketValue - costBasis
-        let todayPnL = quote.change * quantity
+
+        // What the position is worth now, less what it was worth at the
+        // previous close, less the cash today's trades put in. Shares held
+        // through the previous close are measured from `previousClose` and
+        // shares traded today from their trade price, which falls out of the
+        // subtraction rather than needing to be paired up lot by lot.
+        let day = PositionDayBasis(item: item, quote: quote, now: now)
+        let todayPnL = quote.price * (quantity - day.unmarkedQuantity)
+            - quote.previousClose * day.openingQuantity
+            - day.netInvestedToday
 
         self.quantity = quantity
         self.averageCost = averageCost
@@ -194,8 +203,9 @@ public struct PositionMetrics: Sendable, Hashable {
         self.totalPnL = totalPnL
         self.totalReturnPercent = costBasis == 0 ? 0 : totalPnL / abs(costBasis) * 100
         self.todayPnL = todayPnL
-        self.todayReturnPercent = quote.previousClose == 0
-            ? 0
-            : quote.change / quote.previousClose * 100 * (quantity < 0 ? -1 : 1)
+        // Measured against the capital that was actually exposed today, so a
+        // position opened during the session reports its own return instead of
+        // the symbol's full-day move.
+        self.todayReturnPercent = day.costBase == 0 ? 0 : todayPnL / day.costBase * 100
     }
 }

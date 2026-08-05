@@ -110,7 +110,7 @@ test("server-renders the full bilingual release timeline", async () => {
   assert.doesNotMatch(html, /class="release-link"/);
 
   const releaseEntries = html.match(/class="release-entry"/g) ?? [];
-  assert.equal(releaseEntries.length, 23);
+  assert.equal(releaseEntries.length, 24);
 });
 
 test("includes English copy and remembered language selection", async () => {

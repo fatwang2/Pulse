@@ -11,6 +11,12 @@ struct DetailView: View {
 
     @State private var period: CandlePeriod = .minute1
     @State private var candles: [Candle] = []
+    /// What `candles` hold, and by the same token which request they answer for.
+    /// A switch leaves the previous period's bars in place for a moment; they
+    /// must neither be drawn under the new period's axis nor counted as its
+    /// answer. Only once this matches the request on screen does an empty
+    /// `candles` mean the source had nothing.
+    @State private var candlesKey: CandleCacheKey?
     @State private var isLoading = false
     @State private var isFirstLoad = true
     @State private var shareFeedback: ShareFeedback?
@@ -61,8 +67,19 @@ struct DetailView: View {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
-        .task(id: period) {
+        .task(id: chartRequest) {
+            let request = chartRequest
             let taskStart = ContinuousClock.now
+            // Switching periods repaints from whatever is already cached for the
+            // new one, however old, and the refresh replaces it in place — the
+            // chart never has to blank out to change resolution. The first load
+            // skips this: its render would land mid-push (see the clearance below).
+            if !isFirstLoad,
+               let cached = appState.market.cachedCandles(for: request, maxAge: .infinity),
+               !cached.isEmpty {
+                candles = cached
+                candlesKey = request
+            }
             // Show the spinner only when loading is actually slow: a sub-150ms load
             // (cache hit) swaps silently instead of flashing a progress indicator.
             let spinnerDelay = Task { @MainActor in
@@ -75,8 +92,8 @@ struct DetailView: View {
                 isLoading = false
             }
             let loaded = await appState.engine.loadCandles(
-                for: symbol, period: period,
-                count: candleCount(for: period)
+                for: request.symbol, period: request.period,
+                count: candleCount(for: request.period)
             )
             if isFirstLoad {
                 // The first load starts while the push transition is still running,
@@ -92,8 +109,15 @@ struct DetailView: View {
             guard !Task.isCancelled else { return }
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
                 candles = loaded
+                candlesKey = request
             }
         }
+    }
+
+    /// Symbol + period identify a chart load: the page is reused across symbols,
+    /// so a reload owes itself to either changing.
+    private var chartRequest: CandleCacheKey {
+        CandleCacheKey(symbol: symbol, period: period)
     }
 
     private var quote: Quote? { appState.market.quote(for: symbol) }
@@ -128,12 +152,24 @@ struct DetailView: View {
         }
     }
 
+    /// Only bars that belong to what is on screen now. Everything the chart
+    /// draws goes through here, so a pending switch shows its own loading state
+    /// rather than the outgoing period's data.
+    private var sourceCandles: [Candle] {
+        if candlesKey == chartRequest { return candles }
+        // The reload task lands a frame later than the switch itself. Painting
+        // the cache here rather than waiting for it closes that frame, so going
+        // back to a period already loaded once never blanks at all.
+        guard !isFirstLoad else { return [] }
+        return appState.market.cachedCandles(for: chartRequest, maxAge: .infinity) ?? []
+    }
+
     /// Minute K data is fetched with all US sessions so the setting can switch instantly.
     /// This also removes overnight bars: Pulse's setting promises pre/post, not 24-hour US trading.
     private var chartCandles: [Candle] {
-        guard period.isMinuteK else { return candles }
+        guard period.isMinuteK else { return sourceCandles }
         return IntradayTradingSession.filterCandles(
-            candles,
+            sourceCandles,
             market: symbol.market,
             includesExtendedHours: appState.showsExtendedHours(for: symbol)
         )
@@ -616,21 +652,26 @@ struct DetailView: View {
     private var chart: some View {
         ZStack {
             if chartCandles.isEmpty {
-                if isLoading {
-                    ProgressView().controlSize(.small)
-                        .transition(.opacity)
-                } else {
+                if candlesKey == chartRequest {
+                    // The load for what is on screen came back with nothing.
+                    // Anything else — a switch still settling, a request in
+                    // flight — is not yet an answer and must not claim to be one.
                     ContentUnavailableView {
                         Label(PulseLocalization.localizedString("chart.noData"), systemImage: "chart.xyaxis.line")
                     } description: {
                         Text(PulseLocalization.localizedString("chart.noPeriodData", period.displayName))
                     }
                     .transition(.opacity)
+                } else if isLoading {
+                    ChartLoadingView()
+                        .transition(.opacity)
                 }
+                // Otherwise nothing yet: a load that answers inside the spinner's
+                // 150ms grace period goes straight to the chart.
             } else if period == .minute1 {
                 IntradayChartView(
-                    candles: candles,
-                    previousClose: quote?.previousClose ?? candles.first?.open ?? 0,
+                    candles: sourceCandles,
+                    previousClose: quote?.previousClose ?? sourceCandles.first?.open ?? 0,
                     market: symbol.market,
                     palette: appState.palette,
                     showsExtendedHours: appState.showsExtendedHours(for: symbol)
@@ -649,7 +690,7 @@ struct DetailView: View {
                     .transition(.opacity)
             }
         }
-        .animation(.easeOut(duration: 0.18), value: candles.isEmpty)
+        .animation(.easeOut(duration: 0.18), value: chartCandles.isEmpty)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 

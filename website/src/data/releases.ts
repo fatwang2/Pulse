@@ -10,6 +10,27 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.10.2",
+    date: "2026-08-05",
+    kind: "improvement",
+    highlights: {
+      zh: [
+        "标的详情页新增公司简介：行情右上角的“简介”入口可查看公司业务介绍与所属行业，内容为英文，当天缓存，仅在打开时请求。",
+        "当日盈亏改为按每股当天的真实成本计算：当天买入的份额以成交价为基准而非昨收，当天开仓不再被计入建仓前的涨跌；当天卖出的已实现部分同样计入，收益率以当天真实投入的资金为分母。",
+        "清仓不再等同于从未持有：标的详情页与持仓页都会保留已实现收益与交易记录，不再退回“未录入持仓”的引导状态。",
+        "切换图表周期不再先闪“暂无数据”：已加载过的周期从缓存即刻重绘，“暂无数据”仅在数据源明确返回空时出现；等待期间显示 Pulse 的脉冲波形动画。",
+        "交易记录的删除改到行右键菜单，不再有鼠标移入时替换掉成交金额的悬浮按钮。",
+      ],
+      en: [
+        "Symbol pages now describe the business behind the ticker. An About link in the quote's corner opens the company summary with its sector and industry, in English, cached for the day and only fetched when opened.",
+        "Day P&L is measured from what each share actually cost today. Shares bought during the session are measured from their trade price rather than the previous close, shares sold today keep the result the sale realized, and the day's return is measured against the capital actually exposed.",
+        "Selling out no longer looks like never having held. The symbol page and the position hub keep the realized result and the trade log instead of falling back to the prompt for a first trade.",
+        "Switching chart resolution no longer flashes No data before the new bars arrive. A resolution already loaded once repaints from cache immediately, and the wait is filled by Pulse's own pulse trace.",
+        "Deleting a trade moved to the row's context menu, replacing a hover button that displaced the row's amount as the pointer passed over it.",
+      ],
+    },
+  },
+  {
     version: "0.10.1",
     date: "2026-08-03",
     kind: "fix",

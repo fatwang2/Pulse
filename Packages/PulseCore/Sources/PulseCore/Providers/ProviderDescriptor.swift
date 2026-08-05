@@ -4,6 +4,10 @@ public enum Capability: String, Codable, Sendable, Hashable {
     case search
     /// Static reference data for known symbols, including canonical localized names.
     case referenceData
+    /// Descriptive reference data: what the business is, and how it is classified.
+    /// Separate from `referenceData` because a source can name an instrument
+    /// without being able to describe it — most can.
+    case profile
     case quotes
     case candles
     case streaming

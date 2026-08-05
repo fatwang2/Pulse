@@ -37,6 +37,12 @@ public protocol QuoteProvider: Sendable {
     /// Resolves canonical localized names for already-known symbols.
     func securityNames(for symbols: [SymbolID]) async throws -> [SecurityName]
 
+    /// What the instrument is: business summary and classification. `nil` means
+    /// the source covers the symbol but has nothing to say about it (an index,
+    /// a crypto pair), which is an answer — unlike throwing, it is not retried
+    /// against the next source.
+    func profile(for symbol: SymbolID) async throws -> SecurityProfile?
+
     /// Batch quote snapshots
     func quotes(for symbols: [SymbolID]) async throws -> [Quote]
 
@@ -50,6 +56,10 @@ public protocol QuoteProvider: Sendable {
 public extension QuoteProvider {
     func securityNames(for symbols: [SymbolID]) async throws -> [SecurityName] {
         throw ProviderError.unsupported(.referenceData)
+    }
+
+    func profile(for symbol: SymbolID) async throws -> SecurityProfile? {
+        throw ProviderError.unsupported(.profile)
     }
 
     func quoteStream(for symbols: [SymbolID]) -> AsyncThrowingStream<Quote, any Error>? { nil }

@@ -13,6 +13,7 @@
 "action.pinToMenuBar" = "Show in Menu Bar";
 "action.quitPulse" = "Quit Pulse";
 "action.refreshNow" = "Refresh";
+"action.retry" = "Retry";
 "action.save" = "Save";
 "action.share" = "Share";
 
@@ -29,6 +30,7 @@
 "chart.volume" = "Volume";
 
 "detail.period" = "Period";
+"detail.section.about" = "About";
 "detail.section.market" = "Market Data";
 "detail.section.position" = "Position";
 "detail.section.trend" = "Chart";
@@ -98,6 +100,8 @@
 "period.week" = "Weekly";
 
 "position.closed" = "Closed";
+"profile.loadFailed" = "Couldn’t load the description";
+"profile.unavailable" = "No description available";
 "position.cost" = "Avg. Cost";
 "position.costPrice" = "Average Cost";
 "position.editTitle" = "Edit Position";
@@ -107,6 +111,7 @@
 "position.waitingQuote" = "Waiting for market data…";
 
 "provider.capability.candles" = "Charts";
+"provider.capability.profile" = "Profiles";
 "provider.capability.quotes" = "Quotes";
 "provider.capability.search" = "Search";
 "provider.capability.streaming" = "Streaming";

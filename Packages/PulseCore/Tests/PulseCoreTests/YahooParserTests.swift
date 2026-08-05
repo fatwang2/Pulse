@@ -121,6 +121,45 @@ struct YahooParserTests {
         #expect(unknown.changePercent == nil)
     }
 
+    @Test("Asset profile maps to a security profile")
+    func assetProfile() throws {
+        let fixture = Data("""
+        {"quoteSummary":{"result":[{"assetProfile":{"sector":"Technology",
+        "industry":"Consumer Electronics","country":"United States",
+        "longBusinessSummary":"  Apple Inc. designs, manufactures, and markets smartphones.  "}}],
+        "error":null}}
+        """.utf8)
+        let decoded = try YahooProvider.decode(QuoteSummaryResponse.self, from: fixture)
+        let asset = try #require(decoded.quoteSummary?.result?.first?.assetProfile)
+        #expect(asset.sector == "Technology")
+        #expect(asset.industry == "Consumer Electronics")
+
+        let profile = SecurityProfile(
+            symbol: SymbolID(market: .us, code: "AAPL"),
+            summary: try #require(asset.longBusinessSummary).trimmingCharacters(in: .whitespacesAndNewlines),
+            sector: asset.sector,
+            industry: asset.industry,
+            localeIdentifier: "en"
+        )
+        #expect(profile.summary.hasPrefix("Apple Inc."))
+        #expect(profile.classification == "Technology · Consumer Electronics")
+    }
+
+    @Test("A profile with no summary and no classification carries nothing")
+    func emptyAssetProfile() throws {
+        let fixture = Data(#"{"quoteSummary":{"result":[{"assetProfile":{}}],"error":null}}"#.utf8)
+        let decoded = try YahooProvider.decode(QuoteSummaryResponse.self, from: fixture)
+        let asset = try #require(decoded.quoteSummary?.result?.first?.assetProfile)
+        #expect(asset.longBusinessSummary == nil)
+
+        let bare = SecurityProfile(
+            symbol: SymbolID(market: .us, code: "AAPL"),
+            summary: "",
+            localeIdentifier: "en"
+        )
+        #expect(bare.classification == nil)
+    }
+
     @Test("Intraday candle resolutions map to provider-native intervals")
     func intradayChartParams() {
         #expect(YahooProvider.chartParams(for: .minute5).interval == "5m")

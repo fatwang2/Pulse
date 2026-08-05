@@ -212,6 +212,17 @@ public final class RefreshEngine {
         }
     }
 
+    /// Loads what a symbol is, cached for the day. `nil` means the source had
+    /// nothing to say, which is cached like any other answer; a throw means the
+    /// asking failed and nothing is cached, so a retry is a real retry rather
+    /// than a replay of a failure.
+    public func loadProfile(for symbol: SymbolID) async throws -> SecurityProfile? {
+        if let cached = store.cachedProfile(for: symbol) { return cached }
+        let profile = try await provider.profile(for: symbol)
+        store.cache(profile: profile, for: symbol)
+        return profile
+    }
+
     private func synchronizeIntradayTrend(
         _ candles: [Candle],
         for symbol: SymbolID,

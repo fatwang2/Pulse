@@ -22,6 +22,7 @@ public final class MarketStore {
     public private(set) var lastError: String?
 
     @ObservationIgnored private var candleCache: [CandleCacheKey: (candles: [Candle], fetchedAt: Date)] = [:]
+    @ObservationIgnored private var profileCache: [SymbolID: (profile: SecurityProfile?, fetchedAt: Date)] = [:]
 
     public init() {}
 
@@ -82,5 +83,21 @@ public final class MarketStore {
 
     public func cache(candles: [Candle], for key: CandleCacheKey) {
         candleCache[key] = (candles, .now)
+    }
+
+    // MARK: - Profile cache
+
+    /// Profiles describe a business, not a session, so they are cached for the
+    /// day. "This symbol has none" is cached too — an index would otherwise be
+    /// looked up every time its page opens.
+    public func cachedProfile(for symbol: SymbolID, maxAge: TimeInterval = 86_400) -> SecurityProfile?? {
+        guard let entry = profileCache[symbol], Date.now.timeIntervalSince(entry.fetchedAt) < maxAge else {
+            return nil
+        }
+        return .some(entry.profile)
+    }
+
+    public func cache(profile: SecurityProfile?, for symbol: SymbolID) {
+        profileCache[symbol] = (profile, .now)
     }
 }

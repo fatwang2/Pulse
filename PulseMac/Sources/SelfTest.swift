@@ -417,6 +417,27 @@ enum SelfTest {
                 let r = try await provider.candles(for: SymbolID(market: .us, code: "AAPL"), period: .day, count: 30)
                 return "\(r.count) candles, latest close \(r.last?.close ?? 0)"
             }
+            await report("profile(AAPL/700.HK/600519.SH)") {
+                // Exercises the Yahoo cookie + crumb handshake once and then
+                // reuses it, which is exactly how the app hits this endpoint.
+                var lines: [String] = []
+                for symbol in [
+                    SymbolID(market: .us, code: "AAPL"),
+                    SymbolID(market: .hk, code: "700"),
+                    SymbolID(market: .sh, code: "600519"),
+                ] {
+                    guard let profile = try await provider.profile(for: symbol) else {
+                        lines.append("\(symbol)=none")
+                        continue
+                    }
+                    lines.append("\(symbol)=[\(profile.classification ?? "—")] \(profile.summary.prefix(40))…")
+                }
+                return lines.joined(separator: " | ")
+            }
+            await report("profile(index) is empty, not an error") {
+                let profile = try await provider.profile(for: SymbolID(index: .sp500))
+                return profile == nil ? "nil as expected" : "unexpectedly described"
+            }
             await report("Binance crypto(BTC/USDT)") {
                 let bitcoin = SymbolID(cryptoBase: "BTC", quote: "USDT")
                 let quote = try await provider.quotes(for: [bitcoin]).first

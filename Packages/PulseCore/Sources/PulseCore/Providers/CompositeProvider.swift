@@ -402,6 +402,35 @@ public actor CompositeProvider: QuoteProvider {
         return symbols.compactMap { resolved[$0] }
     }
 
+    /// Asks each source that claims to describe this market, best first, and
+    /// takes the first answer — including "nothing to say", which is an answer.
+    /// Like names, a description failing must not make prices fall back, so
+    /// nothing here touches provider health.
+    public func profile(for symbol: SymbolID) async throws -> SecurityProfile? {
+        let available = orderedByQuotePriority(
+            providers.filter {
+                $0.descriptor.supports(.profile, in: symbol.market)
+                    && !disabledIDs.contains($0.descriptor.id)
+                    && isHealthy($0.descriptor.id)
+            },
+            market: symbol.market
+        )
+        guard !available.isEmpty else { throw ProviderError.unsupported(.profile) }
+
+        var lastError: (any Error) = ProviderError.unsupported(.profile)
+        for provider in available {
+            do {
+                try await waitForProviderBudget(provider)
+                return try await provider.profile(for: symbol)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError
+    }
+
     public func securityNames(for symbols: [SymbolID]) async throws -> [SecurityName] {
         try await preferredSecurityNames(for: symbols).map {
             SecurityName(

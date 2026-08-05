@@ -249,6 +249,13 @@ public struct SymbolID: Hashable, Codable, Sendable, CustomStringConvertible {
         return pair
     }
 
+    /// Whether a business summary could exist for this symbol at all. An index
+    /// is a calculated benchmark and a crypto pair has no issuer, so there is
+    /// no company for any source to describe — known before asking one.
+    public var isDescribable: Bool {
+        indexID == nil && cryptoPair == nil
+    }
+
     public var displayCode: String {
         cryptoPair?.displayCode ?? code
     }

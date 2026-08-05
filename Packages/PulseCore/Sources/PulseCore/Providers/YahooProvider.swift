@@ -5,6 +5,9 @@ import Foundation
 /// Crypto is intentionally excluded: Binance is the sole source of truth for crypto pairs.
 public struct YahooProvider: QuoteProvider {
     let http: HTTPClient
+    /// Shared by every call through this provider instance, which is what lets
+    /// one handshake serve all of them (see `YahooCrumbStore`).
+    private let crumbs = YahooCrumbStore()
 
     public init(http: HTTPClient = HTTPClient()) {
         self.http = http
@@ -15,7 +18,7 @@ public struct YahooProvider: QuoteProvider {
             id: "yahoo",
             name: PulseLocalization.localizedString("provider.yahoo"),
             markets: [.us, .hk, .sh, .sz],
-            capabilities: [.search, .quotes, .candles],
+            capabilities: [.search, .quotes, .candles, .profile],
             delay: [.us: 0, .hk: 900, .sh: 900, .sz: 900],
             rateLimit: RateLimitPolicy(minInterval: 1, batchSize: 1),
             // Yahoo rate-limits aggressively per IP; poll politely and let pushes/others carry liveliness
@@ -290,6 +293,51 @@ public struct YahooProvider: QuoteProvider {
         return Array(candles.suffix(count))
     }
 
+    // MARK: - Profile
+
+    /// Yahoo publishes business summaries in English only, for equities and
+    /// funds. Indices and crypto have none — that is an answer, not a failure,
+    /// and is reported as such so no other source is asked.
+    public func profile(for symbol: SymbolID) async throws -> SecurityProfile? {
+        guard symbol.isDescribable else { return nil }
+        do {
+            return try await requestProfile(for: symbol, crumb: try await crumbs.crumb(using: http))
+        } catch ProviderError.clientError(let status, _) where status == 401 || status == 403 {
+            // The crumb outlives neither the cookie it was minted against nor
+            // Yahoo's patience. Mint a new one and try exactly once more.
+            await crumbs.invalidate()
+            return try await requestProfile(for: symbol, crumb: try await crumbs.crumb(using: http))
+        }
+    }
+
+    private func requestProfile(for symbol: SymbolID, crumb: String) async throws -> SecurityProfile? {
+        var comps = URLComponents(
+            string: "https://query1.finance.yahoo.com/v10/finance/quoteSummary/\(Self.yahooSymbol(for: symbol))"
+        )!
+        comps.queryItems = [
+            .init(name: "modules", value: "assetProfile"),
+            .init(name: "crumb", value: crumb),
+        ]
+        let data: Data
+        do {
+            data = try await http.get(comps.url!)
+        } catch ProviderError.clientError(404, _) {
+            // Outside Yahoo's coverage, same as the chart endpoint's 404.
+            return nil
+        }
+        let decoded = try Self.decode(QuoteSummaryResponse.self, from: data)
+        guard let asset = decoded.quoteSummary?.result?.first?.assetProfile else { return nil }
+        let summary = asset.longBusinessSummary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !summary.isEmpty else { return nil }
+        return SecurityProfile(
+            symbol: symbol,
+            summary: summary,
+            sector: asset.sector,
+            industry: asset.industry,
+            localeIdentifier: "en"
+        )
+    }
+
     static func chartParams(for period: CandlePeriod) -> (interval: String, range: String) {
         switch period {
         case .minute1: ("1m", "1d")
@@ -430,6 +478,53 @@ struct ChartResponse: Decodable {
         var volume: [Double?]?
     }
     var chart: Chart
+}
+
+struct QuoteSummaryResponse: Decodable {
+    struct AssetProfile: Decodable {
+        var longBusinessSummary: String?
+        var sector: String?
+        var industry: String?
+    }
+
+    struct Result: Decodable {
+        var assetProfile: AssetProfile?
+    }
+
+    struct Summary: Decodable {
+        var result: [Result]?
+    }
+
+    var quoteSummary: Summary?
+}
+
+/// Yahoo's `quoteSummary` endpoints answer 401 unless the request carries a
+/// crumb minted against the caller's own cookies. Both are handed out once and
+/// stay valid for the session, so the handshake is done on first use and kept
+/// until a request comes back unauthorized.
+private actor YahooCrumbStore {
+    private var cached: String?
+
+    func crumb(using http: HTTPClient) async throws -> String {
+        if let cached { return cached }
+        // Yahoo sets its consent cookies on any of its hosts; this one exists to
+        // do nothing else. It answers 404 while doing so, which is why the
+        // result is discarded rather than checked — `HTTPClient`'s session
+        // keeps the cookies either way.
+        _ = try? await http.get(URL(string: "https://fc.yahoo.com")!)
+        let data = try await http.get(URL(string: "https://query1.finance.yahoo.com/v1/test/getcrumb")!)
+        let crumb = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !crumb.isEmpty else {
+            throw ProviderError.badResponse("Yahoo returned an empty crumb")
+        }
+        cached = crumb
+        return crumb
+    }
+
+    func invalidate() {
+        cached = nil
+    }
 }
 
 struct SearchResponse: Decodable {

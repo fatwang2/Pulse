@@ -403,12 +403,42 @@ struct DetailView: View {
             }
             .layoutPriority(1)
             Spacer(minLength: 8)
-            if let quote {
-                quoteMeta(for: quote)
+            // The column is bottom-aligned to the price, so it grows upward:
+            // the summary link goes on top, where arriving late pushes nothing
+            // that was already there.
+            VStack(alignment: .trailing, spacing: 6) {
+                if symbol.isDescribable {
+                    aboutLink
+                }
+                if let quote {
+                    quoteMeta(for: quote)
+                }
             }
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
+    }
+
+    /// The way into the business summary. It lives in the hero's annotation
+    /// corner rather than as a block of text on the page: the summary is long,
+    /// and a page whose quote already moves under the reader can't afford a
+    /// late arrival reflowing it. Nothing is fetched to show this — the link is
+    /// there for anything that could have a summary, and the page it opens does
+    /// the asking.
+    private var aboutLink: some View {
+        Button {
+            route = .profile(symbol)
+        } label: {
+            HStack(spacing: 2) {
+                Text(PulseLocalization.localizedString("detail.section.about"))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 7, weight: .semibold))
+            }
+            .font(.system(size: 9, weight: .medium))
+            .foregroundStyle(.secondary)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.pressable)
     }
 
     /// Quote provenance at the hero's top-right: freshness, source, then market-time basis.

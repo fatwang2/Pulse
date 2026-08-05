@@ -177,6 +177,9 @@ struct ProviderFactsCard: View {
         if descriptor.capabilities.contains(.search) {
             parts.append(PulseLocalization.localizedString("provider.capability.search"))
         }
+        if descriptor.capabilities.contains(.profile) {
+            parts.append(PulseLocalization.localizedString("provider.capability.profile"))
+        }
         if descriptor.capabilities.contains(.streaming) {
             parts.append(PulseLocalization.localizedString("provider.capability.streaming"))
         }

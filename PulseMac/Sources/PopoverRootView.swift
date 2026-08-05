@@ -12,6 +12,8 @@ enum PopoverRoute: Hashable {
     case transactions(SymbolID, PositionReturnRoute)
     /// Quick set: overwrite quantity + average cost as one calibration entry.
     case calibrate(SymbolID, PositionReturnRoute)
+    /// Full business summary, pushed from the detail page's excerpt.
+    case profile(SymbolID)
     case settings
     case providerDetail(String)
 }
@@ -141,6 +143,10 @@ struct PopoverRootView: View {
                 }
                 .frame(height: height(for: route))
                 .transition(pushTransition)
+            case .profile(let symbol):
+                ProfileView(symbol: symbol, route: $route)
+                    .frame(height: height(for: route))
+                    .transition(pushTransition)
             case .settings:
                 SettingsView(route: $route)
                     .frame(height: height(for: route))
@@ -194,6 +200,8 @@ struct PopoverRootView: View {
             return min(max(content, minimum), Self.maxHeight)
         case .detail:
             return 560
+        case .profile:
+            return 440
         case .position(let symbol, _):
             // Summary + trade actions + recent trades once anything has been
             // traded; only a symbol with no history at all gets the compact

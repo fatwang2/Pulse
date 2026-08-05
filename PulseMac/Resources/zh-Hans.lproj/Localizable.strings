@@ -13,6 +13,7 @@
 "action.pinToMenuBar" = "设为菜单栏显示";
 "action.quitPulse" = "退出 Pulse";
 "action.refreshNow" = "立即刷新";
+"action.retry" = "重试";
 "action.save" = "保存";
 "action.share" = "分享";
 
@@ -29,6 +30,7 @@
 "chart.volume" = "量";
 
 "detail.period" = "周期";
+"detail.section.about" = "简介";
 "detail.section.market" = "行情";
 "detail.section.position" = "持仓";
 "detail.section.trend" = "趋势";
@@ -98,6 +100,8 @@
 "period.week" = "周K";
 
 "position.closed" = "已清仓";
+"profile.loadFailed" = "简介加载失败";
+"profile.unavailable" = "暂无简介";
 "position.cost" = "成本";
 "position.costPrice" = "成本价";
 "position.editTitle" = "编辑持仓";
@@ -107,6 +111,7 @@
 "position.waitingQuote" = "等待行情数据…";
 
 "provider.capability.candles" = "K线";
+"provider.capability.profile" = "简介";
 "provider.capability.quotes" = "报价";
 "provider.capability.search" = "搜索";
 "provider.capability.streaming" = "推送";

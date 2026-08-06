@@ -72,7 +72,7 @@ targets:
     settings:
       base:
         MARKETING_VERSION: "0.11.0"
-        CURRENT_PROJECT_VERSION: "1785929531"
+        CURRENT_PROJECT_VERSION: "1786059520"
         SWIFT_VERSION: "6.0"
         DEVELOPMENT_LANGUAGE: en
         CODE_SIGN_IDENTITY: "-"

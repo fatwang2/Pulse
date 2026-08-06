@@ -145,7 +145,7 @@
 "longbridge.oauth.error" = "Authorization failed or timed out — try again";
 "longbridge.oauth.reauthorize" = "Re-authorize Longbridge";
 "longbridge.client.label" = "Authorized client ID";
-"longbridge.access.delayed" = "Longbridge returned delayed access for this session. Your account entitlement may still be active; refresh authorization to renegotiate this app's quote packages.";
+"longbridge.access.delayed" = "Longbridge returned delayed access for this session. Your account entitlement may still be active; refresh authorization to renegotiate this app’s quote packages.";
 "longbridge.access.downgraded" = "Longbridge returned lower access than the real-time package this app previously negotiated. Refresh authorization; Pulse will never sign you out automatically.";
 "longbridge.account" = "Account";
 "longbridge.credentials.manual" = "Enter API keys manually";
@@ -202,7 +202,7 @@
 "share.watchlist.title" = "My Watchlist";
 "share.image.copyFailed" = "Couldn’t copy image";
 "share.image.copySuccess" = "Image copied";
-"share.range.intraday" = "Day range";
+"share.range.intraday" = "Day Range";
 "share.updateUnavailable" = "Waiting for quote data";
 "share.text.copyFailed" = "Couldn’t copy text";
 "share.text.copySuccess" = "Text copied";
@@ -216,7 +216,7 @@
 "settings.market.redUp" = "Red for Gains";
 "settings.market.usExtendedHours" = "US Pre/Post-Market on Intraday Charts";
 "settings.market.prioritizeOpenMarkets" = "Order by Market Hours";
-"settings.market.prioritizeOpenMarketsHelp" = "Group by market. Beijing time 8:00–17:00 is HK → China A → US; 17:00–8:00 is US → HK → China A. Pins stay inside each market. Crypto stays last.";
+"settings.market.prioritizeOpenMarketsHelp" = "Groups the list by market. 8:00–17:00 Beijing time runs HK → China A → US; 17:00–8:00 runs US → HK → China A. Pins stay within their market; crypto always stays last.";
 "settings.menuBar.displayMode" = "Display Mode";
 "settings.menuBar.firstWatchlistItem" = "First in Watchlist";
 "settings.menuBar.fixedSymbol" = "Symbol";
@@ -297,7 +297,7 @@
 "position.quickEdit" = "Set Position Directly…";
 "position.quickEditTitle" = "Set Position Directly";
 "position.calibrationNotice" = "Saving overwrites your position with this quantity and cost, recorded as an “adjustment” — no realized P&L.";
-"position.empty.title" = "Not Holding Yet";
+"position.empty.title" = "No Position Yet";
 "position.empty.subtitle" = "Record buys and sells — Pulse tracks cost and P&L for you";
 "position.historyTrades" = "Past Trades";
 "position.tradeCount" = "%d trades";
@@ -305,7 +305,7 @@
 "transaction.kind.buy" = "BUY";
 "transaction.kind.sell" = "SELL";
 "transaction.kind.adjustment" = "ADJ";
-"transaction.overwrite" = "overwrite";
+"transaction.overwrite" = "Overwrite";
 "transaction.deleteConfirmTitle" = "Delete this trade?";
 "transaction.deleteConfirmMessage" = "%@ %@ %@ @ %@ will be deleted; your position and P&L will be recalculated. This cannot be undone.";
 "trade.dateYesterday" = "Yesterday";

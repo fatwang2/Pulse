@@ -137,10 +137,13 @@ struct LongbridgeOAuthTests {
     }
 
     @Test func resultPageRendersSingleLanguage() {
-        let zh = LongbridgeLoopbackServer.resultPage(denied: false, chinese: true)
+        let zh = LongbridgeLoopbackServer.resultPage(denied: false, language: "zh-Hans")
         #expect(zh.contains("授权成功"))
         #expect(!zh.contains("Authorized"))
-        let en = LongbridgeLoopbackServer.resultPage(denied: true, chinese: false)
+        let ja = LongbridgeLoopbackServer.resultPage(denied: false, language: "ja")
+        #expect(ja.contains("認証が完了しました"))
+        #expect(!ja.contains("Authorized"))
+        let en = LongbridgeLoopbackServer.resultPage(denied: true, language: "en")
         #expect(en.contains("Authorization cancelled"))
         #expect(!en.contains("授权"))
     }

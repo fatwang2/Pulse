@@ -106,8 +106,8 @@ actor LongbridgeLoopbackServer {
 
         let denied = LongbridgeOAuthAuthenticator.queryValue("error", in: url) != nil
         // The flow starts inside the app, so the page follows the app's language setting.
-        let chinese = PulseLocalization.currentLanguageIdentifier.hasPrefix("zh")
-        send(connection, response: Self.httpResponse(status: "200 OK", html: Self.resultPage(denied: denied, chinese: chinese)))
+        let language = PulseLocalization.currentLanguageIdentifier
+        send(connection, response: Self.httpResponse(status: "200 OK", html: Self.resultPage(denied: denied, language: language)))
         onCallback(url)
     }
 
@@ -132,19 +132,26 @@ actor LongbridgeLoopbackServer {
         return Data(head.utf8) + body
     }
 
-    static func resultPage(denied: Bool, chinese: Bool) -> String {
+    static func resultPage(denied: Bool, language: String) -> String {
         let mark = denied ? "✕" : "✓"
         let title: String
         let body: String
-        if chinese {
+        let lang: String
+        if language.hasPrefix("zh") {
+            lang = "zh-Hans"
             title = denied ? "授权未完成" : "授权成功"
             body = denied ? "你取消了授权,可以关闭此页面。" : "可以关闭此页面并返回 Pulse。"
+        } else if language.hasPrefix("ja") {
+            lang = "ja"
+            title = denied ? "認証は完了しませんでした" : "認証が完了しました"
+            body = denied ? "認証をキャンセルしました。このページを閉じてください。" : "このページを閉じて Pulse に戻ってください。"
         } else {
+            lang = "en"
             title = denied ? "Authorization cancelled" : "Authorized"
             body = denied ? "You cancelled the authorization — you can close this tab." : "You can close this tab and return to Pulse."
         }
         return """
-        <!doctype html><html lang="\(chinese ? "zh-Hans" : "en")"><head><meta charset="utf-8"><title>Pulse</title><style>
+        <!doctype html><html lang="\(lang)"><head><meta charset="utf-8"><title>Pulse</title><style>
         body { font-family: -apple-system, "PingFang SC", sans-serif; display: flex; min-height: 92vh;
                align-items: center; justify-content: center; background: #ffffff; color: #1d1d1f; }
         @media (prefers-color-scheme: dark) { body { background: #1c1c1e; color: #f5f5f7; } }

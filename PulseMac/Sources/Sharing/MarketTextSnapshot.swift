@@ -21,14 +21,25 @@ struct WatchlistTextSnapshot {
         self.init(
             watchlist: appState.watchlist,
             market: appState.market,
+            prioritizeOpenMarkets: appState.settings.prioritizeOpenMarkets,
             exportedAt: exportedAt
         )
     }
 
     @MainActor
-    init(watchlist: WatchlistStore, market: MarketStore, exportedAt: Date = .now) {
+    init(
+        watchlist: WatchlistStore,
+        market: MarketStore,
+        prioritizeOpenMarkets: Bool = true,
+        exportedAt: Date = .now
+    ) {
         groupName = watchlist.selectedGroup?.name ?? ""
-        items = watchlist.items.map { item in
+        let displayItems = WatchlistDisplayOrder.items(
+            from: watchlist,
+            prioritizeOpenMarkets: prioritizeOpenMarkets,
+            at: exportedAt
+        )
+        items = displayItems.map { item in
             Item(
                 symbol: item.symbol,
                 name: item.resolvedDisplayName,

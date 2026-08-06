@@ -77,7 +77,9 @@ struct WatchlistView: View {
         if appState.watchlist.items.isEmpty {
             emptyState
         } else {
-            watchList
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                watchList(at: context.date)
+            }
         }
     }
 
@@ -267,7 +269,7 @@ struct WatchlistView: View {
 
     private var watchRowMetricColumnWidth: CGFloat {
         let mode = appState.settings.watchRowMetricMode
-        let widths = appState.watchlist.items.map { item -> CGFloat in
+        let widths = displayedItems().map { item -> CGFloat in
             let quote = appState.market.quote(for: item.symbol)
             let metrics = quote.flatMap { PositionMetrics(item: item, quote: $0) }
             let display = WatchRow.rowMetricDisplay(
@@ -292,7 +294,7 @@ struct WatchlistView: View {
     }
 
     private var watchRowTitleColumnWidth: CGFloat {
-        let widths = appState.watchlist.items.map { item in
+        let widths = displayedItems().map { item in
             WatchRowColumnLayout.titleWidth(
                 name: item.resolvedDisplayName,
                 symbolCode: item.symbol.displayCode,
@@ -302,6 +304,15 @@ struct WatchlistView: View {
             )
         }
         return widths.max() ?? 48
+    }
+
+    private func displayedItems(at date: Date = .now) -> [WatchItem] {
+        WatchlistDisplayOrder.items(
+            from: appState.watchlist,
+            prioritizeOpenMarkets: appState.settings.prioritizeOpenMarkets,
+            at: date,
+            bypass: isReordering
+        )
     }
 
     /// Health line with the manual-refresh button beside it. With per-provider cadences and
@@ -734,11 +745,12 @@ struct WatchlistView: View {
         .onDisappear { emptyStateShown = false }
     }
 
-    private var watchList: some View {
+    private func watchList(at date: Date) -> some View {
+        let items = displayedItems(at: date)
         let titleColumnWidth = watchRowTitleColumnWidth
         let metricColumnWidth = watchRowMetricColumnWidth
         return List {
-            ForEach(appState.watchlist.items) { item in
+            ForEach(items) { item in
                 WatchRow(
                     item: item,
                     titleColumnWidth: titleColumnWidth,
@@ -803,6 +815,8 @@ struct WatchlistView: View {
                 }
             }
             .onMove { source, destination in
+                // Reorder always edits the persisted baseline. Session grouping is
+                // bypassed while `isReordering` so indices match `group.symbols`.
                 let currentSymbols = appState.watchlist.items.map(\.symbol)
                 let movingSymbols = source
                     .filter { currentSymbols.indices.contains($0) }
@@ -825,6 +839,7 @@ struct WatchlistView: View {
         // keeping scrolling, keyboard navigation, and List reordering unchanged.
         .scrollIndicators(.never, axes: .vertical)
         .scrollEdgeEffectStyle(.soft, for: .vertical)
+        .animation(.snappy(duration: 0.16), value: items.map(\.symbol))
     }
 
     /// Membership as a menu Toggle binding: unchecking the current group slides

@@ -82,7 +82,11 @@ struct WatchlistShareSnapshot {
 
     @MainActor
     init(appState: AppState) {
-        let rows = appState.watchlist.items.map { item in
+        let displayItems = WatchlistDisplayOrder.items(
+            from: appState.watchlist,
+            prioritizeOpenMarkets: appState.settings.prioritizeOpenMarkets
+        )
+        let rows = displayItems.map { item in
             let quote = appState.market.quote(for: item.symbol)
             let metrics = quote.flatMap { PositionMetrics(item: item, quote: $0) }
             let metricDisplay = WatchRowMetricDisplay.resolve(

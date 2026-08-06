@@ -118,7 +118,7 @@ struct SettingsView: View {
                 }
             }
 
-            Section(PulseLocalization.localizedString("settings.section.market")) {
+            Section {
                 // Refresh cadence moved to each data source's detail page — sources have
                 // very different politeness budgets, so a global interval stopped making sense.
                 Picker(PulseLocalization.localizedString("settings.market.colorRule"), selection: $settings.redUp) {
@@ -129,6 +129,14 @@ struct SettingsView: View {
                     PulseLocalization.localizedString("settings.market.usExtendedHours"),
                     isOn: $settings.showsUSExtendedHours
                 )
+                Toggle(
+                    PulseLocalization.localizedString("settings.market.prioritizeOpenMarkets"),
+                    isOn: $settings.prioritizeOpenMarkets
+                )
+            } header: {
+                Text(PulseLocalization.localizedString("settings.section.market"))
+            } footer: {
+                Text(PulseLocalization.localizedString("settings.market.prioritizeOpenMarketsHelp"))
             }
 
             Section {

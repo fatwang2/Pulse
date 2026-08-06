@@ -92,6 +92,8 @@ final class AppSettings {
     var redUp: Bool = true { didSet { save() } }
     /// Show US pre/post-market sessions on every intraday chart (on by default).
     var showsUSExtendedHours: Bool = true { didSet { save() } }
+    /// Group the watchlist by market and float currently open sessions to the top (on by default).
+    var prioritizeOpenMarkets: Bool = true { didSet { save() } }
     /// Last resolution chosen from the intraday candlestick menu.
     var minuteCandlePeriod: CandlePeriod = .minute5 { didSet { save() } }
     var languagePreference: PulseLanguagePreference = .system {
@@ -184,6 +186,7 @@ final class AppSettings {
             }
             redUp = snapshot.redUp
             showsUSExtendedHours = snapshot.showsUSExtendedHours ?? true
+            prioritizeOpenMarkets = snapshot.prioritizeOpenMarkets ?? true
             if let restoredPeriod = snapshot.minuteCandlePeriod, restoredPeriod.isMinuteK {
                 minuteCandlePeriod = restoredPeriod
             }
@@ -212,6 +215,7 @@ final class AppSettings {
         var watchRowMetricMode: WatchRowMetricMode?
         var redUp: Bool
         var showsUSExtendedHours: Bool?
+        var prioritizeOpenMarkets: Bool?
         var minuteCandlePeriod: CandlePeriod?
         var disabledProviderIDs: Set<String>?
         var recentSearchQueries: [String]?
@@ -228,6 +232,7 @@ final class AppSettings {
                                 rotateGroupID: rotateGroupID,
                                 watchRowMetricMode: watchRowMetricMode, redUp: redUp,
                                 showsUSExtendedHours: showsUSExtendedHours,
+                                prioritizeOpenMarkets: prioritizeOpenMarkets,
                                 minuteCandlePeriod: minuteCandlePeriod,
                                 disabledProviderIDs: disabledProviderIDs,
                                 recentSearchQueries: recentSearchQueries,

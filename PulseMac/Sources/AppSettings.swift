@@ -92,7 +92,7 @@ final class AppSettings {
     var redUp: Bool = true { didSet { save() } }
     /// Show US pre/post-market sessions on every intraday chart (on by default).
     var showsUSExtendedHours: Bool = true { didSet { save() } }
-    /// Group the watchlist by market and float currently open sessions to the top (on by default).
+    /// Group the watchlist by market using Beijing-time day/evening block order (on by default).
     var prioritizeOpenMarkets: Bool = true { didSet { save() } }
     /// Last resolution chosen from the intraday candlestick menu.
     var minuteCandlePeriod: CandlePeriod = .minute5 { didSet { save() } }

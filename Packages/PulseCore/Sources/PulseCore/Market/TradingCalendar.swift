@@ -59,24 +59,6 @@ public enum TradingCalendar {
         }
     }
 
-    /// Whether this market should float to the front of a session-aware watchlist.
-    ///
-    /// Distinct from `isActive` (refresh cadence): A/H keep priority through lunch,
-    /// US only counts the regular session, and crypto never participates.
-    public static func hasSessionPriority(_ market: Market, at date: Date = .now) -> Bool {
-        switch market {
-        case .crypto:
-            false
-        case .us:
-            state(of: market, at: date) == .regular
-        case .sh, .sz, .hk:
-            switch state(of: market, at: date) {
-            case .regular, .lunchBreak: true
-            case .closed, .preMarket, .postMarket, .overnight: false
-            }
-        }
-    }
-
     public static func anyActive(_ markets: some Sequence<Market>, at date: Date = .now) -> Bool {
         markets.contains { isActive($0, at: date) }
     }

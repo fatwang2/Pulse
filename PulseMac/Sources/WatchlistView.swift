@@ -77,7 +77,7 @@ struct WatchlistView: View {
         if appState.watchlist.items.isEmpty {
             emptyState
         } else {
-            TimelineView(.periodic(from: .now, by: 60)) { context in
+            TimelineView(.periodic(from: .now, by: 3600)) { context in
                 watchList(at: context.date)
             }
         }

@@ -215,8 +215,8 @@
 "settings.market.greenUp" = "绿涨红跌";
 "settings.market.redUp" = "红涨绿跌";
 "settings.market.usExtendedHours" = "美股盘中图表显示盘前盘后";
-"settings.market.prioritizeOpenMarkets" = "开盘市场优先";
-"settings.market.prioritizeOpenMarketsHelp" = "按市场分块排列，当前开盘的市场排在前面；置顶仅在各自市场内生效。数字货币不参与上浮。";
+"settings.market.prioritizeOpenMarkets" = "按市场时段排序";
+"settings.market.prioritizeOpenMarketsHelp" = "按市场分块。北京时间 8:00–17:00 为港→A→美，17:00–8:00 为美→港→A。置顶仅在各自市场内生效。数字货币始终在最后。";
 "settings.menuBar.displayMode" = "显示模式";
 "settings.menuBar.firstWatchlistItem" = "自选第一个";
 "settings.menuBar.fixedSymbol" = "固定标的";

@@ -1,8 +1,8 @@
 import Foundation
 
-/// Presentation buckets for session-aware watchlist ordering.
+/// Presentation buckets for schedule-aware watchlist ordering.
 /// Shanghai and Shenzhen share one China A block so A-shares never interleave with other markets.
-public enum MarketBlock: String, Sendable, Hashable, CaseIterable, Comparable {
+public enum MarketBlock: String, Sendable, Hashable, CaseIterable {
     case chinaA
     case hk
     case us
@@ -16,49 +16,58 @@ public enum MarketBlock: String, Sendable, Hashable, CaseIterable, Comparable {
         case .crypto: self = .crypto
         }
     }
+}
 
-    /// Stable left-to-right order among open (or among closed) blocks.
-    public var sortIndex: Int {
-        switch self {
-        case .chinaA: 0
-        case .hk: 1
-        case .us: 2
-        case .crypto: 3
-        }
+/// Beijing-time watchlist layout. Daytime follows Asia; evening follows the US session.
+public enum MarketScheduleWindow: String, Sendable, Hashable {
+    /// 08:00..<17:00 Asia/Shanghai → HK → China A → US → crypto
+    case asiaDay
+    /// 17:00..<08:00 Asia/Shanghai → US → HK → China A → crypto
+    case usEvening
+
+    public static var beijingTimeZone: TimeZone { TimeZone(identifier: "Asia/Shanghai")! }
+
+    public static func at(_ date: Date = .now, timeZone: TimeZone = beijingTimeZone) -> Self {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let hour = calendar.component(.hour, from: date)
+        return (8..<17).contains(hour) ? .asiaDay : .usEvening
     }
 
-    public static func < (lhs: MarketBlock, rhs: MarketBlock) -> Bool {
-        lhs.sortIndex < rhs.sortIndex
+    public var blockOrder: [MarketBlock] {
+        switch self {
+        case .asiaDay: [.hk, .chinaA, .us, .crypto]
+        case .usEvening: [.us, .hk, .chinaA, .crypto]
+        }
     }
 }
 
-/// Rebuilds a watchlist into market blocks: open sessions first, pins inside each block,
-/// relative order inside each pin/unpinned slice taken from the caller’s base sequence.
+/// Rebuilds a watchlist into market blocks for the current Beijing-time window.
+/// Pins stay inside each block; relative order inside each pin/unpinned slice
+/// comes from the caller’s base sequence.
 public enum WatchlistSessionOrder {
     public static func orderedSymbols(
         _ symbols: [SymbolID],
         pinned: Set<SymbolID> = [],
         at date: Date = .now,
-        priority: (Market, Date) -> Bool = TradingCalendar.hasSessionPriority
+        timeZone: TimeZone = MarketScheduleWindow.beijingTimeZone
     ) -> [SymbolID] {
         guard !symbols.isEmpty else { return [] }
 
         var blockSymbols: [MarketBlock: [SymbolID]] = [:]
-        var blockOrder: [MarketBlock] = []
         for symbol in symbols {
-            let block = MarketBlock(market: symbol.market)
-            if blockSymbols[block] == nil {
-                blockOrder.append(block)
-                blockSymbols[block] = []
-            }
-            blockSymbols[block, default: []].append(symbol)
+            blockSymbols[MarketBlock(market: symbol.market), default: []].append(symbol)
         }
 
-        let sortedBlocks = blockOrder.sorted { lhs, rhs in
-            let leftOpen = priority(representativeMarket(for: lhs), date)
-            let rightOpen = priority(representativeMarket(for: rhs), date)
-            if leftOpen != rightOpen { return leftOpen }
-            return lhs < rhs
+        let ranking = Dictionary(
+            uniqueKeysWithValues: MarketScheduleWindow.at(date, timeZone: timeZone)
+                .blockOrder
+                .enumerated()
+                .map { ($0.element, $0.offset) }
+        )
+
+        let sortedBlocks = blockSymbols.keys.sorted {
+            (ranking[$0] ?? .max) < (ranking[$1] ?? .max)
         }
 
         return sortedBlocks.flatMap { block in
@@ -73,24 +82,15 @@ public enum WatchlistSessionOrder {
         _ items: [WatchItem],
         pinned: Set<SymbolID> = [],
         at date: Date = .now,
-        priority: (Market, Date) -> Bool = TradingCalendar.hasSessionPriority
+        timeZone: TimeZone = MarketScheduleWindow.beijingTimeZone
     ) -> [WatchItem] {
         let order = orderedSymbols(
             items.map(\.symbol),
             pinned: pinned,
             at: date,
-            priority: priority
+            timeZone: timeZone
         )
         let bySymbol = Dictionary(uniqueKeysWithValues: items.map { ($0.symbol, $0) })
         return order.compactMap { bySymbol[$0] }
-    }
-
-    private static func representativeMarket(for block: MarketBlock) -> Market {
-        switch block {
-        case .chinaA: .sh
-        case .hk: .hk
-        case .us: .us
-        case .crypto: .crypto
-        }
     }
 }

@@ -215,8 +215,8 @@
 "settings.market.greenUp" = "Green for Gains";
 "settings.market.redUp" = "Red for Gains";
 "settings.market.usExtendedHours" = "US Pre/Post-Market on Intraday Charts";
-"settings.market.prioritizeOpenMarkets" = "Prioritize Open Markets";
-"settings.market.prioritizeOpenMarketsHelp" = "Group symbols by market and keep currently open sessions above closed ones. Pins stay inside each market. Crypto is never floated.";
+"settings.market.prioritizeOpenMarkets" = "Order by Market Hours";
+"settings.market.prioritizeOpenMarketsHelp" = "Group by market. Beijing time 8:00–17:00 is HK → China A → US; 17:00–8:00 is US → HK → China A. Pins stay inside each market. Crypto stays last.";
 "settings.menuBar.displayMode" = "Display Mode";
 "settings.menuBar.firstWatchlistItem" = "First in Watchlist";
 "settings.menuBar.fixedSymbol" = "Symbol";

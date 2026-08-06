@@ -55,6 +55,7 @@ test("server-renders the Pulse landing page", async () => {
   assert.match(html, /providers\/yahoo-finance\.svg/);
   assert.match(html, /aria-pressed="false"[^>]*>中文<\/button>/);
   assert.match(html, /aria-pressed="true"[^>]*>EN<\/button>/);
+  assert.match(html, /aria-pressed="false"[^>]*>日本語<\/button>/);
 });
 
 test("server-renders the feature showcase and release link", async () => {
@@ -175,6 +176,8 @@ test("changelog shares the remembered language selection", async () => {
   assert.match(releaseData, /version: "0\.8\.0"/);
   assert.match(releaseData, /version: "0\.1\.0"/);
   assert.match(releaseData, /Longbridge 行情切换/);
+  assert.match(releaseData, /ja: \[/);
+  assert.match(releaseData, /正式な Pulse macOS アプリアイコンを導入しました。/);
 });
 
 test("redirects the stable download URL to a versioned request", async () => {

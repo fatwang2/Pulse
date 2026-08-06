@@ -5,6 +5,7 @@ export type Release = {
   highlights: {
     zh: readonly string[];
     en: readonly string[];
+    ja: readonly string[];
   };
 };
 
@@ -28,6 +29,13 @@ export const releases: readonly Release[] = [
         "Switching chart resolution no longer flashes No data before the new bars arrive. A resolution already loaded once repaints from cache immediately, and the wait is filled by Pulse's own pulse trace.",
         "Deleting a trade moved to the row's context menu, replacing a hover button that displaced the row's amount as the pointer passed over it.",
       ],
+      ja: [
+        "銘柄詳細ページに会社概要を追加：右上の「概要」から事業内容とセクター・業種を確認できます。内容は英語で、その日はキャッシュされ、開いたときだけ取得します。",
+        "当日損益を各株の当日の実コストで計算するように変更：当日買った分は前日終値ではなく約定価格を基準にし、当日の新規建てが建玉前の値動きに含まれなくなりました。当日売却で実現した分も計上され、収益率は当日実際に投入した資金を分母とします。",
+        "全株売却してもゼロからのスタート扱いにはなりません：銘柄詳細と保有ハブに実現損益と取引履歴が残り、「保有未登録」の初期案内には戻りません。",
+        "チャートの足種を切り替えても「データなし」が先に点滅しなくなりました：一度読み込んだ足種はキャッシュから即座に再描画し、「データなし」はデータソースが明確に空を返したときだけ表示。待機中は Pulse のパルス波形アニメーションを表示します。",
+        "取引の削除は行の右クリックメニューに移動し、ポインタを乗せると約定金額を隠すホバーボタンを廃止しました。",
+      ],
     },
   },
   {
@@ -44,6 +52,11 @@ export const releases: readonly Release[] = [
         "Fixed Longbridge empty-session zeroes being treated as real pre-market, post-market, or overnight prices. Pulse now selects the latest valid trade across sessions, preventing false 0 prices and -100% changes.",
         "During extended hours, market statistics continue to show the latest completed regular session's open, high, low, volume, and turnover instead of being overwritten by extended-session pushes.",
         "The watchlist context menu now includes a direct Remove from Current List action. Membership updates immediately, while symbols and positions remain available in any other lists they belong to.",
+      ],
+      ja: [
+        "プレ・アフター・夜間に約定がないとき、Longbridge の 0 を実際の価格として扱ってしまう問題を修正。Pulse はセッションをまたいで最新の有効な約定を選ぶため、誤った 0 価格や -100% の騰落率は表示されません。",
+        "時間外の間も、マーケット統計は直近の完了した通常セッションの始値・高値・安値・出来高・売買代金を表示し続け、時間外の配信で上書きされなくなりました。",
+        "ウォッチリストの右クリックメニューに「現在のリストから削除」を追加。所属リストは即座に反映され、他のリストに属する銘柄と保有はそのまま残ります。",
       ],
     },
   },
@@ -63,6 +76,12 @@ export const releases: readonly Release[] = [
         "Watchlist ordering gains group-specific pinning and native drag reordering. Crossing the pinned boundary automatically pins or unpins, unpinning restores the prior custom position, and newly added symbols lead the regular section.",
         "Cross-market search keeps exact crypto base or pair matches first while placing securities ahead of unrelated crypto results.",
         "Longbridge failures now preserve and display the server's original error, classify network and authorization failures more accurately, and offer safe in-place re-authorization without discarding the previous grant before validation.",
+      ],
+      ja: [
+        "「テキストとしてコピー」を追加：ウォッチリストと詳細ページから、銘柄情報・価格・データソース・タイムスタンプ・セッションを含む英語の構造化スナップショットをコピーできます。詳細ページではチャートの OHLCV データも付属し、そのまま LLM に渡して分析できます。",
+        "ウォッチリストの並べ替えを強化：リストごとに銘柄をピン留めでき、ドラッグでピン留め境界をまたぐと自動でピン留め・解除。解除すると元のカスタム位置に戻り、新規追加の銘柄は通常セクションの先頭に入ります。",
+        "クロスマーケット検索の順位を改善：暗号資産の完全一致は引き続き最優先。それ以外では、株式・ETF・指数が関連の薄い暗号資産の結果に押し下げられなくなりました。",
+        "Longbridge のエラーはサーバーの元のメッセージを保持して表示し、ネットワークと認証の問題をより正確に区別。認証が失効してもその場で再認証でき、新しい認証が検証されるまで既存の資格情報は保持されます。",
       ],
     },
   },
@@ -87,6 +106,14 @@ export const releases: readonly Release[] = [
         "Watchlist trend lines always frame the regular session; the extended-hours setting applies to the detail chart only.",
         "The context menu gains native multi-select group membership and a reorder entry, and position summaries navigate straight into their pages.",
       ],
+      ja: [
+        "取引記録が登場：買い・売りを取引台帳としてリプレイし、保有数量・移動平均取得単価・実現損益を自動で算出。保有ページはハブに進化し、月別の取引ログとクイック調整を備えます。",
+        "空売りに対応：先に売れば空売りの建玉になり、空売りの平均単価は建値で加重。買い戻しで損益を自動確定し、ゼロをまたぐ取引は約定価格でサイドを反転。空売りの数量は負数で直感的に表示されます。",
+        "取引時間外は、詳細ページにプレ・アフター・夜間の価格と並べて、直近の通常セッションの終値とその日の騰落率を表示します。",
+        "指数（ナスダック、S&P など）ではプレ・アフターの帯やセッションの背景・ラベルを表示しません——指数は通常セッションのみで計算されます。",
+        "ウォッチリストのトレンドラインは常に通常セッションを表示し、時間外設定は詳細チャートにのみ適用されます。",
+        "右クリックメニューはネイティブの複数リスト選択（チェックを外すと削除）になり、並べ替えの入口を追加。保有サマリーと取引履歴のタイトルから対応ページへ直接移動できます。",
+      ],
     },
   },
   {
@@ -103,6 +130,11 @@ export const releases: readonly Release[] = [
         "Watchlist and share-card trend lines now follow the extended-hours setting, drawing pre/post sessions as gray wings with hairline separators at the 9:30 / 16:00 boundaries to match the detail chart.",
         "Fixed pre-market trend lines collapsing into the tail of the chart: Longbridge minute history now backfills the prior regular session when extended-hours rows crowd it out of the latest page.",
         "Sharing a K-line chart now produces a true candlestick card of exactly the visible zoom window, including volume, session tinting, and the window's range in exchange time.",
+      ],
+      ja: [
+        "ウォッチリストと共有カードのトレンドラインが時間外設定に従うようになりました：プレ・アフターはグレーの帯で描画され、9:30 / 16:00 の境界に細い区切り線が入り、詳細ページの日中チャートと一致します。",
+        "プレマーケットのトレンドラインがチャート末尾に押し込まれる問題を修正：時間外データが最新ページを圧迫する場合、Longbridge の分足履歴が前営業日の通常セッションを自動で補完します。",
+        "ローソク足チャートの共有は、画面でズームした範囲そのままの本物のローソク足カードを生成します。出来高、セッションの背景色、取引所時間での期間も含まれます。",
       ],
     },
   },
@@ -124,6 +156,13 @@ export const releases: readonly Release[] = [
         "US intraday charts show pre-market and post-market trading from 04:00 to 20:00 ET by default, with a Settings toggle.",
         "Longbridge minute history pages backward when needed to recover earlier pre-market data while preserving the latest page if backfill fails.",
         "Weekly hover cards show the full trading-week range, alongside refined chart labels, hover performance, and search focus.",
+      ],
+      ja: [
+        "チャートが標準的なローソク足になりました。出来高はローソクと正確に揃い、マウスホイールやトラックパッドでのズーム、横方向のスクロールに対応します。",
+        "5分・15分・30分・1時間足を追加。コンパクトなセグメントボタンとメニューで切り替えられ、いずれも出来高付きです。",
+        "米国株の日中チャートは、米東部時間 04:00–20:00 のプレ・アフターをデフォルトで表示します。設定でオフにもできます。",
+        "Longbridge の分足履歴は必要に応じて自動で過去方向にページを補完し、より早いプレマーケットのデータを取得。補完に失敗しても最新のデータは保持されます。",
+        "週足のホバーカードは取引週全体の期間を表示。チャートのラベル、ホバー時のパフォーマンス、検索入力の体験も改善しました。",
       ],
     },
   },
@@ -148,6 +187,14 @@ export const releases: readonly Release[] = [
         "Search results open the full quote page — including symbols you don't watch — and can be added from there.",
         "A-share and Hong Kong intraday charts draw continuously across the lunch break.",
       ],
+      ja: [
+        "共有カードを一新：ウォッチリストのカードは 1:1 キャンバスになり、選択中のリスト名がタイトルに。長いリストもすべての銘柄を収め、自動で伸びます。",
+        "銘柄の共有カードは 16:9 のポスターレイアウトになり、トレンドチャートを全幅で表示し、当日レンジバーを追加しました。",
+        "共有カードはシステムの外観モードと騰落カラー設定に従い、フッターのブランド表示が免責事項に代わりました。",
+        "検索をツールバーに移動：虫めがねのクリックか ⌘F でフォーカス付きのパネルが開き、空の状態では消去可能な検索履歴と人気の銘柄を表示します。",
+        "検索結果から直接、詳細ページを開けます——ウォッチしていない銘柄も閲覧でき、そこから追加できます。",
+        "中国A株と香港株の日中チャートは、昼休みをまたいで途切れずに描画されます。",
+      ],
     },
   },
   {
@@ -165,6 +212,11 @@ export const releases: readonly Release[] = [
         "Delayed Longbridge data yields to a fresher fallback when available, while details always show the actual source and delay.",
         "OAuth identity no longer changes with the Mac's region or time zone; existing sessions remain valid and affected users can refresh authorization in Settings.",
       ],
+      ja: [
+        "Longbridge は公式 SDK が実際に交渉した価格パッケージとタイムスタンプに基づいて、リアルタイムと遅延データを区別するようになりました。",
+        "遅延した Longbridge のデータは、より新しい代替ソースがあればそちらに譲ります。詳細ページには常に実際のソースと遅延が表示されます。",
+        "OAuth の識別子が Mac の地域やタイムゾーンで変わらなくなりました。既存のログインは有効なままで、影響を受けた場合は設定から認証を更新できます。",
+      ],
     },
   },
   {
@@ -180,6 +232,10 @@ export const releases: readonly Release[] = [
         "Delete a watchlist directly from its context menu, without a confirmation window that closes the menu bar panel.",
         "Symbols unique to that list move safely to another list, with position data preserved.",
       ],
+      ja: [
+        "ウォッチリストを右クリックメニューから直接削除できるようになりました。メニューバーのパネルを閉じてしまう確認ウィンドウは表示されません。",
+        "リストを削除すると、そのリストだけに属していた銘柄は安全に別のリストへ移動し、保有データは失われません。",
+      ],
     },
   },
   {
@@ -194,6 +250,10 @@ export const releases: readonly Release[] = [
       en: [
         "Fixed automatic update versioning so Pulse 0.5.1 can discover and install the 0.6 series.",
         "Includes the Longbridge SDK, normalized indices, stable names, and persistent settings introduced in 0.6.0.",
+      ],
+      ja: [
+        "自動アップデートのバージョン番号を修正し、Pulse 0.5.1 が 0.6 系のアップデートを正しく検出・インストールできるようになりました。",
+        "0.6.0 で導入した Longbridge SDK、指数の正規化、安定した銘柄名、設定の永続化の改善を含みます。",
       ],
     },
   },
@@ -218,6 +278,14 @@ export const releases: readonly Release[] = [
         "Display preferences such as rise/fall colors and watchlist metrics now survive restarts.",
         "Long watchlists scroll cleanly, and truncated names reveal their full value in a native tooltip.",
       ],
+      ja: [
+        "Longbridge の価格データをバージョン固定の公式 SDK に移行し、切断からの復帰と銘柄単位のフォールバックを強化しました。",
+        "データソース間で指数の識別・名称・検索ラベル・コードのマッピングを統一しました。",
+        "指数は取引できないベンチマークとして扱われ、保有の編集は表示されなくなりました。",
+        "銘柄名はデータソースの優先度に従います：フォールバックで名称は劣化せず、より優先度の高いソースだけが更新できます。",
+        "騰落カラーやリストの指標などの表示設定が、再起動後も保持されるようになりました。",
+        "長いウォッチリストもスムーズにスクロールでき、省略された銘柄名はネイティブのツールチップで全文を確認できます。",
+      ],
     },
   },
   {
@@ -232,6 +300,10 @@ export const releases: readonly Release[] = [
       en: [
         "Search results now appear as soon as any useful source responds, without waiting for every provider.",
         "Searches now have a deadline, superseded requests cancel cleanly, and transient empty results are no longer cached.",
+      ],
+      ja: [
+        "検索結果は、いずれかの有効なデータソースが応答した時点ですぐに表示され、すべてのソースを待たなくなりました。",
+        "検索にタイムアウトを設定。速い入力では古いリクエストがきれいにキャンセルされ、一時的な空の結果もキャッシュされなくなりました。",
       ],
     },
   },
@@ -254,6 +326,13 @@ export const releases: readonly Release[] = [
         "Longbridge reconnect and authorization migration are more reliable, with clearer status and retry controls.",
         "Share images now carry a quiet pulseticker.app signature, alongside corrected turnover values across markets.",
       ],
+      ja: [
+        "名前付きウォッチリストを複数作成できるようになりました。作成・名前変更・削除・ドラッグでの並べ替えに対応し、Command-1〜9 で素早く切り替えられます。",
+        "検索はデータソースへ並行して問い合わせ、結果は選択中のリストに追加されます。同じ銘柄を複数のリストに入れられます。",
+        "メニューバーのローテーションを特定のウォッチリストに絞れます。",
+        "Longbridge の再接続と認証の移行がより確実になり、接続・フォールバックの状態表示と再試行の操作が明確になりました。",
+        "共有画像にさりげない pulseticker.app のロゴが入り、各市場の売買代金の表示も修正しました。",
+      ],
     },
   },
   {
@@ -270,6 +349,11 @@ export const releases: readonly Release[] = [
         "Added direct links to the Pulse website and GitHub from inside the app.",
         "Smoothed settings, search, and Longbridge connection transitions while respecting Reduce Motion.",
         "The website now offers a stable latest-download URL and identifies the market-data sources Pulse uses.",
+      ],
+      ja: [
+        "アプリ内に Pulse 公式サイトと GitHub へのショートカットを追加しました。",
+        "設定・検索結果・Longbridge 接続のトランジションがより滑らかになり、「視差効果を減らす」設定に従います。",
+        "公式サイトに常に最新版を指すダウンロード URL を用意し、Pulse が使用するマーケットデータの提供元を掲載しました。",
       ],
     },
   },
@@ -292,6 +376,13 @@ export const releases: readonly Release[] = [
         "Unified status and market-coverage descriptions across data-source settings.",
         "Added optional anonymous product analytics that never includes symbols, watchlists, positions, searches, or credentials.",
       ],
+      ja: [
+        "暗号資産の検索・価格・チャートを Binance Spot の公開 API に移行し、パネルを開いている間は秒単位の WebSocket 更新を受信します。",
+        "暗号資産のシンボルを BTC/USDT のような基軸通貨/決済通貨ペアに統一し、既存の銘柄は自動で移行されます。",
+        "Binance と Longbridge のリアルタイムストリームは同時に動作し、それぞれ暗号資産と証券の価格を担当します。",
+        "データソース設定の状態表示と市場カバレッジの説明を統一しました。",
+        "いつでもオフにできる匿名の利用統計を追加。銘柄・ウォッチリスト・保有・検索内容・認証情報が送信されることはありません。",
+      ],
     },
   },
   {
@@ -310,6 +401,12 @@ export const releases: readonly Release[] = [
         "Watchlists, details, and shared images now use the same current-session one-minute trend data.",
         "Trend data is shared between list and detail caches to keep surfaces on the same market snapshot.",
         "Live-feed status now stays stable while opening or closing the panel.",
+      ],
+      ja: [
+        "銘柄詳細ページから共有できるようになりました。個人の保有データを含まない価格画像を生成します。",
+        "ウォッチリスト・詳細ページ・共有画像は、現在のセッションの 1 分足トレンドデータを共通で使用します。",
+        "トレンドのキャッシュをリストと詳細で共有し、各画面ができるだけ同じ市場スナップショットを表示するようにしました。",
+        "リアルタイム配信の状態表示が、パネルの開閉時に通常状態へ点滅して戻らなくなりました。",
       ],
     },
   },
@@ -332,6 +429,13 @@ export const releases: readonly Release[] = [
         "Redesigned source detail pages to explain connection, coverage, refresh mode, and freshness.",
         "The watchlist footer now reports feed health such as “Streaming live.”",
       ],
+      ja: [
+        "Longbridge のリアルタイム価格に対応。ブラウザ認証または OpenAPI キーで自分のアカウントに接続でき、認証情報はローカルのキーチェーンにのみ保存されます。",
+        "常時接続のリアルタイム配信に対応し、米国株の夜間セッションも独立した状態と価格でカバーします。",
+        "Tencent・Yahoo・Longbridge はそれぞれ更新間隔を設定でき、対応する市場の取引時間中だけポーリングします。",
+        "データソースの詳細ページを刷新し、接続状態・対応市場・更新方法・データの鮮度をわかりやすく表示します。",
+        "ウォッチリストの下部に「リアルタイム配信中」などのデータ状態が表示されるようになりました。",
+      ],
     },
   },
   {
@@ -350,6 +454,12 @@ export const releases: readonly Release[] = [
         "Added directional rolling digits for price changes and smoother page, button, and period transitions.",
         "All motion now respects the macOS Reduce Motion setting.",
         "Fixed detail-title truncation and improved the period picker for longer localizations.",
+      ],
+      ja: [
+        "詳細統計の売買代金を値幅率に置き換え、その日の高値・安値の変動幅をより直感的に示すようにしました。",
+        "価格の更新に騰落方向へ流れる数字のアニメーションを追加し、ページ・ボタン・足種切り替えもより滑らかになりました。",
+        "すべてのアニメーションが macOS の「視差効果を減らす」設定に従います。",
+        "詳細タイトルの切り詰めを修正し、長いローカライズ文言でも足種セレクタのレイアウトが崩れないよう改善しました。",
       ],
     },
   },
@@ -370,6 +480,12 @@ export const releases: readonly Release[] = [
         "China A-share intraday data now prefers realtime Tencent data, with Yahoo fallback and historical candles.",
         "Copy confirmation now appears without hiding market status.",
       ],
+      ja: [
+        "ブランド入りでスマートフォンでも見やすいウォッチリスト画像を、そのままクリップボードにコピーできます。",
+        "共有画像は選択中のリスト指標に従い、銘柄数に応じてレイアウトを自動調整します。",
+        "中国A株の日中データは Tencent のリアルタイムデータを優先し、Yahoo をフォールバックと過去のローソク足に使用します。",
+        "コピー完了の通知と市場の状態表示が、同時にはっきり表示されるようになりました。",
+      ],
     },
   },
   {
@@ -389,6 +505,12 @@ export const releases: readonly Release[] = [
         "Added caching and request pacing for search, quotes, and candles.",
         "Improved search focus and loading states, with separate freshness, source, and market-time metadata.",
       ],
+      ja: [
+        "簡体字中国語と英語を追加。システム言語の自動検出と手動切り替えに対応しました。",
+        "Yahoo Finance 経由で暗号資産の検索・価格・日中チャートに対応しました。",
+        "検索・価格・ローソク足にキャッシュとリクエスト調整を追加し、重複リクエストとレート制限のリスクを軽減しました。",
+        "検索入力と読み込み状態が安定し、詳細ページには鮮度・データソース・市場時間がそれぞれ表示されます。",
+      ],
     },
   },
   {
@@ -398,6 +520,7 @@ export const releases: readonly Release[] = [
     highlights: {
       zh: ["加入正式的 Pulse macOS 应用图标。"],
       en: ["Introduced the official Pulse macOS app icon."],
+      ja: ["正式な Pulse macOS アプリアイコンを導入しました。"],
     },
   },
   {
@@ -413,6 +536,10 @@ export const releases: readonly Release[] = [
         "Added a DMG installer for first-time installation.",
         "Fixed Sparkle automatic updates for sandboxed builds.",
       ],
+      ja: [
+        "初回インストール向けの DMG インストーラを追加しました。",
+        "サンドボックス環境での Sparkle 自動アップデートを修正しました。",
+      ],
     },
   },
   {
@@ -425,6 +552,9 @@ export const releases: readonly Release[] = [
       ],
       en: [
         "Refined the first public preview with a clearer menu bar watchlist screenshot and installation guidance.",
+      ],
+      ja: [
+        "初回公開プレビューのスクリーンショットとインストール手順を改善し、メニューバーのウォッチリストをより分かりやすくしました。",
       ],
     },
   },
@@ -444,6 +574,12 @@ export const releases: readonly Release[] = [
         "Included watchlists, menu bar quote rotation, positions and P&L, detail statistics, intraday charts, and candles.",
         "Added Tencent and Yahoo Finance provider routing with automatic fallback.",
         "Added market-hours-aware refresh and local persistence for watchlists, positions, and settings.",
+      ],
+      ja: [
+        "Pulse が初公開：macOS のメニューバーで米国株・香港株・中国A株・指数・ETF をチェックできます。",
+        "ウォッチリスト、メニューバーのローテーション表示、保有と損益、詳細統計、日中チャート、ローソク足を搭載しました。",
+        "Tencent と Yahoo Finance によるデータソースのルーティングと自動フォールバックを追加しました。",
+        "取引時間に応じた更新と、ウォッチリスト・保有・設定のローカル保存に対応しました。",
       ],
     },
   },

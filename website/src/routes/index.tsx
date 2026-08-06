@@ -42,7 +42,7 @@ const dataSources = [
   },
 ] as const;
 
-type Language = "zh" | "en";
+type Language = "zh" | "en" | "ja";
 
 const translations = {
   zh: {
@@ -94,13 +94,46 @@ const translations = {
       "Shown for source identification only; coverage varies by market. Market data is not investment advice.",
     pageTitle: "Pulse — Your market, at a glance",
   },
+  ja: {
+    homeLabel: "Pulse ホーム",
+    changelogLabel: "更新履歴",
+    languageLabel: "サイトの言語を切り替え",
+    overline: "macOS メニューバーの株価トラッカー",
+    headlineFirst: "あなたのマーケットを、",
+    headlineSecond: "ひと目で。",
+    intro:
+      "Pulse は、気になる価格・トレンド・評価損益をメニューバーに。プレマーケットからアフターマーケットまで、作業を中断せずに市場の動きを把握できます。",
+    featuresLabel: "主な機能",
+    features: [
+      "複数のウォッチリスト",
+      "評価損益",
+      "ローソク足と時間外取引",
+      "メニューバーティッカー",
+    ],
+    downloadLabel: "macOS 版をダウンロード",
+    githubLabel: "GitHub で見る",
+    whatsNew: "{date}リリース · 更新履歴を見る",
+    screenshotAlt:
+      "米国株や暗号資産の価格とスパークラインを表示する Pulse のウォッチリスト",
+    markets: "米国株・香港株・中国A株・暗号資産・指数・ETF に対応",
+    dataSourcesLabel: "マーケットデータの提供元",
+    dataSourcesNote:
+      "データ提供元の表示のみを目的としています。対応範囲は市場により異なります。マーケットデータは投資助言ではありません。",
+    pageTitle: "Pulse — あなたのマーケットを、ひと目で",
+  },
 } as const;
+
+const dateLocales: Record<Language, string> = {
+  zh: "zh-CN",
+  en: "en-US",
+  ja: "ja-JP",
+};
 
 function formatReleaseDate(date: string, language: Language) {
   const [year, month, day] = date.split("-").map(Number);
-  return new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : "en-US", {
+  return new Intl.DateTimeFormat(dateLocales[language], {
     year: "numeric",
-    month: language === "zh" ? "long" : "short",
+    month: language === "en" ? "short" : "long",
     day: "numeric",
     timeZone: "UTC",
   }).format(new Date(Date.UTC(year, month - 1, day)));
@@ -117,12 +150,15 @@ function Home() {
 
   useEffect(() => {
     const savedLanguage = window.localStorage.getItem("pulse-language");
+    const browserLanguage = window.navigator.language.toLowerCase();
     const preferredLanguage =
-      savedLanguage === "zh" || savedLanguage === "en"
+      savedLanguage === "zh" || savedLanguage === "en" || savedLanguage === "ja"
         ? savedLanguage
-        : window.navigator.language.toLowerCase().startsWith("zh")
+        : browserLanguage.startsWith("zh")
           ? "zh"
-          : "en";
+          : browserLanguage.startsWith("ja")
+            ? "ja"
+            : "en";
 
     const frame = window.requestAnimationFrame(() => {
       setLanguage(preferredLanguage);
@@ -132,7 +168,8 @@ function Home() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+    document.documentElement.lang =
+      language === "zh" ? "zh-CN" : language === "ja" ? "ja" : "en";
     document.title = copy.pageTitle;
   }, [copy.pageTitle, language]);
 
@@ -187,6 +224,14 @@ function Home() {
               onClick={() => selectLanguage("en")}
             >
               EN
+            </button>
+            <button
+              type="button"
+              aria-pressed={language === "ja"}
+              className={language === "ja" ? "active" : undefined}
+              onClick={() => selectLanguage("ja")}
+            >
+              日本語
             </button>
           </div>
         </div>

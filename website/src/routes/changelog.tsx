@@ -24,7 +24,7 @@ export const Route = createFileRoute("/changelog")({
   component: Changelog,
 });
 
-type Language = "zh" | "en";
+type Language = "zh" | "en" | "ja";
 
 const repositoryReleasesUrl = "https://github.com/fatwang2/Pulse/releases";
 
@@ -63,13 +63,36 @@ const translations = {
     download: "Download latest",
     pageTitle: "Pulse Changelog — Every release at a glance",
   },
+  ja: {
+    homeLabel: "Pulse ホーム",
+    home: "ホーム",
+    changelog: "更新履歴",
+    languageLabel: "サイトの言語を切り替え",
+    title: "すべてのリリースを、\nひと目で。",
+    intro:
+      "初回公開から最新バージョンまで、Pulse の新機能・改善・修正を時系列でたどれます。",
+    latest: "最新",
+    release: "新リリース",
+    improvement: "改善",
+    fix: "修正",
+    releaseAnchor: "リリースへのリンク",
+    allReleases: "GitHub Releases をすべて見る",
+    download: "最新版をダウンロード",
+    pageTitle: "Pulse 更新履歴 — すべてのリリースをひと目で",
+  },
 } as const;
+
+const dateLocales: Record<Language, string> = {
+  zh: "zh-CN",
+  en: "en-US",
+  ja: "ja-JP",
+};
 
 function formatDate(date: string, language: Language) {
   const [year, month, day] = date.split("-").map(Number);
-  return new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : "en-US", {
+  return new Intl.DateTimeFormat(dateLocales[language], {
     year: "numeric",
-    month: language === "zh" ? "long" : "short",
+    month: language === "en" ? "short" : "long",
     day: "numeric",
     timeZone: "UTC",
   }).format(new Date(Date.UTC(year, month - 1, day)));
@@ -81,12 +104,15 @@ function Changelog() {
 
   useEffect(() => {
     const savedLanguage = window.localStorage.getItem("pulse-language");
+    const browserLanguage = window.navigator.language.toLowerCase();
     const preferredLanguage =
-      savedLanguage === "zh" || savedLanguage === "en"
+      savedLanguage === "zh" || savedLanguage === "en" || savedLanguage === "ja"
         ? savedLanguage
-        : window.navigator.language.toLowerCase().startsWith("zh")
+        : browserLanguage.startsWith("zh")
           ? "zh"
-          : "en";
+          : browserLanguage.startsWith("ja")
+            ? "ja"
+            : "en";
 
     const frame = window.requestAnimationFrame(() => {
       setLanguage(preferredLanguage);
@@ -96,7 +122,8 @@ function Changelog() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+    document.documentElement.lang =
+      language === "zh" ? "zh-CN" : language === "ja" ? "ja" : "en";
     document.title = copy.pageTitle;
   }, [copy.pageTitle, language]);
 
@@ -137,6 +164,14 @@ function Changelog() {
               onClick={() => selectLanguage("en")}
             >
               EN
+            </button>
+            <button
+              type="button"
+              aria-pressed={language === "ja"}
+              className={language === "ja" ? "active" : undefined}
+              onClick={() => selectLanguage("ja")}
+            >
+              日本語
             </button>
           </div>
         </div>

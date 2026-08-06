@@ -1,6 +1,6 @@
 import { type PointerEvent, useEffect, useRef, useState } from "react";
 
-type Language = "zh" | "en";
+type Language = "zh" | "en" | "ja";
 
 const riseColor = "#ff414b";
 const fallColor = "#00a962";
@@ -77,6 +77,41 @@ const copy = {
       tabsLabel: "Switch demo list",
     },
   },
+  ja: {
+    title: "プロ仕様の相場情報を、メニューバーに。",
+    subtitle:
+      "ローソク足、時間外取引、評価損益、複数リスト——すばやく相場を読むための細部まで作り込みました。",
+    candles: {
+      title: "本物のローソク足",
+      description:
+        "出来高と正確に揃った標準的なローソク足。ホイールズームと横スクロールに対応し、5分・15分・30分・1時間足も選べます。",
+      hint: "クリックで足種を切り替え",
+      chartLabel: "ローソク足チャートのデモ",
+    },
+    extended: {
+      title: "時間外取引にも対応",
+      description:
+        "米国株の日中チャートは米東部時間 04:00–20:00 をカバー。プレ・アフターはグレーの帯で表示され、9:30 / 16:00 の境界もひと目でわかります。設定でオフにもできます。",
+      hint: "ホバーで時刻と価格を表示",
+      chartLabel:
+        "時間外取引を含む日中チャートのデモ。グレーの帯が時間外セッションで、ホバーすると十字線と時刻・価格が表示されます",
+    },
+    positions: {
+      title: "評価損益をひと目で",
+      description:
+        "取得単価と数量を登録したら、金額をクリックするだけで騰落率・当日損益・評価損益をリスト全体で切り替え。選んだ指標は再起動後も維持されます。",
+      modeLabel: "表示中の指標",
+      hint: "金額をクリックで指標を切り替え",
+      modes: { change: "騰落率", today: "当日損益", total: "評価損益" },
+    },
+    lists: {
+      title: "複数リストでウォッチリストを整理",
+      description:
+        "銘柄を名前付きリストに整理して、上部のタブでワンクリック切り替え。ドラッグで並べ替え、⌘1–9 でジャンプ、メニューバーのローテーションも特定のリストに絞れます。",
+      hint: "タブをクリックでリストを切り替え",
+      tabsLabel: "デモのリストを切り替え",
+    },
+  },
 } as const;
 
 function mulberry32(seed: number) {
@@ -137,13 +172,13 @@ function makeCandles(
 }
 
 const candleResolutions = [
-  { id: "5m", label: { zh: "5分", en: "5m" }, seed: 11, count: 46, volatility: 0.006, drift: 0.0011 },
-  { id: "15m", label: { zh: "15分", en: "15m" }, seed: 23, count: 42, volatility: 0.009, drift: -0.0008 },
-  { id: "30m", label: { zh: "30分", en: "30m" }, seed: 37, count: 40, volatility: 0.011, drift: 0.0015 },
-  { id: "1h", label: { zh: "1时", en: "1h" }, seed: 53, count: 38, volatility: 0.014, drift: 0.0019 },
-  { id: "1d", label: { zh: "日K", en: "1D" }, seed: 71, count: 34, volatility: 0.024, drift: 0.0028 },
-  { id: "1w", label: { zh: "周K", en: "1W" }, seed: 89, count: 32, volatility: 0.032, drift: 0.0042 },
-  { id: "1mo", label: { zh: "月K", en: "1M" }, seed: 103, count: 30, volatility: 0.042, drift: 0.007 },
+  { id: "5m", label: { zh: "5分", en: "5m", ja: "5分" }, seed: 11, count: 46, volatility: 0.006, drift: 0.0011 },
+  { id: "15m", label: { zh: "15分", en: "15m", ja: "15分" }, seed: 23, count: 42, volatility: 0.009, drift: -0.0008 },
+  { id: "30m", label: { zh: "30分", en: "30m", ja: "30分" }, seed: 37, count: 40, volatility: 0.011, drift: 0.0015 },
+  { id: "1h", label: { zh: "1时", en: "1h", ja: "1時間" }, seed: 53, count: 38, volatility: 0.014, drift: 0.0019 },
+  { id: "1d", label: { zh: "日K", en: "1D", ja: "日足" }, seed: 71, count: 34, volatility: 0.024, drift: 0.0028 },
+  { id: "1w", label: { zh: "周K", en: "1W", ja: "週足" }, seed: 89, count: 32, volatility: 0.032, drift: 0.0042 },
+  { id: "1mo", label: { zh: "月K", en: "1M", ja: "月足" }, seed: 103, count: 30, volatility: 0.042, drift: 0.007 },
 ] as const;
 
 const candleData = new Map(
@@ -578,6 +613,11 @@ const positionRowsByLanguage: Record<Language, readonly PositionRow[]> = {
     { symbol: "TSLA", name: "Tesla, Inc.", market: "us", marketLabel: "US", price: "412.66", change: "-1.85%", today: "-$318.40", total: "+$2,905" },
     { symbol: "BTC-USD", name: "Bitcoin USD", market: "crypto", marketLabel: "Crypto", price: "63797.28", change: "+0.97%", today: "+$187.20", total: "+$3,482" },
   ],
+  ja: [
+    { symbol: "NVDA", name: "エヌビディア", market: "us", marketLabel: "米国株", price: "183.24", change: "+2.41%", today: "+$412.80", total: "+$5,214" },
+    { symbol: "TSLA", name: "テスラ", market: "us", marketLabel: "米国株", price: "412.66", change: "-1.85%", today: "-$318.40", total: "+$2,905" },
+    { symbol: "BTC-USD", name: "ビットコイン", market: "crypto", marketLabel: "暗号資産", price: "63797.28", change: "+0.97%", today: "+$187.20", total: "+$3,482" },
+  ],
 };
 
 function PositionsDemo({ language }: { language: Language }) {
@@ -643,9 +683,9 @@ function PositionsDemo({ language }: { language: Language }) {
 type DemoListId = "core" | "us" | "crypto";
 
 const demoLists = [
-  { id: "core", label: { zh: "核心", en: "Core" } },
-  { id: "us", label: { zh: "美股", en: "US" } },
-  { id: "crypto", label: { zh: "加密", en: "Crypto" } },
+  { id: "core", label: { zh: "核心", en: "Core", ja: "コア" } },
+  { id: "us", label: { zh: "美股", en: "US", ja: "米国株" } },
+  { id: "crypto", label: { zh: "加密", en: "Crypto", ja: "暗号資産" } },
 ] as const;
 
 type ListRow = {
@@ -690,6 +730,23 @@ const listRowsByLanguage: Record<Language, Record<DemoListId, readonly ListRow[]
       { symbol: "BTC-USD", name: "Bitcoin USD", market: "crypto", marketLabel: "Crypto", price: "63797.28", change: "+0.97%" },
       { symbol: "ETH-USD", name: "Ethereum USD", market: "crypto", marketLabel: "Crypto", price: "3290.12", change: "+1.85%" },
       { symbol: "SOL-USD", name: "Solana USD", market: "crypto", marketLabel: "Crypto", price: "186.42", change: "-1.24%" },
+    ],
+  },
+  ja: {
+    core: [
+      { symbol: "NVDA", name: "エヌビディア", market: "us", marketLabel: "米国株", price: "183.24", change: "+2.41%" },
+      { symbol: "TSLA", name: "テスラ", market: "us", marketLabel: "米国株", price: "412.66", change: "-1.85%" },
+      { symbol: "BTC-USD", name: "ビットコイン", market: "crypto", marketLabel: "暗号資産", price: "63797.28", change: "+0.97%" },
+    ],
+    us: [
+      { symbol: "NVDA", name: "エヌビディア", market: "us", marketLabel: "米国株", price: "183.24", change: "+2.41%" },
+      { symbol: "AAPL", name: "アップル", market: "us", marketLabel: "米国株", price: "229.35", change: "+0.58%" },
+      { symbol: "ONDS", name: "Ondas Inc.", market: "us", marketLabel: "米国株", price: "7.67", change: "+0.26%" },
+    ],
+    crypto: [
+      { symbol: "BTC-USD", name: "ビットコイン", market: "crypto", marketLabel: "暗号資産", price: "63797.28", change: "+0.97%" },
+      { symbol: "ETH-USD", name: "イーサリアム", market: "crypto", marketLabel: "暗号資産", price: "3290.12", change: "+1.85%" },
+      { symbol: "SOL-USD", name: "ソラナ", market: "crypto", marketLabel: "暗号資産", price: "186.42", change: "-1.24%" },
     ],
   },
 };

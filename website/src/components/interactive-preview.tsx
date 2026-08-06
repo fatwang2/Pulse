@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-type Language = "zh" | "en";
+type Language = "zh" | "en" | "ja";
 type MetricMode = "change" | "today" | "total";
 
 type MarketItem = {
@@ -175,6 +175,18 @@ const marketItemsEn: MarketItem[] = [
   },
 ];
 
+const marketItemsJa: MarketItem[] = marketItemsEn.map((item) => {
+  const japaneseNames: Record<string, string> = {
+    NVDA: "エヌビディア",
+    AAPL: "アップル",
+    TSLA: "テスラ",
+    MSFT: "マイクロソフト",
+    "BTC-USD": "ビットコイン",
+    "ETH-USD": "イーサリアム",
+  };
+  return { ...item, name: japaneseNames[item.symbol] ?? item.name };
+});
+
 const copy = {
   zh: {
     tagline: "你的市场，一眼掌握。",
@@ -194,6 +206,15 @@ const copy = {
     listsLabel: "Switch watchlist",
     lists: { all: "All", positions: "Positions", watching: "Watching" },
   },
+  ja: {
+    tagline: "あなたのマーケットを、ひと目で。",
+    modes: { change: "騰落率", today: "当日損益", total: "評価損益" },
+    modeAction: "リストの指標を切り替え。現在は",
+    updated: "たった今更新",
+    reference: "静的なデモデータ",
+    listsLabel: "ウォッチリストを切り替え",
+    lists: { all: "すべて", positions: "保有", watching: "ウォッチ中" },
+  },
 } as const;
 
 const modeOrder: MetricMode[] = ["change", "today", "total"];
@@ -207,11 +228,14 @@ const listMembers: Record<Exclude<ListId, "all">, ReadonlySet<string>> = {
   watching: new Set(["601138", "603986", "6181", "AAPL", "TSLA", "ETH-USD"]),
 };
 
-const marketBadgeLabels: Record<MarketItem["market"], { zh: string; en: string }> = {
-  US: { zh: "美股", en: "US" },
-  SH: { zh: "沪", en: "SH" },
-  HK: { zh: "港股", en: "HK" },
-  Crypto: { zh: "加密", en: "Crypto" },
+const marketBadgeLabels: Record<
+  MarketItem["market"],
+  { zh: string; en: string; ja: string }
+> = {
+  US: { zh: "美股", en: "US", ja: "米国株" },
+  SH: { zh: "沪", en: "SH", ja: "上海" },
+  HK: { zh: "港股", en: "HK", ja: "香港" },
+  Crypto: { zh: "加密", en: "Crypto", ja: "暗号資産" },
 };
 
 function lineColor(positive: boolean) {
@@ -360,7 +384,12 @@ export function InteractivePreview({
   const [activeList, setActiveList] = useState<ListId>("all");
   const [hoveredSymbol, setHoveredSymbol] = useState<string | null>(null);
 
-  const marketItems = language === "zh" ? marketItemsZh : marketItemsEn;
+  const marketItems =
+    language === "zh"
+      ? marketItemsZh
+      : language === "ja"
+        ? marketItemsJa
+        : marketItemsEn;
   const visibleItems =
     activeList === "all"
       ? marketItems

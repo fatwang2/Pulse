@@ -1,6 +1,6 @@
 # Pulse Website
 
-Pulse 的中英文单页官网，介绍 macOS 菜单栏行情工具，并通过 Cloudflare Workers 绑定的 R2 提供最新版 DMG 下载，同时保留 GitHub 开源地址。
+Pulse 的多语言单页官网（中文 / English / 日本語），介绍 macOS 菜单栏行情工具，并通过 Cloudflare Workers 绑定的 R2 提供最新版 DMG 下载，同时保留 GitHub 开源地址。
 
 技术栈：TanStack Start + Vite + `@cloudflare/vite-plugin`，部署为 Cloudflare Worker（2026-07-30 从 vinext/ChatGPT Sites 脚手架迁出）。
 
@@ -8,7 +8,7 @@ Pulse 的中英文单页官网，介绍 macOS 菜单栏行情工具，并通过 
 
 - `src/routes/`：页面路由（`__root.tsx` 文档骨架与全站 meta / GA，`index.tsx` 首页，`changelog.tsx` 更新日志）。
 - `src/components/`：交互组件（自选列表演示、GA 下载事件）。
-- `src/data/releases.ts`：更新日志数据（中英双语），发版时在此追加条目。
+- `src/data/releases.ts`：更新日志数据（`zh` / `en` / `ja` 三语，均为必填），发版时在此追加条目。
 - `src/styles/globals.css`：全站样式（Tailwind 仅用于 preflight，版式为手写 CSS）。
 - `src/server.ts`：Worker 入口，先处理 `/download` 再交给 TanStack Start SSR。
 - `src/download.ts`：R2 下载镜像逻辑与当前版本元数据。

@@ -11,6 +11,28 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.11.0",
+    date: "2026-08-07",
+    kind: "release",
+    highlights: {
+      zh: [
+        "新增日文界面：可在设置 → 通用 → 语言中选择「日本語」，也可跟随系统语言。全部界面、菜单、错误提示与分享文案均已本地化，采用日本券商习惯的术语（騰落率、評価損益、前日終値、日足／週足／月足）。",
+        "自选列表支持按市场开盘时段自动分块排序：北京时间 8:00–17:00 为港股 → A 股 → 美股，17:00–8:00 为美股 → 港股 → A 股；置顶仅在各自市场块内生效，数字货币始终排在最后。可在设置 → 行情 → 按市场时段排序中关闭。",
+        "英文文案校订：几处徽标改为标题式大小写，个别标签的措辞与应用其余部分保持一致。",
+      ],
+      en: [
+        "Japanese is now a full app language, selectable in Settings → General → Language or inherited from your Mac. Every screen, menu, error, and share label speaks it, using the terms Japanese brokerage apps use: 騰落率, 評価損益, 前日終値, 日足/週足/月足.",
+        "The watchlist can order itself by which markets are open. Beijing time 8:00–17:00 runs Hong Kong → China A → US; 17:00–8:00 runs US → HK → China A. Symbols stay grouped by market, pins hold their place inside each market, and crypto stays last. Turn it off in Settings → Market → Order by Market Hours.",
+        "The English copy got a pass: badges that read as lowercase fragments are title case now, and a few labels read the way the rest of the app does.",
+      ],
+      ja: [
+        "日本語に対応しました。設定 → 一般 → 言語で「日本語」を選ぶか、Mac のシステム言語をそのまま引き継げます。すべての画面・メニュー・エラー・共有ラベルが日本語になり、騰落率・評価損益・前日終値・日足／週足／月足など、日本の証券アプリで使われる用語を採用しています。",
+        "ウォッチリストが取引時間に応じて自動で並び替わります。北京時間 8:00–17:00 は香港株 → 中国A株 → 米国株、17:00–8:00 は米国株 → 香港株 → 中国A株の順。銘柄は市場ごとにまとまり、ピン留めは各市場内で維持され、暗号資産は常に最後です。設定 → マーケット → 取引時間で並べ替え からオフにできます。",
+        "英語表記を見直しました。小文字の断片に見えていたバッジをタイトルケースに揃え、いくつかのラベルの言い回しをアプリ全体のトーンに合わせています。",
+      ],
+    },
+  },
+  {
     version: "0.10.2",
     date: "2026-08-05",
     kind: "improvement",

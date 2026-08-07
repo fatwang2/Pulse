@@ -11,12 +11,12 @@ async function loadWorker(tag) {
   return worker;
 }
 
-async function render(path = "/") {
+async function render(path = "/", headers = {}) {
   const worker = await loadWorker("test");
 
   return worker.fetch(
     new Request(new URL(path, "http://localhost/"), {
-      headers: { accept: "text/html" },
+      headers: { accept: "text/html", ...headers },
     }),
     {},
     {
@@ -26,20 +26,21 @@ async function render(path = "/") {
   );
 }
 
-test("server-renders the Pulse landing page", async () => {
+test("server-renders the English landing page at the root", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
+  assert.match(html, /<html lang="en">/);
   assert.match(html, /<title>Pulse — Your market, at a glance<\/title>/i);
   assert.match(html, /macOS menu bar market tracker/);
   assert.match(html, /Your market,/);
   assert.match(html, /data-testid="interactive-preview"/);
   assert.match(html, /Ondas Inc\./);
   assert.match(html, /NVIDIA Corp\./);
-  // The server renders the English locale, which only shows symbols with
-  // English names: no A-share or Hong Kong listings.
+  // The English page only shows symbols with English names: no A-share or
+  // Hong Kong listings.
   assert.doesNotMatch(html, /工业富联/);
   assert.doesNotMatch(html, /腾讯控股/);
   assert.match(html, /class="market-pulse" aria-hidden="true"/);
@@ -53,9 +54,11 @@ test("server-renders the Pulse landing page", async () => {
   assert.match(html, /providers\/binance\.svg/);
   assert.match(html, /providers\/tencent\.png/);
   assert.match(html, /providers\/yahoo-finance\.svg/);
-  assert.match(html, /aria-pressed="false"[^>]*>中文<\/button>/);
-  assert.match(html, /aria-pressed="true"[^>]*>EN<\/button>/);
-  assert.match(html, /aria-pressed="false"[^>]*>日本語<\/button>/);
+  // The language switcher is a set of links now; EN is the active locale at
+  // the root, zh and ja point at their prefixed paths.
+  assert.match(html, /href="\/zh"[^>]*>中文<\/a>/);
+  assert.match(html, /aria-current="page"[^>]*>EN<\/a>/);
+  assert.match(html, /href="\/ja"[^>]*>日本語<\/a>/);
 });
 
 test("server-renders the feature showcase and release link", async () => {
@@ -114,21 +117,113 @@ test("server-renders the full bilingual release timeline", async () => {
   assert.equal(releaseEntries.length, 25);
 });
 
-test("includes English copy and remembered language selection", async () => {
-  const page = await readFile(
-    new URL("../src/routes/index.tsx", import.meta.url),
+test("serves the Chinese homepage at /zh", async () => {
+  const response = await render("/zh");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /<html lang="zh-CN">/);
+  assert.match(html, /<title>Pulse — 你的市场，一眼掌握<\/title>/i);
+  assert.match(html, /你的市场，/);
+  assert.match(html, /腾讯控股/);
+  assert.doesNotMatch(html, /NVIDIA Corp\./);
+  assert.match(html, /href="\/zh\/changelog"/);
+  assert.match(html, /href="\/"[^>]*>EN<\/a>/);
+  assert.match(html, /下载最新版/);
+  // Localized SEO: canonical + hreflang alternates.
+  assert.match(
+    html,
+    /rel="canonical" href="https:\/\/www\.pulseticker\.app\/zh"/,
+  );
+  assert.match(
+    html,
+    /hreflang="x-default" href="https:\/\/www\.pulseticker\.app\/"/,
+  );
+  assert.match(html, /hreflang="ja" href="https:\/\/www\.pulseticker\.app\/ja"/);
+  assert.match(
+    html,
+    /hreflang="en" href="https:\/\/www\.pulseticker\.app\/"/,
+  );
+});
+
+test("serves the Japanese changelog at /ja/changelog", async () => {
+  const response = await render("/ja/changelog");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /<html lang="ja">/);
+  assert.match(
+    html,
+    /<title>Pulse 更新履歴 — すべてのリリースをひと目で<\/title>/i,
+  );
+  assert.match(html, /すべてのリリースを、/);
+  assert.match(html, /日本語に対応しました。/);
+  assert.match(html, /href="\/ja"/);
+  assert.match(
+    html,
+    /rel="canonical" href="https:\/\/www\.pulseticker\.app\/ja\/changelog"/,
+  );
+  assert.match(
+    html,
+    /hreflang="zh" href="https:\/\/www\.pulseticker\.app\/zh\/changelog"/,
+  );
+});
+
+test("redirects zh browsers from / to the Chinese homepage", async () => {
+  const response = await render("/", {
+    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+  });
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), "/zh");
+});
+
+test("respects the language cookie over Accept-Language", async () => {
+  const response = await render("/changelog", {
+    "accept-language": "en-US,en;q=0.9",
+    cookie: "pulse-lang=ja",
+  });
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), "/ja/changelog");
+});
+
+test("handles trailing slashes on the bare paths", async () => {
+  const response = await render("/changelog/", {
+    "accept-language": "zh-CN,zh;q=0.9",
+  });
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), "/zh/changelog");
+});
+
+test("redirects /en and /en/changelog back to the English pages", async () => {
+  const home = await render("/en");
+  assert.equal(home.status, 302);
+  assert.equal(home.headers.get("location"), "/");
+
+  const changelog = await render("/en/changelog");
+  assert.equal(changelog.status, 302);
+  assert.equal(changelog.headers.get("location"), "/changelog");
+});
+
+test("English copy lives at the root and language is a URL path", async () => {
+  const homePage = await readFile(
+    new URL("../src/components/home-page.tsx", import.meta.url),
+    "utf8",
+  );
+  const i18n = await readFile(
+    new URL("../src/i18n.ts", import.meta.url),
     "utf8",
   );
 
-  assert.match(page, /Your market,/);
-  assert.match(page, /macOS menu bar market tracker/);
-  assert.match(page, /Download for macOS/);
-  assert.match(page, /View on GitHub/);
-  assert.match(page, /navigator\.language/);
-  assert.match(page, /localStorage\.getItem\("pulse-language"\)/);
-  assert.match(page, /localStorage\.setItem\("pulse-language", nextLanguage\)/);
-  assert.doesNotMatch(page, /viewRelease/);
-  assert.match(page, /document\.documentElement\.lang/);
+  assert.match(homePage, /Your market,/);
+  assert.match(homePage, /macOS menu bar market tracker/);
+  assert.match(homePage, /Download for macOS/);
+  assert.match(homePage, /View on GitHub/);
+  assert.doesNotMatch(homePage, /viewRelease/);
+  // Language is a URL path now, not per-browser state.
+  assert.doesNotMatch(homePage, /localStorage/);
+  assert.match(i18n, /languageCookieName = "pulse-lang"/);
+  assert.match(i18n, /preferredLanguage/);
+  assert.match(i18n, /detectLanguageFromAcceptLanguage/);
 });
 
 test("enables GA4 analytics while keeping advertising consent disabled", async () => {
@@ -159,9 +254,9 @@ test("enables GA4 analytics while keeping advertising consent disabled", async (
   assert.match(head, /googletagmanager\.com\/gtag\/js/);
 });
 
-test("changelog shares the remembered language selection", async () => {
-  const page = await readFile(
-    new URL("../src/routes/changelog.tsx", import.meta.url),
+test("changelog copy ships in all three languages", async () => {
+  const changelogPage = await readFile(
+    new URL("../src/components/changelog-page.tsx", import.meta.url),
     "utf8",
   );
   const releaseData = await readFile(
@@ -169,10 +264,9 @@ test("changelog shares the remembered language selection", async () => {
     "utf8",
   );
 
-  assert.match(page, /Every release,/);
-  assert.match(page, /每一次更新/);
-  assert.match(page, /localStorage\.getItem\("pulse-language"\)/);
-  assert.match(page, /localStorage\.setItem\("pulse-language", nextLanguage\)/);
+  assert.match(changelogPage, /Every release,/);
+  assert.match(changelogPage, /每一次更新/);
+  assert.doesNotMatch(changelogPage, /localStorage/);
   assert.match(releaseData, /version: "0\.8\.0"/);
   assert.match(releaseData, /version: "0\.1\.0"/);
   assert.match(releaseData, /Longbridge 行情切换/);

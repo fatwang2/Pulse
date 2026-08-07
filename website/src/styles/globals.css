@@ -443,7 +443,10 @@ a {
   font-weight: 580;
 }
 
-.language-switcher button {
+.language-switcher a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 36px;
   height: 25px;
   padding: 0 7px;
@@ -454,16 +457,17 @@ a {
   font: inherit;
   font-size: 10px;
   font-weight: 580;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.language-switcher button.active {
+.language-switcher a.active {
   background: white;
   color: #30343a;
   box-shadow: 0 2px 7px rgba(35, 44, 56, 0.09);
 }
 
-.language-switcher button:focus-visible {
+.language-switcher a:focus-visible {
   outline: 2px solid rgba(10, 132, 255, 0.3);
   outline-offset: 1px;
 }

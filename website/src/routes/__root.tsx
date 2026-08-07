@@ -3,42 +3,21 @@ import {
   HeadContent,
   Outlet,
   Scripts,
+  useRouterState,
 } from "@tanstack/react-router";
 import { AnalyticsEvents } from "../components/analytics-events";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
 import globalsCss from "../styles/globals.css?url";
+import { htmlLang, languageFromPath } from "../i18n";
 
 const googleAnalyticsMeasurementId = "G-J9GLF06LPP";
-const siteUrl = "https://www.pulseticker.app";
-
-const title = "Pulse — Your market, at a glance";
-const description =
-  "Pulse is a lightweight macOS menu bar market tracker for prices, trends, and position P&L.";
-const socialDescription =
-  "Prices, trends, and position P&L—right from your macOS menu bar.";
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title },
-      { name: "description", content: description },
-      { property: "og:title", content: title },
-      { property: "og:description", content: socialDescription },
-      { property: "og:type", content: "website" },
-      { property: "og:image", content: `${siteUrl}/og-v2.png` },
-      { property: "og:image:width", content: "1536" },
-      { property: "og:image:height", content: "1024" },
-      {
-        property: "og:image:alt",
-        content: "Pulse macOS menu bar market tracker",
-      },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: title },
-      { name: "twitter:description", content: socialDescription },
-      { name: "twitter:image", content: `${siteUrl}/og-v2.png` },
     ],
     links: [
       { rel: "stylesheet", href: globalsCss },
@@ -72,8 +51,13 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const language = languageFromPath(pathname);
+
   return (
-    <html lang="en">
+    <html lang={htmlLang(language)}>
       <head>
         <HeadContent />
       </head>

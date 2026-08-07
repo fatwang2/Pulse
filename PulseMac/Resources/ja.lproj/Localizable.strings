@@ -309,3 +309,18 @@
 "transaction.deleteConfirmTitle" = "この取引を削除しますか？";
 "transaction.deleteConfirmMessage" = "%@ %@ %@ @ %@ を削除します。保有と損益は自動的に再計算されます。この操作は取り消せません。";
 "trade.dateYesterday" = "昨日";
+
+"settings.section.watchlistData" = "ウォッチリストのデータ";
+"settings.data.export" = "バックアップをコピー";
+"settings.data.exported" = "バックアップをコピーしました。安全な場所に貼り付けて保存してください";
+"settings.data.help" = "バックアップにはリスト・並び順・ピン留め・取引記録がテキストとして保存されます。インポートは不足分を追加するだけで、リストや銘柄、取引を削除することはありません。";
+"settings.data.import" = "クリップボードからインポート…";
+"settings.data.importPending" = "インポート内容";
+"settings.data.importSummary" = "%d 件のリスト · %d 銘柄";
+"settings.data.importConfirm" = "インポート";
+"settings.data.importDone" = "%d 銘柄と %d 件のリストを追加しました";
+"settings.data.importUnchanged" = "このバックアップの内容はすべて登録済みです";
+"settings.data.error.emptyClipboard" = "クリップボードが空です。先に Pulse のバックアップをコピーしてください。";
+"settings.data.error.notArchive" = "クリップボードの内容は Pulse のバックアップではありません。";
+"settings.data.error.newerVersion" = "このバックアップは新しいバージョンの Pulse のものです。アップデートしてからお試しください。";
+"settings.data.error.noLists" = "このバックアップにはリストがありません。";

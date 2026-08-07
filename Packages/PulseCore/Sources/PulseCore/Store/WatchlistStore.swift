@@ -390,12 +390,19 @@ public final class WatchlistStore {
     /// the open position. A short caches as a negative-quantity lot, which
     /// older builds simply treat as no position rather than corrupting it.
     private func commitTransactions(_ transactions: [PositionTransaction], at index: Int) {
+        applyTransactions(transactions, at: index)
+        save()
+    }
+
+    /// Replays a ledger onto an item and refreshes its derived single-lot cache.
+    /// Split out from `commitTransactions` so a bulk import can apply many items
+    /// before persisting once.
+    private func applyTransactions(_ transactions: [PositionTransaction], at index: Int) {
         allItems[index].transactions = PositionLedger.replayOrdered(transactions)
         let ledger = PositionLedger(transactions: allItems[index].transactions)
         allItems[index].lots = ledger.hasOpenPosition
             ? [CostLot(price: ledger.averageCost, quantity: ledger.quantity, date: nil)]
             : []
-        save()
     }
 
     /// Replaces a persisted name only when its provider outranks the saved source.
@@ -435,6 +442,110 @@ public final class WatchlistStore {
         allItems[index].displayNameSource = source
         save()
         return true
+    }
+
+    // MARK: - Archive
+
+    /// The current watchlists in portable form, in the order they are shown.
+    public func archive(exportedAt: Date = .now, app: String? = nil) -> WatchlistArchive {
+        let itemsBySymbol = Dictionary(uniqueKeysWithValues: allItems.map { ($0.symbol, $0) })
+        let lists = groups.map { group in
+            let pinned = Set(group.pinnedSymbols)
+            let entries = group.symbols.compactMap { symbol -> WatchlistArchive.Entry? in
+                guard let item = itemsBySymbol[symbol] else { return nil }
+                return WatchlistArchive.Entry(
+                    market: symbol.market,
+                    code: symbol.code,
+                    name: item.displayName,
+                    type: item.instrumentType,
+                    pinned: pinned.contains(symbol) ? true : nil,
+                    transactions: item.transactions.isEmpty ? nil : item.transactions
+                )
+            }
+            return WatchlistArchive.List(name: group.name, entries: entries)
+        }
+        return WatchlistArchive(exportedAt: exportedAt, app: app, lists: lists)
+    }
+
+    /// Adds everything in `archive` that is missing. Import is deliberately additive:
+    /// it never removes a list, a symbol, or a trade, so importing a stale backup
+    /// cannot destroy newer work and re-importing the same archive is a no-op.
+    ///
+    /// A symbol already on the watchlist keeps its saved name, and an instrument that
+    /// already has trades keeps them — the archive only fills positions that are empty.
+    @discardableResult
+    public func merge(_ archive: WatchlistArchive) -> WatchlistArchive.MergeReport {
+        var report = WatchlistArchive.MergeReport()
+
+        for list in archive.lists {
+            let name = normalizedName(list.name)
+            guard !name.isEmpty else { continue }
+
+            let groupIndex: Int
+            if let existing = groups.firstIndex(where: { $0.name == name }) {
+                groupIndex = existing
+            } else {
+                groups.append(WatchlistGroup(name: name))
+                groupIndex = groups.count - 1
+                report.listsCreated += 1
+            }
+
+            var appended: [SymbolID] = []
+            for entry in list.entries {
+                let symbol = entry.symbolID
+                let archivedTransactions = entry.transactions ?? []
+
+                if let itemIndex = allItems.firstIndex(where: { $0.symbol == symbol }) {
+                    // Only an empty position adopts the archive's trades; a live
+                    // ledger is never overwritten by an import.
+                    if allItems[itemIndex].transactions.isEmpty, !archivedTransactions.isEmpty {
+                        applyTransactions(archivedTransactions, at: itemIndex)
+                        report.positionsRestored += 1
+                    }
+                } else {
+                    let archivedName = entry.name?
+                        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    allItems.append(WatchItem(
+                        symbol: symbol,
+                        // An entry without a name keeps the code as a placeholder and
+                        // no provenance, which is exactly the state the existing
+                        // display-name upgrade path repairs on the first refresh.
+                        displayName: archivedName.isEmpty ? symbol.displayCode : archivedName,
+                        displayNameSource: nil,
+                        instrumentType: entry.type
+                    ))
+                    if !archivedTransactions.isEmpty {
+                        applyTransactions(archivedTransactions, at: allItems.count - 1)
+                        report.positionsRestored += 1
+                    }
+                }
+
+                if groups[groupIndex].symbols.contains(symbol) {
+                    report.symbolsAlreadyPresent += 1
+                } else {
+                    appended.append(symbol)
+                    report.symbolsAdded += 1
+                }
+
+                if entry.pinned == true, !groups[groupIndex].pinnedSymbols.contains(symbol) {
+                    groups[groupIndex].pinnedSymbols.append(symbol)
+                }
+            }
+
+            // Appending preserves the archive's own order. `add(_:to:)` inserts at the
+            // top, which would silently reverse an imported list.
+            groups[groupIndex].symbols.append(contentsOf: appended)
+            if groups[groupIndex].manualOrder != nil {
+                groups[groupIndex].manualOrder?.append(contentsOf: appended)
+            }
+        }
+
+        normalizeLoadedState()
+        if group(for: selectedGroupID) == nil {
+            selectedGroupID = groups.first?.id
+        }
+        save()
+        return report
     }
 
     private struct Snapshot: Codable {

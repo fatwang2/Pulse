@@ -309,3 +309,18 @@
 "transaction.deleteConfirmTitle" = "Delete this trade?";
 "transaction.deleteConfirmMessage" = "%@ %@ %@ @ %@ will be deleted; your position and P&L will be recalculated. This cannot be undone.";
 "trade.dateYesterday" = "Yesterday";
+
+"settings.section.watchlistData" = "Watchlist Data";
+"settings.data.export" = "Copy Backup";
+"settings.data.exported" = "Backup copied — paste it somewhere safe";
+"settings.data.help" = "A backup holds your lists, order, pins, and trades as text. Importing only adds what is missing; it never removes a list, a symbol, or a trade.";
+"settings.data.import" = "Import from Clipboard…";
+"settings.data.importPending" = "Ready to import";
+"settings.data.importSummary" = "%d lists · %d symbols";
+"settings.data.importConfirm" = "Import";
+"settings.data.importDone" = "Added %d symbols and %d lists";
+"settings.data.importUnchanged" = "Everything in that backup is already here";
+"settings.data.error.emptyClipboard" = "The clipboard is empty. Copy a Pulse backup first.";
+"settings.data.error.notArchive" = "The clipboard doesn’t hold a Pulse backup.";
+"settings.data.error.newerVersion" = "That backup came from a newer version of Pulse. Update and try again.";
+"settings.data.error.noLists" = "That backup has no lists in it.";

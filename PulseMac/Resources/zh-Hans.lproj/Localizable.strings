@@ -309,3 +309,18 @@
 "transaction.deleteConfirmTitle" = "删除这笔交易？";
 "transaction.deleteConfirmMessage" = "%@ %@ %@ @ %@ 将被删除，持仓与盈亏会自动重算。此操作不可撤销。";
 "trade.dateYesterday" = "昨天";
+
+"settings.section.watchlistData" = "自选数据";
+"settings.data.export" = "复制备份";
+"settings.data.exported" = "备份已复制，粘贴到安全的地方保存";
+"settings.data.help" = "备份以文本形式保存你的列表、顺序、置顶与交易记录。导入只会补上缺少的内容，不会删除任何列表、标的或交易。";
+"settings.data.import" = "从剪贴板导入…";
+"settings.data.importPending" = "待导入";
+"settings.data.importSummary" = "%d 个列表 · %d 个标的";
+"settings.data.importConfirm" = "导入";
+"settings.data.importDone" = "已添加 %d 个标的、%d 个列表";
+"settings.data.importUnchanged" = "备份中的内容都已存在";
+"settings.data.error.emptyClipboard" = "剪贴板是空的，请先复制一份 Pulse 备份。";
+"settings.data.error.notArchive" = "剪贴板里不是 Pulse 备份。";
+"settings.data.error.newerVersion" = "这份备份来自更新版本的 Pulse，请先升级后再试。";
+"settings.data.error.noLists" = "这份备份里没有任何列表。";

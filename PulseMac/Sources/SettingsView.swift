@@ -173,6 +173,8 @@ struct SettingsView: View {
                 Text(PulseLocalization.localizedString("settings.general.anonymousAnalyticsHelp"))
             }
 
+            WatchlistDataSettingsSection()
+
             Section {
                 LabeledContent(
                     PulseLocalization.localizedString("settings.updates.currentVersion"),

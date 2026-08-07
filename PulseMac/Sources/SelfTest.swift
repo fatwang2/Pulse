@@ -46,6 +46,68 @@ enum SelfTest {
     }
     @MainActor
     static func runIfRequested() {
+        if CommandLine.arguments.contains("--watchlist-archive-selftest") {
+            // Exercises the shipped binary's export/import path end to end. It runs
+            // against an isolated defaults suite, so it never reads or writes the
+            // watchlist the user actually keeps.
+            let suiteName = "app.pulse.mac.watchlist-archive-selftest"
+            guard let defaults = UserDefaults(suiteName: suiteName) else {
+                print("PULSE_WATCHLIST_ARCHIVE_SELFTEST failed error=unable-to-create-defaults")
+                fflush(stdout)
+                exit(1)
+            }
+            defaults.removePersistentDomain(forName: suiteName)
+            defer { defaults.removePersistentDomain(forName: suiteName) }
+
+            let source = WatchlistStore(defaults: defaults, defaultGroupName: "Watchlist")
+            let nvda = SymbolID(market: .us, code: "NVDA")
+            source.add(SymbolInfo(symbol: nvda, name: "NVIDIA Corp."))
+            source.add(SymbolInfo(symbol: SymbolID(market: .hk, code: "700"), name: "腾讯控股"))
+            source.addTransaction(nvda, PositionTransaction(
+                kind: .buy, price: 100, quantity: 2, date: .now
+            ))
+
+            let restoreSuite = "\(suiteName).restore"
+            guard let restoreDefaults = UserDefaults(suiteName: restoreSuite) else {
+                print("PULSE_WATCHLIST_ARCHIVE_SELFTEST failed error=unable-to-create-defaults")
+                fflush(stdout)
+                exit(1)
+            }
+            restoreDefaults.removePersistentDomain(forName: restoreSuite)
+            defer { restoreDefaults.removePersistentDomain(forName: restoreSuite) }
+
+            do {
+                let text = try source.archive(app: "selftest").encoded()
+                let restored = WatchlistStore(defaults: restoreDefaults, defaultGroupName: "Watchlist")
+                let report = restored.merge(try WatchlistArchive.decoded(from: text))
+                let idempotent = restored.merge(try WatchlistArchive.decoded(from: text))
+
+                let passed = report.symbolsAdded == 2
+                    && report.positionsRestored == 1
+                    && !idempotent.changedAnything
+                    && restored.item(for: nvda)?.displayName == "NVIDIA Corp."
+                guard passed else {
+                    print(
+                        "PULSE_WATCHLIST_ARCHIVE_SELFTEST failed " +
+                        "added=\(report.symbolsAdded) positions=\(report.positionsRestored) " +
+                        "reimportChanged=\(idempotent.changedAnything)"
+                    )
+                    fflush(stdout)
+                    exit(1)
+                }
+                print(
+                    "PULSE_WATCHLIST_ARCHIVE_SELFTEST ok " +
+                    "added=2 positions=1 reimportChanged=false"
+                )
+                fflush(stdout)
+                exit(0)
+            } catch {
+                print("PULSE_WATCHLIST_ARCHIVE_SELFTEST failed error=\(error)")
+                fflush(stdout)
+                exit(1)
+            }
+        }
+
         if CommandLine.arguments.contains("--settings-persistence-selftest") {
             let suiteName = "app.pulse.mac.settings-persistence-selftest"
             guard let defaults = UserDefaults(suiteName: suiteName) else {

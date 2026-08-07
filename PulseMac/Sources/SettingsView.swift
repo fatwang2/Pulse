@@ -173,7 +173,23 @@ struct SettingsView: View {
                 Text(PulseLocalization.localizedString("settings.general.anonymousAnalyticsHelp"))
             }
 
-            WatchlistDataSettingsSection()
+            Section {
+                Button {
+                    route = .dataSettings
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(PulseLocalization.localizedString("settings.data.row"))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.pressable)
+            } header: {
+                Text(PulseLocalization.localizedString("settings.section.data"))
+            }
 
             Section {
                 LabeledContent(

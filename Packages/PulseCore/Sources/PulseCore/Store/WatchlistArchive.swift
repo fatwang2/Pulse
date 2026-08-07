@@ -33,7 +33,10 @@ public struct WatchlistArchive: Codable, Sendable, Equatable {
     }
 
     public struct Entry: Codable, Sendable, Equatable {
-        public var market: Market
+        /// Kept as written rather than as a `Market`. A typo in one entry should
+        /// cost the user that row, not the whole import, so the market is resolved
+        /// per entry and reported instead of failing the decode.
+        public var market: String
         public var code: String
         public var name: String?
         public var type: InstrumentType?
@@ -41,7 +44,7 @@ public struct WatchlistArchive: Codable, Sendable, Equatable {
         public var transactions: [PositionTransaction]?
 
         public init(
-            market: Market,
+            market: String,
             code: String,
             name: String? = nil,
             type: InstrumentType? = nil,
@@ -56,12 +59,47 @@ public struct WatchlistArchive: Codable, Sendable, Equatable {
             self.transactions = transactions
         }
 
-        /// Rebuilds the canonical identity. `SymbolID` owns crypto-pair parsing,
-        /// index resolution, and per-market code normalization, so a hand-typed
-        /// `700`, `BTC/USDT`, or `SPX` all land on the same value the app would
-        /// have produced through search.
-        public var symbolID: SymbolID {
-            SymbolID(market: market, code: code)
+        public init(
+            market: Market,
+            code: String,
+            name: String? = nil,
+            type: InstrumentType? = nil,
+            pinned: Bool? = nil,
+            transactions: [PositionTransaction]? = nil
+        ) {
+            self.init(
+                market: market.rawValue,
+                code: code,
+                name: name,
+                type: type,
+                pinned: pinned,
+                transactions: transactions
+            )
+        }
+
+        /// What Pulse makes of this entry. Reading it is how the import preview can
+        /// show the user the instrument they are actually about to add, rather than
+        /// echoing back the text they pasted.
+        public enum Resolution: Sendable, Equatable {
+            case resolved(SymbolID)
+            case unknownMarket
+            case missingCode
+        }
+
+        public var resolution: Resolution {
+            let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+            let rawMarket = market.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard let market = Market(rawValue: rawMarket) else { return .unknownMarket }
+            guard !trimmedCode.isEmpty else { return .missingCode }
+            // `SymbolID` owns crypto-pair parsing, index resolution, and per-market
+            // code normalization, so a hand-typed `700`, `btc/usdt`, or `SPX` all
+            // land on the value search would have produced.
+            return .resolved(SymbolID(market: market, code: trimmedCode))
+        }
+
+        public var symbolID: SymbolID? {
+            guard case .resolved(let symbol) = resolution else { return nil }
+            return symbol
         }
     }
 
@@ -132,21 +170,70 @@ public struct WatchlistArchive: Codable, Sendable, Equatable {
         return archive
     }
 
-    // MARK: - Import result
+    /// A minimal, valid archive to hand someone who is writing one by hand. Offering
+    /// this to the clipboard teaches the format far better than describing it does.
+    public static func example() -> WatchlistArchive {
+        WatchlistArchive(lists: [
+            .init(name: PulseLocalization.localizedString("data.example.list.stocks"), entries: [
+                .init(market: .us, code: "NVDA"),
+                .init(market: .hk, code: "700"),
+                .init(market: .sh, code: "688018")
+            ]),
+            .init(name: PulseLocalization.localizedString("data.example.list.crypto"), entries: [
+                .init(market: .crypto, code: "BTC/USDT")
+            ])
+        ])
+    }
 
-    /// What an import actually changed. Import never deletes, so a report of all
-    /// zeros means the archive was already fully represented — a normal outcome
-    /// worth telling the user about rather than a failure.
-    public struct MergeReport: Sendable, Equatable {
-        public var listsCreated: Int = 0
-        public var symbolsAdded: Int = 0
-        public var symbolsAlreadyPresent: Int = 0
-        public var positionsRestored: Int = 0
+    // MARK: - Import plan
 
-        public var changedAnything: Bool {
-            listsCreated > 0 || symbolsAdded > 0 || positionsRestored > 0
+    /// What an import would do, entry by entry, before anything is written.
+    ///
+    /// A code that cannot be verified against a provider offline still resolves to
+    /// *something*, so the plan shows the instrument Pulse understood rather than a
+    /// bare success flag: a wrong market or a mistyped pair is obvious when the
+    /// interpretation is on screen next to the text that produced it.
+    public struct ImportPlan: Sendable, Equatable {
+        public enum Outcome: Sendable, Equatable {
+            case add(SymbolID)
+            case alreadyInList(SymbolID)
+            case restorePosition(SymbolID)
+            case skipped(Entry.Resolution)
         }
 
-        public init() {}
+        public struct Item: Sendable, Equatable, Identifiable {
+            public let id: Int
+            public let entry: Entry
+            public let outcome: Outcome
+
+            public var symbol: SymbolID? {
+                switch outcome {
+                case .add(let symbol), .alreadyInList(let symbol), .restorePosition(let symbol):
+                    symbol
+                case .skipped:
+                    nil
+                }
+            }
+        }
+
+        public struct ListPlan: Sendable, Equatable, Identifiable {
+            public let id: Int
+            public let name: String
+            public let isNew: Bool
+            public let items: [Item]
+        }
+
+        public var lists: [ListPlan]
+
+        public var allItems: [Item] { lists.flatMap(\.items) }
+        public var newListCount: Int { lists.filter(\.isNew).count }
+        public var addCount: Int { allItems.filter { if case .add = $0.outcome { true } else { false } }.count }
+        public var skippedCount: Int {
+            allItems.filter { if case .skipped = $0.outcome { true } else { false } }.count
+        }
+        public var restoreCount: Int {
+            allItems.filter { if case .restorePosition = $0.outcome { true } else { false } }.count
+        }
+        public var changesAnything: Bool { newListCount > 0 || addCount > 0 || restoreCount > 0 }
     }
 }

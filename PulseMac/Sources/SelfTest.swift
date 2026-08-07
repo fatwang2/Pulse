@@ -79,25 +79,25 @@ enum SelfTest {
             do {
                 let text = try source.archive(app: "selftest").encoded()
                 let restored = WatchlistStore(defaults: restoreDefaults, defaultGroupName: "Watchlist")
-                let report = restored.merge(try WatchlistArchive.decoded(from: text))
+                let plan = restored.merge(try WatchlistArchive.decoded(from: text))
                 let idempotent = restored.merge(try WatchlistArchive.decoded(from: text))
 
-                let passed = report.symbolsAdded == 2
-                    && report.positionsRestored == 1
-                    && !idempotent.changedAnything
+                let passed = plan.addCount == 2
+                    && plan.skippedCount == 0
+                    && !idempotent.changesAnything
                     && restored.item(for: nvda)?.displayName == "NVIDIA Corp."
                 guard passed else {
                     print(
                         "PULSE_WATCHLIST_ARCHIVE_SELFTEST failed " +
-                        "added=\(report.symbolsAdded) positions=\(report.positionsRestored) " +
-                        "reimportChanged=\(idempotent.changedAnything)"
+                        "added=\(plan.addCount) skipped=\(plan.skippedCount) " +
+                        "reimportChanged=\(idempotent.changesAnything)"
                     )
                     fflush(stdout)
                     exit(1)
                 }
                 print(
                     "PULSE_WATCHLIST_ARCHIVE_SELFTEST ok " +
-                    "added=2 positions=1 reimportChanged=false"
+                    "added=2 skipped=0 reimportChanged=false"
                 )
                 fflush(stdout)
                 exit(0)

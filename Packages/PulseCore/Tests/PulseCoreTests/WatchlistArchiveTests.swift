@@ -38,10 +38,10 @@ struct WatchlistArchiveTests {
 
         let (restored, restoredDefaults, restoredSuite) = try makeStore("restored")
         defer { restoredDefaults.removePersistentDomain(forName: restoredSuite) }
-        let report = restored.merge(try WatchlistArchive.decoded(from: text))
+        let plan = restored.merge(try WatchlistArchive.decoded(from: text))
 
-        #expect(report.symbolsAdded == 3)
-        #expect(report.positionsRestored == 1)
+        #expect(plan.addCount == 3)
+        #expect(plan.skippedCount == 0)
 
         let watchlistGroup = try #require(restored.groups.first { $0.name == "Watchlist" })
         #expect(watchlistGroup.symbols.contains(nvda))
@@ -97,9 +97,9 @@ struct WatchlistArchiveTests {
         }
         """
 
-        let report = store.merge(try WatchlistArchive.decoded(from: text))
-        #expect(report.listsCreated == 1)
-        #expect(report.symbolsAdded == 4)
+        let plan = store.merge(try WatchlistArchive.decoded(from: text))
+        #expect(plan.newListCount == 1)
+        #expect(plan.addCount == 4)
 
         let core = try #require(store.groups.first { $0.name == "Core" })
         #expect(core.symbols.count == 4)
@@ -144,11 +144,10 @@ struct WatchlistArchiveTests {
         }
         """
 
-        let report = store.merge(try WatchlistArchive.decoded(from: text))
-        #expect(report.symbolsAdded == 0)
-        #expect(report.symbolsAlreadyPresent == 1)
-        #expect(report.positionsRestored == 0)
-        #expect(!report.changedAnything)
+        let plan = store.merge(try WatchlistArchive.decoded(from: text))
+        #expect(plan.addCount == 0)
+        #expect(plan.restoreCount == 0)
+        #expect(!plan.changesAnything)
 
         // The saved name and the live ledger both win over the archive.
         #expect(store.item(for: nvda)?.displayName == "英伟达")
@@ -167,7 +166,7 @@ struct WatchlistArchiveTests {
         let text = try store.archive().encoded()
 
         let first = store.merge(try WatchlistArchive.decoded(from: text))
-        #expect(!first.changedAnything)
+        #expect(!first.changesAnything)
 
         let groupsBefore = store.groups
         let itemsBefore = store.items
@@ -201,9 +200,9 @@ struct WatchlistArchiveTests {
         }
         """
 
-        let report = store.merge(try WatchlistArchive.decoded(from: text))
-        #expect(report.positionsRestored == 1)
-        #expect(report.changedAnything)
+        let plan = store.merge(try WatchlistArchive.decoded(from: text))
+        #expect(plan.restoreCount == 1)
+        #expect(plan.changesAnything)
 
         let item = try #require(store.item(for: nvda))
         #expect(item.transactions.count == 1)
@@ -255,5 +254,133 @@ struct WatchlistArchiveTests {
 
         let reparsed = try WatchlistArchive.decoded(from: text)
         #expect(reparsed == archive)
+    }
+}
+
+@Suite("Watchlist import preview")
+struct WatchlistImportPlanTests {
+    @MainActor
+    private func makeStore(
+        _ label: String
+    ) throws -> (store: WatchlistStore, defaults: UserDefaults, suite: String) {
+        let suiteName = "WatchlistImportPlanTests.\(label).\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        return (WatchlistStore(defaults: defaults, defaultGroupName: "Watchlist"), defaults, suiteName)
+    }
+
+    @MainActor
+    @Test("The plan reports the instrument each entry resolves to")
+    func planShowsResolvedIdentities() throws {
+        let (store, defaults, suite) = try makeStore("resolve")
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let text = """
+        {
+          "format": "pulse.watchlist",
+          "version": 1,
+          "lists": [
+            { "name": "Core", "entries": [
+                { "market": "us", "code": "nvda" },
+                { "market": "crypto", "code": "btc-usdt" },
+                { "market": "us", "code": "SPX" }
+            ] }
+          ]
+        }
+        """
+        let plan = store.importPlan(for: try WatchlistArchive.decoded(from: text))
+        let symbols = plan.allItems.compactMap(\.symbol)
+
+        // Lowercase codes, a dash-separated pair, and an index alias all normalize to
+        // the identity search would have produced, and the plan surfaces that identity.
+        #expect(symbols[0].code == "NVDA")
+        #expect(symbols[1].displayCode == "BTC/USDT")
+        #expect(symbols[2].indexID == .sp500)
+        #expect(plan.addCount == 3)
+    }
+
+    @MainActor
+    @Test("An entry Pulse cannot read is skipped without failing the import")
+    func unreadableEntriesAreSkippedNotFatal() throws {
+        let (store, defaults, suite) = try makeStore("skip")
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let text = """
+        {
+          "format": "pulse.watchlist",
+          "version": 1,
+          "lists": [
+            { "name": "Core", "entries": [
+                { "market": "us", "code": "NVDA" },
+                { "market": "moon", "code": "XYZ" },
+                { "market": "hk", "code": "  " },
+                { "market": "hk", "code": "700" }
+            ] }
+          ]
+        }
+        """
+        let archive = try WatchlistArchive.decoded(from: text)
+        let plan = store.importPlan(for: archive)
+
+        #expect(plan.addCount == 2)
+        #expect(plan.skippedCount == 2)
+        #expect(plan.allItems[1].outcome == .skipped(.unknownMarket))
+        #expect(plan.allItems[2].outcome == .skipped(.missingCode))
+
+        // The good entries still land; a single bad row is not fatal.
+        store.merge(archive)
+        let core = try #require(store.groups.first { $0.name == "Core" })
+        #expect(core.symbols.count == 2)
+    }
+
+    @MainActor
+    @Test("The plan distinguishes a new list from one that already exists")
+    func planMarksNewLists() throws {
+        let (store, defaults, suite) = try makeStore("lists")
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        store.add(SymbolInfo(symbol: SymbolID(market: .us, code: "AAPL"), name: "Apple Inc."))
+
+        let text = """
+        {
+          "format": "pulse.watchlist",
+          "version": 1,
+          "lists": [
+            { "name": "Watchlist", "entries": [{ "market": "us", "code": "AAPL" }] },
+            { "name": "Crypto", "entries": [{ "market": "crypto", "code": "BTC/USDT" }] }
+          ]
+        }
+        """
+        let plan = store.importPlan(for: try WatchlistArchive.decoded(from: text))
+
+        #expect(plan.lists[0].isNew == false)
+        #expect(plan.lists[1].isNew == true)
+        #expect(plan.lists[0].items[0].outcome == .alreadyInList(SymbolID(market: .us, code: "AAPL")))
+        #expect(plan.newListCount == 1)
+        #expect(plan.addCount == 1)
+    }
+
+    @MainActor
+    @Test("Planning writes nothing")
+    func planningIsPure() throws {
+        let (store, defaults, suite) = try makeStore("pure")
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let before = store.groups
+        let text = """
+        {"format":"pulse.watchlist","version":1,
+         "lists":[{"name":"New","entries":[{"market":"us","code":"NVDA"}]}]}
+        """
+        _ = store.importPlan(for: try WatchlistArchive.decoded(from: text))
+        #expect(store.groups == before)
+        #expect(store.allItems.isEmpty)
+    }
+
+    @Test("The bundled example is a valid archive")
+    func exampleParses() throws {
+        let text = try WatchlistArchive.example().encoded()
+        let reparsed = try WatchlistArchive.decoded(from: text)
+        #expect(reparsed.lists.count == 2)
+        #expect(reparsed.lists.allSatisfy { !$0.entries.isEmpty })
+        #expect(reparsed.lists.flatMap(\.entries).allSatisfy { $0.symbolID != nil })
     }
 }

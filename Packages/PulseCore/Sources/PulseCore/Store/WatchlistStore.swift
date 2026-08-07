@@ -467,17 +467,66 @@ public final class WatchlistStore {
         return WatchlistArchive(exportedAt: exportedAt, app: app, lists: lists)
     }
 
+    /// What importing `archive` would do, entry by entry, without writing anything.
+    /// The settings screen shows this before asking for confirmation so the user can
+    /// see the instruments Pulse understood rather than the text they pasted.
+    public func importPlan(for archive: WatchlistArchive) -> WatchlistArchive.ImportPlan {
+        var listPlans: [WatchlistArchive.ImportPlan.ListPlan] = []
+        var itemID = 0
+
+        for (listIndex, list) in archive.lists.enumerated() {
+            let name = normalizedName(list.name)
+            let existing = groups.first { $0.name == name }
+            // Membership accumulates while planning so a list that repeats a symbol
+            // reports the second mention as already present rather than a second add.
+            var plannedSymbols = Set(existing?.symbols ?? [])
+
+            var items: [WatchlistArchive.ImportPlan.Item] = []
+            for entry in list.entries {
+                itemID += 1
+                let resolution = entry.resolution
+                let outcome: WatchlistArchive.ImportPlan.Outcome
+                switch resolution {
+                case .unknownMarket, .missingCode:
+                    outcome = .skipped(resolution)
+                case .resolved(let symbol):
+                    if plannedSymbols.contains(symbol) {
+                        let hasEmptyLedger = item(for: symbol)?.transactions.isEmpty ?? false
+                        let bringsTrades = !(entry.transactions ?? []).isEmpty
+                        outcome = hasEmptyLedger && bringsTrades
+                            ? .restorePosition(symbol)
+                            : .alreadyInList(symbol)
+                    } else {
+                        plannedSymbols.insert(symbol)
+                        outcome = .add(symbol)
+                    }
+                }
+                items.append(.init(id: itemID, entry: entry, outcome: outcome))
+            }
+
+            listPlans.append(.init(
+                id: listIndex,
+                name: name.isEmpty ? list.name : name,
+                isNew: existing == nil && !name.isEmpty,
+                items: items
+            ))
+        }
+
+        return WatchlistArchive.ImportPlan(lists: listPlans)
+    }
+
     /// Adds everything in `archive` that is missing. Import is deliberately additive:
     /// it never removes a list, a symbol, or a trade, so importing a stale backup
     /// cannot destroy newer work and re-importing the same archive is a no-op.
     ///
     /// A symbol already on the watchlist keeps its saved name, and an instrument that
     /// already has trades keeps them — the archive only fills positions that are empty.
+    /// An entry Pulse cannot resolve is skipped on its own; it never fails the import.
     @discardableResult
-    public func merge(_ archive: WatchlistArchive) -> WatchlistArchive.MergeReport {
-        var report = WatchlistArchive.MergeReport()
+    public func merge(_ archive: WatchlistArchive) -> WatchlistArchive.ImportPlan {
+        let plan = importPlan(for: archive)
 
-        for list in archive.lists {
+        for (list, listPlan) in zip(archive.lists, plan.lists) {
             let name = normalizedName(list.name)
             guard !name.isEmpty else { continue }
 
@@ -487,12 +536,12 @@ public final class WatchlistStore {
             } else {
                 groups.append(WatchlistGroup(name: name))
                 groupIndex = groups.count - 1
-                report.listsCreated += 1
             }
 
             var appended: [SymbolID] = []
-            for entry in list.entries {
-                let symbol = entry.symbolID
+            for planItem in listPlan.items {
+                guard let symbol = planItem.symbol else { continue }
+                let entry = planItem.entry
                 let archivedTransactions = entry.transactions ?? []
 
                 if let itemIndex = allItems.firstIndex(where: { $0.symbol == symbol }) {
@@ -500,7 +549,6 @@ public final class WatchlistStore {
                     // ledger is never overwritten by an import.
                     if allItems[itemIndex].transactions.isEmpty, !archivedTransactions.isEmpty {
                         applyTransactions(archivedTransactions, at: itemIndex)
-                        report.positionsRestored += 1
                     }
                 } else {
                     let archivedName = entry.name?
@@ -516,17 +564,12 @@ public final class WatchlistStore {
                     ))
                     if !archivedTransactions.isEmpty {
                         applyTransactions(archivedTransactions, at: allItems.count - 1)
-                        report.positionsRestored += 1
                     }
                 }
 
-                if groups[groupIndex].symbols.contains(symbol) {
-                    report.symbolsAlreadyPresent += 1
-                } else {
+                if case .add = planItem.outcome, !groups[groupIndex].symbols.contains(symbol) {
                     appended.append(symbol)
-                    report.symbolsAdded += 1
                 }
-
                 if entry.pinned == true, !groups[groupIndex].pinnedSymbols.contains(symbol) {
                     groups[groupIndex].pinnedSymbols.append(symbol)
                 }
@@ -545,7 +588,7 @@ public final class WatchlistStore {
             selectedGroupID = groups.first?.id
         }
         save()
-        return report
+        return plan
     }
 
     private struct Snapshot: Codable {

@@ -16,6 +16,8 @@ enum PopoverRoute: Hashable {
     case profile(SymbolID)
     case settings
     case providerDetail(String)
+    /// Import and export, kept off the settings list so it stays a short page.
+    case dataSettings
 }
 
 enum TradeSide: Hashable {
@@ -151,6 +153,10 @@ struct PopoverRootView: View {
                 SettingsView(route: $route)
                     .frame(height: height(for: route))
                     .transition(pushTransition)
+            case .dataSettings:
+                DataSettingsView(route: $route)
+                    .frame(height: height(for: route))
+                    .transition(pushTransition)
             case .providerDetail(let id):
                 Group {
                     if id == LongbridgeProvider.providerID {
@@ -217,7 +223,7 @@ struct PopoverRootView: View {
             return 370
         case .settings:
             return 540
-        case .providerDetail:
+        case .providerDetail, .dataSettings:
             // Same height as the settings page it navigates from, so the popover
             // doesn't shrink on push and the taller pages don't need scrolling.
             return 540

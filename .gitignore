@@ -23,6 +23,7 @@
 .build/
 /build/
 DerivedData/
+.derivedData/
 .swiftpm/
 *.xcodeproj/
 *.xcworkspace/
@@ -48,6 +49,9 @@ xcuserdata/
 *.swo
 *~
 .idea/
+
+# Local-only working files (import payloads, scratch data)
+/local/
 
 # Local agent and planning state
 /plans/

@@ -5,8 +5,90 @@ import { handleDownloadRequest, type DownloadEnv } from "./download";
 import {
   changelogPath,
   homePath,
+  languages,
+  pagePath,
   preferredLanguage,
+  siteUrl,
+  type PageKind,
 } from "./i18n";
+import { releases } from "./data/releases";
+
+const SITEMAP_CACHE = "public, max-age=3600";
+const ROBOTS_CACHE = "public, max-age=3600";
+
+/**
+ * XML sitemap covering every public URL, mirroring the canonical/hreflang
+ * set in i18n.ts. Served by the Worker so it never falls through to the
+ * SPA catch-all (which would 302 to the homepage).
+ */
+function sitemapXml(): string {
+  const lastmod = releases[0]?.date ?? new Date().toISOString().slice(0, 10);
+  const urls = languages
+    .flatMap((language: (typeof languages)[number]) =>
+      (["home", "changelog"] as const).map((kind: PageKind) =>
+        `  <url>\n    <loc>${siteUrl}${pagePath(kind, language)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${kind === "home" ? "1.0" : "0.5"}</priority>\n  </url>`,
+      ),
+    )
+    .join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
+}
+
+/**
+ * Self-hosted robots.txt. Replaces the Cloudflare managed default, which
+ * disallows GPTBot / ClaudeBot / CCBot / Bytespider / Google-Extended /
+ * Applebot-Extended and therefore blocks AI search engines from citing the
+ * site. We keep training off but allow indexing/reference for AI answers.
+ */
+function robotsTxt(): string {
+  const aiCrawlers = [
+    "GPTBot",
+    "ClaudeBot",
+    "Claude-Web",
+    "CCBot",
+    "Bytespider",
+    "Google-Extended",
+    "PerplexityBot",
+    "Applebot-Extended",
+    "OAI-SearchBot",
+  ];
+  return [
+    "User-agent: *",
+    "Allow: /",
+    "Content-Signal: search=yes, ai-train=no, use=reference",
+    "",
+    "# AI crawlers: allowed to index and reference content for AI search",
+    "# answers, but not to train on it.",
+    ...aiCrawlers.flatMap((crawler) => [
+      `User-agent: ${crawler}`,
+      "Allow: /",
+      "",
+    ]),
+    `Sitemap: ${siteUrl}/sitemap.xml`,
+    "",
+  ].join("\n");
+}
+
+function handleSitemapRequest(request: Request): Response | undefined {
+  const url = new URL(request.url);
+  if (url.pathname !== "/sitemap.xml") return undefined;
+  return new Response(sitemapXml(), {
+    headers: {
+      "content-type": "application/xml; charset=utf-8",
+      "cache-control": SITEMAP_CACHE,
+    },
+  });
+}
+
+function handleRobotsRequest(request: Request): Response | undefined {
+  const url = new URL(request.url);
+  if (url.pathname !== "/robots.txt") return undefined;
+  return new Response(robotsTxt(), {
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": ROBOTS_CACHE,
+    },
+  });
+}
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -63,6 +145,16 @@ export default {
     env: DownloadEnv,
     ctx: ExecutionContext,
   ): Promise<Response> {
+    const sitemap = handleSitemapRequest(request);
+    if (sitemap) {
+      return sitemap;
+    }
+
+    const robots = handleRobotsRequest(request);
+    if (robots) {
+      return robots;
+    }
+
     const download = await handleDownloadRequest(request, env);
     if (download) {
       return download;

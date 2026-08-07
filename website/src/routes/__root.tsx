@@ -9,9 +9,29 @@ import { AnalyticsEvents } from "../components/analytics-events";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
 import globalsCss from "../styles/globals.css?url";
-import { htmlLang, languageFromPath } from "../i18n";
+import { htmlLang, languageFromPath, siteUrl } from "../i18n";
 
 const googleAnalyticsMeasurementId = "G-J9GLF06LPP";
+
+/**
+ * Structured data: SoftwareApplication so search engines and AI assistants
+ * can surface Pulse as a macOS app with a download link.
+ */
+const softwareApplicationJsonLd = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Pulse",
+  alternateName: "Pulse — macOS menu bar market tracker",
+  applicationCategory: "UtilitiesApplication",
+  operatingSystem: "macOS",
+  description:
+    "Pulse is a lightweight macOS menu bar market tracker for prices, trends, and position P&L.",
+  url: siteUrl,
+  downloadUrl: `${siteUrl}/download`,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  sameAs: ["https://github.com/fatwang2/Pulse"],
+  inLanguage: ["en", "zh", "ja"],
+});
 
 export const Route = createRootRoute({
   head: () => ({
@@ -44,6 +64,10 @@ export const Route = createRootRoute({
       {
         src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsMeasurementId}`,
         async: true,
+      },
+      {
+        type: "application/ld+json",
+        children: softwareApplicationJsonLd,
       },
     ],
   }),

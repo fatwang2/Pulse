@@ -333,3 +333,47 @@ test("serves a stored DMG from the R2 binding", async () => {
   );
   assert.equal(new TextDecoder().decode(await response.arrayBuffer()), "dmg");
 });
+
+test("serves a valid sitemap.xml with all six public URLs", async () => {
+  const response = await render("/sitemap.xml");
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /application\/xml/);
+
+  const xml = await response.text();
+  assert.match(xml, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
+  const urls = xml.match(/<loc>https:\/\/www\.pulseticker\.app[^<]*<\/loc>/g) ?? [];
+  assert.deepEqual(urls, [
+    "<loc>https://www.pulseticker.app/</loc>",
+    "<loc>https://www.pulseticker.app/changelog</loc>",
+    "<loc>https://www.pulseticker.app/zh</loc>",
+    "<loc>https://www.pulseticker.app/zh/changelog</loc>",
+    "<loc>https://www.pulseticker.app/ja</loc>",
+    "<loc>https://www.pulseticker.app/ja/changelog</loc>",
+  ]);
+});
+
+test("serves a self-hosted robots.txt pointing at the sitemap", async () => {
+  const response = await render("/robots.txt");
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /text\/plain/);
+
+  const robots = await response.text();
+  assert.match(robots, /User-agent: \*/);
+  assert.match(robots, /Sitemap: https:\/\/www\.pulseticker\.app\/sitemap\.xml/);
+  // AI crawlers must be allowed (indexing/reference), not disallowed.
+  for (const crawler of ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended"]) {
+    assert.match(robots, new RegExp(`User-agent: ${crawler}\\nAllow: /`));
+  }
+  assert.doesNotMatch(robots, /Disallow: \//);
+});
+
+test("embeds SoftwareApplication JSON-LD on the homepage", async () => {
+  const response = await render();
+  const html = await response.text();
+
+  assert.match(html, /<script type="application\/ld\+json">/);
+  assert.match(html, /"@type":"SoftwareApplication"/);
+  assert.match(html, /"operatingSystem":"macOS"/);
+  assert.match(html, /"downloadUrl":"https:\/\/www\.pulseticker\.app\/download"/);
+  assert.match(html, /"sameAs":\["https:\/\/github\.com\/fatwang2\/Pulse"\]/);
+});

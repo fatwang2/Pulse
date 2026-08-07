@@ -459,7 +459,12 @@ public final class WatchlistStore {
                     name: item.displayName,
                     type: item.instrumentType,
                     pinned: pinned.contains(symbol) ? true : nil,
-                    transactions: item.transactions.isEmpty ? nil : item.transactions
+                    // Positions recorded before the ledger existed live only in the
+                    // legacy lot cache. Materializing here is what keeps them in the
+                    // archive instead of silently exporting a position-less entry.
+                    transactions: item.materializedTransactions().isEmpty
+                        ? nil
+                        : item.materializedTransactions()
                 )
             }
             return WatchlistArchive.List(name: group.name, entries: entries)
@@ -491,7 +496,7 @@ public final class WatchlistStore {
                     outcome = .skipped(resolution)
                 case .resolved(let symbol):
                     if plannedSymbols.contains(symbol) {
-                        let hasEmptyLedger = item(for: symbol)?.transactions.isEmpty ?? false
+                        let hasEmptyLedger = item(for: symbol)?.materializedTransactions().isEmpty ?? false
                         let bringsTrades = !(entry.transactions ?? []).isEmpty
                         outcome = hasEmptyLedger && bringsTrades
                             ? .restorePosition(symbol)
@@ -547,7 +552,10 @@ public final class WatchlistStore {
                 if let itemIndex = allItems.firstIndex(where: { $0.symbol == symbol }) {
                     // Only an empty position adopts the archive's trades; a live
                     // ledger is never overwritten by an import.
-                    if allItems[itemIndex].transactions.isEmpty, !archivedTransactions.isEmpty {
+                    // A legacy lot-only position is a real position: it must not read as
+                    // an empty ledger the archive is free to fill.
+                    if allItems[itemIndex].materializedTransactions().isEmpty,
+                       !archivedTransactions.isEmpty {
                         applyTransactions(archivedTransactions, at: itemIndex)
                     }
                 } else {

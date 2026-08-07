@@ -384,3 +384,107 @@ struct WatchlistImportPlanTests {
         #expect(reparsed.lists.flatMap(\.entries).allSatisfy { $0.symbolID != nil })
     }
 }
+
+@Suite("Watchlist archive positions")
+struct WatchlistArchivePositionTests {
+    @MainActor
+    private func makeStore(
+        _ label: String
+    ) throws -> (store: WatchlistStore, defaults: UserDefaults, suite: String) {
+        let suiteName = "WatchlistArchivePositionTests.\(label).\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        return (WatchlistStore(defaults: defaults, defaultGroupName: "Watchlist"), defaults, suiteName)
+    }
+
+    @MainActor
+    @Test("A full trade ledger survives export and import")
+    func ledgerRoundTrips() throws {
+        let (source, sourceDefaults, sourceSuite) = try makeStore("ledger-source")
+        defer { sourceDefaults.removePersistentDomain(forName: sourceSuite) }
+
+        let nvda = SymbolID(market: .us, code: "NVDA")
+        source.add(SymbolInfo(symbol: nvda, name: "NVIDIA Corp."))
+        source.addTransaction(nvda, PositionTransaction(
+            kind: .buy, price: 100, quantity: 10, date: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+        source.addTransaction(nvda, PositionTransaction(
+            kind: .buy, price: 120, quantity: 5, date: Date(timeIntervalSince1970: 1_700_100_000)
+        ))
+        source.addTransaction(nvda, PositionTransaction(
+            kind: .sell, price: 150, quantity: 4, date: Date(timeIntervalSince1970: 1_700_200_000)
+        ))
+        let expected = try #require(source.item(for: nvda))
+
+        let text = try source.archive().encoded()
+        let (restored, restoredDefaults, restoredSuite) = try makeStore("ledger-restored")
+        defer { restoredDefaults.removePersistentDomain(forName: restoredSuite) }
+        restored.merge(try WatchlistArchive.decoded(from: text))
+
+        let item = try #require(restored.item(for: nvda))
+        #expect(item.transactions.count == 3)
+        #expect(item.positionQuantity == expected.positionQuantity)
+        #expect(item.averageCost == expected.averageCost)
+        // Realized P&L is replayed from the ledger, not carried as a number.
+        #expect(item.realizedPnL == expected.realizedPnL)
+    }
+
+    @MainActor
+    @Test("A position recorded before the ledger existed still exports")
+    func legacyLotPositionIsExported() throws {
+        let (store, defaults, suite) = try makeStore("legacy")
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let nvda = SymbolID(market: .us, code: "NVDA")
+        store.add(SymbolInfo(symbol: nvda, name: "NVIDIA Corp."))
+        // Lot-only storage is what watchlists written before 0.9.0 still carry.
+        store.updateLots(nvda, lots: [CostLot(price: 90, quantity: 8, date: nil)])
+        #expect(try #require(store.item(for: nvda)).transactions.isEmpty)
+
+        let archive = store.archive()
+        let entry = try #require(archive.lists.first?.entries.first)
+        let exported = try #require(entry.transactions)
+        #expect(exported.count == 1)
+        #expect(exported[0].quantity == 8)
+        #expect(exported[0].price == 90)
+
+        let (restored, restoredDefaults, restoredSuite) = try makeStore("legacy-restored")
+        defer { restoredDefaults.removePersistentDomain(forName: restoredSuite) }
+        restored.merge(try WatchlistArchive.decoded(from: try archive.encoded()))
+        let item = try #require(restored.item(for: nvda))
+        #expect(item.positionQuantity == 8)
+        #expect(item.averageCost == 90)
+    }
+
+    @MainActor
+    @Test("A legacy position is not treated as an empty ledger an import may fill")
+    func legacyPositionIsNotOverwritten() throws {
+        let (store, defaults, suite) = try makeStore("legacy-protected")
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let nvda = SymbolID(market: .us, code: "NVDA")
+        store.add(SymbolInfo(symbol: nvda, name: "NVIDIA Corp."))
+        store.updateLots(nvda, lots: [CostLot(price: 90, quantity: 8, date: nil)])
+
+        let text = """
+        {
+          "format": "pulse.watchlist",
+          "version": 1,
+          "lists": [
+            { "name": "Watchlist", "entries": [
+                { "market": "us", "code": "NVDA",
+                  "transactions": [
+                    { "id": "\(UUID().uuidString)", "kind": "buy", "price": 999, "quantity": 99,
+                      "date": "2020-01-01T00:00:00Z", "createdAt": "2020-01-01T00:00:00Z" }
+                  ] }
+            ] }
+          ]
+        }
+        """
+        let plan = store.merge(try WatchlistArchive.decoded(from: text))
+
+        #expect(plan.restoreCount == 0)
+        let item = try #require(store.item(for: nvda))
+        #expect(item.positionQuantity == 8)
+        #expect(item.averageCost == 90)
+    }
+}

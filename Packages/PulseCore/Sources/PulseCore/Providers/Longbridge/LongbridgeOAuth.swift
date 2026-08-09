@@ -61,7 +61,7 @@ public actor LongbridgeOAuthAuthenticator {
     static let loopbackPort: UInt16 = 41917
     static let callbackPath = "/oauth/callback"
     /// Shown by the authorize page next to the client name (RFC 7591 `logo_uri`).
-    static let logoURI = "https://pulse-market-glance.wangding0798.chatgpt.site/pulse-icon.png"
+    static let logoURI = "https://www.pulseticker.app/pulse-icon.png"
     static var loopbackRedirectURI: String { "http://localhost:\(loopbackPort)\(callbackPath)" }
     private static let clientCacheKey = "pulse.longbridge.oauthClient.v2"
 

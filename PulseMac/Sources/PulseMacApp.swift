@@ -1,5 +1,7 @@
+import AppKit
 import SwiftUI
 import PulseCore
+import PulseUI
 
 /// Receives custom-scheme URLs (the Longbridge OAuth callback). A menu bar app's popover
 /// view hierarchy may not be alive when the browser redirects back, so the app delegate is
@@ -45,10 +47,43 @@ struct PulseMacApp: App {
 struct MenuBarLabel: View {
     let appState: AppState
 
+    private var templateIcon: NSImage {
+        let canvasSize = NSSize(width: 16, height: 16)
+        guard let source = NSImage(named: "PulseMenuBarIcon") else {
+            let fallback = NSImage(
+                systemSymbolName: "waveform.path.ecg",
+                accessibilityDescription: "Pulse"
+            ) ?? NSImage(size: canvasSize)
+            fallback.size = canvasSize
+            fallback.isTemplate = true
+            return fallback
+        }
+
+        let image = NSImage(size: canvasSize, flipped: false) { rect in
+            let aspectRatio = source.size.width / source.size.height
+            let waveformHeight = rect.width / aspectRatio
+            source.draw(
+                in: NSRect(
+                    x: rect.minX,
+                    y: rect.midY - waveformHeight / 2,
+                    width: rect.width,
+                    height: waveformHeight
+                ),
+                from: .zero,
+                operation: .sourceOver,
+                fraction: 1
+            )
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+
     var body: some View {
         // Icon only by default; price text appears only after the user enables "show quotes in menu bar" in settings
         if !appState.settings.showPriceInMenuBar || appState.watchlist.isEmpty {
-            Image(systemName: "waveform.path.ecg")
+            Image(nsImage: templateIcon)
+                .accessibilityLabel("Pulse")
         } else {
             Text(appState.menuBarText)
                 .font(.system(size: 12).monospacedDigit())

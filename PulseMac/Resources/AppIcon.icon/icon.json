@@ -1,0 +1,34 @@
+{
+  "fill" : {
+    "solid" : "srgb:0.02745,0.09412,0.18039,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "02-current-tail-extended.svg",
+          "name" : "02-current-tail-extended"
+        },
+        {
+          "image-name" : "01-waveform.svg",
+          "name" : "01-waveform"
+        }
+      ],
+      "lighting" : "combined",
+      "shadow" : {
+        "kind" : "none",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

@@ -96,41 +96,15 @@ a {
 }
 
 .brand-mark {
-  position: relative;
   display: grid;
   width: 34px;
   height: 34px;
   place-items: center;
-  transform-origin: center;
-  animation: brand-heartbeat 8s 1600ms var(--ease-out-quart) infinite;
-}
-
-.brand-mark::after {
-  position: absolute;
-  inset: -5px;
-  border: 1px solid rgba(10, 132, 255, 0.18);
-  border-radius: 13px;
-  content: "";
-  opacity: 0;
-  transform: scale(0.84);
-  animation: brand-signal 8s 1600ms var(--ease-out-quart) infinite;
 }
 
 .brand img {
   width: 34px;
   height: 34px;
-  border-radius: 9px;
-  box-shadow: 0 6px 16px rgba(0, 89, 181, 0.18);
-}
-
-.brand:hover .brand-mark,
-.brand:focus-visible .brand-mark {
-  animation: brand-heartbeat-once 620ms var(--ease-out-quart);
-}
-
-.brand:hover .brand-mark::after,
-.brand:focus-visible .brand-mark::after {
-  animation: brand-signal-once 620ms var(--ease-out-quart);
 }
 
 .header-actions {
@@ -528,7 +502,7 @@ a {
 .copy h1 {
   margin: 0;
   color: #252628;
-  font-size: clamp(58px, 6.5vw, 94px);
+  font-size: clamp(3.25rem, 5.5vw, 5rem);
   font-weight: 735;
   letter-spacing: -0.074em;
   line-height: 1.02;
@@ -829,8 +803,6 @@ a {
 .preview-app-identity img {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
-  box-shadow: 0 5px 14px rgba(0, 89, 181, 0.16);
 }
 
 .preview-app-identity div {
@@ -1072,7 +1044,6 @@ a {
   .preview-app-identity img {
     width: 34px;
     height: 34px;
-    border-radius: 9px;
   }
 
   .preview-app-identity strong {
@@ -1172,83 +1143,6 @@ a {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes brand-heartbeat {
-  0%,
-  86%,
-  100% {
-    transform: scale(1);
-  }
-
-  88% {
-    transform: scale(1.045);
-  }
-
-  90% {
-    transform: scale(1);
-  }
-
-  92% {
-    transform: scale(1.026);
-  }
-
-  94% {
-    transform: scale(1);
-  }
-}
-
-@keyframes brand-signal {
-  0%,
-  86%,
-  100% {
-    opacity: 0;
-    transform: scale(0.84);
-  }
-
-  89% {
-    opacity: 0.5;
-  }
-
-  94% {
-    opacity: 0;
-    transform: scale(1.1);
-  }
-}
-
-@keyframes brand-heartbeat-once {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-
-  26% {
-    transform: scale(1.055);
-  }
-
-  48% {
-    transform: scale(1);
-  }
-
-  68% {
-    transform: scale(1.03);
-  }
-}
-
-@keyframes brand-signal-once {
-  0% {
-    opacity: 0;
-    transform: scale(0.84);
-  }
-
-  32% {
-    opacity: 0.5;
-  }
-
-  100% {
-    opacity: 0;
-    transform: scale(1.12);
   }
 }
 
@@ -1406,7 +1300,7 @@ a {
   }
 
   .copy h1 {
-    font-size: clamp(50px, 15vw, 68px);
+    font-size: clamp(2.625rem, 11vw, 3.5rem);
   }
 
   .intro {

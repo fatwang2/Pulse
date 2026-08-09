@@ -252,6 +252,19 @@ xcodebuild -quiet -exportArchive \
 APP_PATH="$EXPORT_DIR/Pulse.app"
 [[ -d "$APP_PATH" ]] || { echo "error: exported Pulse.app not found" >&2; exit 1; }
 
+echo "==> Verifying executable architectures"
+APP_BINARY="$APP_PATH/Contents/MacOS/Pulse"
+PLUGIN_BINARY="$APP_PATH/Contents/PlugIns/PulseLongbridgePlugin.bundle/Contents/MacOS/PulseLongbridgePlugin"
+[[ -f "$APP_BINARY" ]] || { echo "error: exported Pulse executable not found" >&2; exit 1; }
+[[ -f "$PLUGIN_BINARY" ]] || { echo "error: exported Longbridge plugin not found" >&2; exit 1; }
+APP_ARCHITECTURES="$(lipo -archs "$APP_BINARY" | tr ' ' '\n' | sort | tr '\n' ' ')"
+PLUGIN_ARCHITECTURES="$(lipo -archs "$PLUGIN_BINARY" | tr ' ' '\n' | sort | tr '\n' ' ')"
+if [[ "$APP_ARCHITECTURES" != "$PLUGIN_ARCHITECTURES" ]]; then
+  echo "error: architecture mismatch: Pulse [$APP_ARCHITECTURES], Longbridge plugin [$PLUGIN_ARCHITECTURES]" >&2
+  exit 1
+fi
+echo "    Pulse and Longbridge plugin: $APP_ARCHITECTURES"
+
 echo "==> Verifying code signature"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 

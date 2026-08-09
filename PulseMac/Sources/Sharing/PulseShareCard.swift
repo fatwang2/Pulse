@@ -1,4 +1,5 @@
 import SwiftUI
+import PulseUI
 
 /// Shared brand frame for every present and future Pulse share surface.
 /// Content owns its own header; the frame contributes the background ambience and brand footer.
@@ -73,20 +74,16 @@ enum PulseShareCardStyle {
 private struct PulseShareCardFooter: View {
     var body: some View {
         HStack(alignment: .center, spacing: 13) {
-            // Match the lightweight menu-bar brand glyph; the full AppIcon reads as a launcher tile at this size.
-            Image(systemName: "waveform.path.ecg")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.white)
+            // Rebuild the launcher mark from the same geometry and exact AppIcon colors.
+            PulseWaveformMark(
+                primaryColor: Color(red: 0.96863, green: 0.97647, blue: 0.98824),
+                liveColor: Color(red: 0.41569, green: 0.69020, blue: 1)
+            )
+                .frame(width: 28, height: 21.5)
+                .accessibilityHidden(true)
                 .frame(width: 38, height: 38)
                 .background(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.235, green: 0.49, blue: 1.0),
-                            Color(red: 0.415, green: 0.69, blue: 1.0),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
+                    Color(red: 0.02745, green: 0.09412, blue: 0.18039),
                     in: RoundedRectangle(cornerRadius: 10.5, style: .continuous)
                 )
 

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <path
+    d="M 700 631 L 738 520 C 744 503 756 498 774 498 L 854 498"
+    fill="none"
+    stroke="#6AB0FF"
+    stroke-width="72"
+    stroke-linecap="butt"
+    stroke-linejoin="round"
+  />
+  <circle cx="854" cy="498" r="36" fill="#6AB0FF"/>
+</svg>

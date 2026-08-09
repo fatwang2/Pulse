@@ -88,9 +88,10 @@ struct WatchlistView: View {
     private var chrome: some View {
         VStack(spacing: 7) {
             HStack(spacing: 8) {
-                Image(systemName: "waveform.path.ecg")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.tint)
+                PulseWaveformMark(primaryColor: .accentColor)
+                    .frame(width: 15, height: 11.5)
+                    .frame(width: 17, height: 13, alignment: .trailing)
+                    .accessibilityHidden(true)
                 // Bundle display name: "Pulse Dev" in Debug builds, "Pulse" in Release
                 Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Pulse")
                     .font(.system(size: 12.5, weight: .semibold))
@@ -833,6 +834,10 @@ struct WatchlistView: View {
             }
         }
         .listStyle(.plain)
+        // macOS List keeps a host-level horizontal margin even after row insets
+        // are customized. Remove it so the row surface shares the chrome/footer
+        // 12pt rail; WatchRow's own 8pt padding still protects its text and prices.
+        .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollContentBackground(.hidden)
         // A persistent AppKit scroller becomes a heavy dark rail in this compact
         // glass popover. The system soft edge effect communicates overflow while

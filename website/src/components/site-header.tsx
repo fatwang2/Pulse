@@ -62,12 +62,14 @@ export function SiteHeader({
         <nav className="site-nav" aria-label={copy.navigationLabel}>
           <Link
             to={homePath(language)}
+            activeOptions={{ exact: true }}
             aria-current={page === "home" ? "page" : undefined}
           >
             {copy.home}
           </Link>
           <Link
             to={changelogPath(language)}
+            activeOptions={{ exact: true }}
             aria-current={page === "changelog" ? "page" : undefined}
           >
             {copy.changelog}

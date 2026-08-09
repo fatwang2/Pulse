@@ -107,24 +107,24 @@ type PageCopy = {
 const pageCopyByLanguage: Record<PageKind, Record<Language, PageCopy>> = {
   home: {
     en: {
-      title: "Pulse — Your market, at a glance",
+      title: "Pulse — macOS Menu Bar Stock Tracker",
       description:
-        "Pulse is a lightweight macOS menu bar market tracker for prices, trends, and position P&L.",
+        "Pulse is a lightweight macOS menu bar stock and market tracker for watchlists, price trends, and position P&L.",
       socialDescription:
         "Prices, trends, and position P&L—right from your macOS menu bar.",
       imageAlt: "Pulse macOS menu bar market tracker",
     },
     zh: {
-      title: "Pulse — 你的市场，一眼掌握",
+      title: "Pulse — macOS 菜单栏股票行情工具",
       description:
-        "Pulse 是一款轻量的 macOS 菜单栏行情工具，价格、走势与持仓盈亏一眼掌握。",
+        "Pulse 是一款轻量的 macOS 菜单栏股票行情工具，可查看自选价格、走势、持仓盈亏，以及美股、港股、A 股和加密货币行情。",
       socialDescription: "价格、走势与持仓盈亏——就在你的 macOS 菜单栏。",
       imageAlt: "Pulse macOS 菜单栏行情工具",
     },
     ja: {
-      title: "Pulse — あなたのマーケットを、ひと目で",
+      title: "Pulse — Mac メニューバー株価アプリ",
       description:
-        "Pulse は、価格・トレンド・評価損益を macOS メニューバーで確認できる軽量な株価トラッカーです。",
+        "Pulse は、株価・暗号資産・トレンド・評価損益を Macのメニューバーで確認できる軽量な株価アプリです。",
       socialDescription: "価格・トレンド・評価損益——macOS メニューバーで。",
       imageAlt: "Pulse macOS メニューバー株価トラッカー",
     },

@@ -11,6 +11,28 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.11.1",
+    date: "2026-08-09",
+    kind: "improvement",
+    highlights: {
+      zh: [
+        "Pulse 启用全新品牌图标：保留原有行情波形，以深海军蓝背景、清晰白色轨迹和代表实时更新的蓝色尾段重新设计。",
+        "App 图标、菜单栏、弹窗标题、图表加载动画与行情分享图现在使用同一套波形语言，品牌体验更加一致。",
+        "优化自选列表的左右对齐：行情行与顶部操作区、底部推送状态共用外层边线，同时保留名称、图表和价格所需的行内留白。",
+      ],
+      en: [
+        "Pulse has a new visual identity built around its original market waveform, redesigned with a deep navy field, a crisp white trace, and a blue live tail for prices updating in real time.",
+        "The app icon, menu bar, popover header, chart loading state, and exported market snapshots now use the same waveform language throughout.",
+        "Watchlist rows now share the header and streaming status alignment rails while keeping comfortable spacing around names, charts, and prices.",
+      ],
+      ja: [
+        "Pulse のブランドアイコンを刷新しました。従来の相場波形を残しつつ、深いネイビーの背景、明瞭な白いライン、リアルタイム更新を表す青い末尾で再設計しています。",
+        "アプリアイコン、メニューバー、ポップオーバーのヘッダー、チャートの読み込み表示、相場共有画像で同じ波形デザインを使用し、ブランド表現を統一しました。",
+        "ウォッチリストの左右配置を調整しました。ヘッダーと配信ステータスの外側ラインに揃えながら、銘柄名・チャート・価格の内側余白は維持しています。",
+      ],
+    },
+  },
+  {
     version: "0.11.0",
     date: "2026-08-07",
     kind: "release",

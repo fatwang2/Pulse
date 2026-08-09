@@ -42,8 +42,8 @@ const dataSources = [
 const translations = {
   zh: {
     overline: "macOS 菜单栏行情工具",
-    headlineFirst: "你的市场，",
-    headlineSecond: "一眼掌握。",
+    headlineFirst: "从 Mac 菜单栏快速查看",
+    headlineSecond: "股票与市场行情",
     intro:
       "Pulse 把你关心的价格、走势和持仓盈亏放进菜单栏。从盘前到盘后，不打断工作，也能随时知道市场发生了什么。",
     featuresLabel: "主要功能",
@@ -60,8 +60,8 @@ const translations = {
   },
   en: {
     overline: "macOS menu bar market tracker",
-    headlineFirst: "Your market,",
-    headlineSecond: "at a glance.",
+    headlineFirst: "Track stocks and markets",
+    headlineSecond: "from your menu bar",
     intro:
       "Pulse puts the prices, trends, and position performance you care about in the menu bar—from pre-market to after hours, without leaving what you’re doing.",
     featuresLabel: "Key features",
@@ -83,8 +83,8 @@ const translations = {
   },
   ja: {
     overline: "macOS メニューバーの株価トラッカー",
-    headlineFirst: "あなたのマーケットを、",
-    headlineSecond: "ひと目で。",
+    headlineFirst: "Macのメニューバーから、",
+    headlineSecond: "株価とマーケットをすばやく確認",
     intro:
       "Pulse は、気になる価格・トレンド・評価損益をメニューバーに。プレマーケットからアフターマーケットまで、作業を中断せずに市場の動きを把握できます。",
     featuresLabel: "主な機能",
@@ -133,7 +133,7 @@ export function HomePage({ language }: { language: Language }) {
   return (
     <main className="landing">
       <div className="market-pulse" aria-hidden="true">
-        <svg viewBox="0 0 1440 640" preserveAspectRatio="none">
+        <svg viewBox="134 215 756 580" preserveAspectRatio="xMidYMid meet">
           <defs>
             <linearGradient id="pulse-stroke" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0" stopColor="#0a84ff" stopOpacity="0" />
@@ -144,7 +144,7 @@ export function HomePage({ language }: { language: Language }) {
           </defs>
           <path
             pathLength="1"
-            d="M0 394 C150 394 218 388 318 390 C398 391 434 390 482 389 L531 389 L557 365 L580 416 L614 309 L652 468 L688 350 L719 391 C806 393 903 391 990 391 C1112 391 1268 392 1440 389"
+            d="M170 512 L292 512 C316 512 328 476 348 476 C371 476 383 537 405 537 C425 537 444 423 493 278 C502 251 520 251 529 280 L627 728 C634 759 654 759 666 730 L738 520 C744 503 756 498 774 498 L854 498"
           />
         </svg>
       </div>

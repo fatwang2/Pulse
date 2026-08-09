@@ -54,7 +54,7 @@ struct PulseSweep: View {
 
     var body: some View {
         ZStack {
-            PulseTrace(phase: 0, window: 1)
+            PulseWaveformTrace(phase: 0, window: 1)
                 .stroke(
                     Color.primary.opacity(0.10),
                     style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round)
@@ -66,7 +66,7 @@ struct PulseSweep: View {
                 TimelineView(.animation(minimumInterval: 1 / 30)) { context in
                     let elapsed = context.date.timeIntervalSinceReferenceDate
                     let phase = CGFloat(elapsed.truncatingRemainder(dividingBy: period) / period)
-                    PulseTrace(phase: phase, window: window)
+                    PulseWaveformTrace(phase: phase, window: window)
                         .stroke(
                             Color.primary.opacity(0.38),
                             style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round)
@@ -74,61 +74,6 @@ struct PulseSweep: View {
                 }
             }
         }
-    }
-}
-
-/// The app icon's waveform, drawn across the width, with `phase` selecting the
-/// stretch of it that is lit. The lit stretch wraps around the end so the sweep
-/// runs continuously.
-private struct PulseTrace: Shape {
-    var phase: CGFloat
-    var window: CGFloat
-
-    /// Flat, a small bump, the spike and its recoil, another bump, flat again —
-    /// the app icon, laid out left to right. `y` is measured from the top.
-    private static let waveform: [CGPoint] = [
-        CGPoint(x: 0.00, y: 0.50),
-        CGPoint(x: 0.28, y: 0.50),
-        CGPoint(x: 0.34, y: 0.40),
-        CGPoint(x: 0.39, y: 0.50),
-        CGPoint(x: 0.46, y: 0.18),
-        CGPoint(x: 0.54, y: 0.84),
-        CGPoint(x: 0.60, y: 0.50),
-        CGPoint(x: 0.66, y: 0.40),
-        CGPoint(x: 0.72, y: 0.50),
-        CGPoint(x: 1.00, y: 0.50),
-    ]
-
-    var animatableData: CGFloat {
-        get { phase }
-        set { phase = newValue }
-    }
-
-    func path(in rect: CGRect) -> Path {
-        let trace = Self.trace(in: rect)
-        guard window < 1 else { return trace }
-        let end = phase
-        let start = phase - window
-        var lit = Path()
-        if start < 0 {
-            lit.addPath(trace.trimmedPath(from: 0, to: max(end, 0)))
-            lit.addPath(trace.trimmedPath(from: 1 + start, to: 1))
-        } else {
-            lit.addPath(trace.trimmedPath(from: start, to: min(end, 1)))
-        }
-        return lit
-    }
-
-    private static func trace(in rect: CGRect) -> Path {
-        Path { path in
-            let points = waveform.map {
-                CGPoint(x: rect.minX + $0.x * rect.width, y: rect.minY + $0.y * rect.height)
-            }
-            guard let first = points.first else { return }
-            path.move(to: first)
-            for point in points.dropFirst() {
-                path.addLine(to: point)
-            }
-        }
+        .aspectRatio(PulseWaveformTrace.aspectRatio, contentMode: .fit)
     }
 }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const publishedDownloadVersion = "0.11.0";
+const publishedDownloadVersion = "0.11.1";
 
 async function loadWorker(tag) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -33,9 +33,12 @@ test("server-renders the English landing page at the root", async () => {
 
   const html = await response.text();
   assert.match(html, /<html lang="en">/);
-  assert.match(html, /<title>Pulse — Your market, at a glance<\/title>/i);
+  assert.match(html, /<title>Pulse — macOS Menu Bar Stock Tracker<\/title>/i);
+  assert.match(html, /lightweight macOS menu bar stock and market tracker/);
   assert.match(html, /macOS menu bar market tracker/);
-  assert.match(html, /Your market,/);
+  assert.match(html, /Track stocks and markets/);
+  assert.match(html, /from your menu bar/);
+  assert.doesNotMatch(html, /from your menu bar\./);
   assert.match(html, /data-testid="interactive-preview"/);
   assert.match(html, /Ondas Inc\./);
   assert.match(html, /NVIDIA Corp\./);
@@ -114,7 +117,8 @@ test("server-renders the full bilingual release timeline", async () => {
   assert.doesNotMatch(html, /class="release-link"/);
 
   const releaseEntries = html.match(/class="release-entry"/g) ?? [];
-  assert.equal(releaseEntries.length, 25);
+  assert.equal(releaseEntries.length, 26);
+  assert.ok(html.indexOf("0.11.1") < html.indexOf("0.11.0"));
 });
 
 test("serves the Chinese homepage at /zh", async () => {
@@ -123,8 +127,11 @@ test("serves the Chinese homepage at /zh", async () => {
 
   const html = await response.text();
   assert.match(html, /<html lang="zh-CN">/);
-  assert.match(html, /<title>Pulse — 你的市场，一眼掌握<\/title>/i);
-  assert.match(html, /你的市场，/);
+  assert.match(html, /<title>Pulse — macOS 菜单栏股票行情工具<\/title>/i);
+  assert.match(html, /轻量的 macOS 菜单栏股票行情工具/);
+  assert.match(html, /从 Mac 菜单栏快速查看/);
+  assert.match(html, /股票与市场行情/);
+  assert.doesNotMatch(html, /股票与市场行情。/);
   assert.match(html, /腾讯控股/);
   assert.doesNotMatch(html, /NVIDIA Corp\./);
   assert.match(html, /href="\/zh\/changelog"/);
@@ -143,6 +150,24 @@ test("serves the Chinese homepage at /zh", async () => {
   assert.match(
     html,
     /hreflang="en" href="https:\/\/www\.pulseticker\.app\/"/,
+  );
+});
+
+test("serves the Japanese homepage at /ja", async () => {
+  const response = await render("/ja");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /<html lang="ja">/);
+  assert.match(html, /<title>Pulse — Mac メニューバー株価アプリ<\/title>/i);
+  assert.match(html, /軽量な株価アプリです。/);
+  assert.match(html, /Macのメニューバーから、/);
+  assert.match(html, /株価とマーケットをすばやく確認/);
+  assert.doesNotMatch(html, /株価とマーケットをすばやく確認。/);
+  assert.match(html, /href="\/ja\/changelog"/);
+  assert.match(
+    html,
+    /rel="canonical" href="https:\/\/www\.pulseticker\.app\/ja"/,
   );
 });
 
@@ -167,6 +192,33 @@ test("serves the Japanese changelog at /ja/changelog", async () => {
     html,
     /hreflang="zh" href="https:\/\/www\.pulseticker\.app\/zh\/changelog"/,
   );
+});
+
+test("marks only the changelog tab active on localized changelog routes", async () => {
+  for (const { path, homeHref, changelogHref } of [
+    { path: "/zh/changelog", homeHref: "/zh", changelogHref: "/zh/changelog" },
+    { path: "/ja/changelog", homeHref: "/ja", changelogHref: "/ja/changelog" },
+  ]) {
+    const response = await render(path);
+    assert.equal(response.status, 200);
+
+    const html = await response.text();
+    const navigation = html.match(/<nav class="site-nav"[\s\S]*?<\/nav>/)?.[0];
+    assert.ok(navigation, `missing site navigation on ${path}`);
+
+    const homeLink = navigation.match(
+      new RegExp(`<a[^>]*href="${homeHref}"[^>]*>`),
+    )?.[0];
+    const changelogLink = navigation.match(
+      new RegExp(`<a[^>]*href="${changelogHref}"[^>]*>`),
+    )?.[0];
+
+    assert.ok(homeLink, `missing home link on ${path}`);
+    assert.ok(changelogLink, `missing changelog link on ${path}`);
+    assert.doesNotMatch(homeLink, /aria-current="page"|data-status="active"/);
+    assert.match(changelogLink, /aria-current="page"/);
+    assert.equal(navigation.match(/aria-current="page"/g)?.length, 1);
+  }
 });
 
 test("redirects zh browsers from / to the Chinese homepage", async () => {
@@ -214,7 +266,7 @@ test("English copy lives at the root and language is a URL path", async () => {
     "utf8",
   );
 
-  assert.match(homePage, /Your market,/);
+  assert.match(homePage, /Track stocks and markets/);
   assert.match(homePage, /macOS menu bar market tracker/);
   assert.match(homePage, /Download for macOS/);
   assert.match(homePage, /View on GitHub/);

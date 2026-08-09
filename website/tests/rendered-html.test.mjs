@@ -36,6 +36,15 @@ test("server-renders the English landing page at the root", async () => {
   assert.match(html, /<title>Pulse — macOS Menu Bar Stock Tracker<\/title>/i);
   assert.match(html, /lightweight macOS menu bar stock and market tracker/);
   assert.match(html, /macOS menu bar market tracker/);
+  assert.match(
+    html,
+    /<meta property="og:image" content="https:\/\/www\.pulseticker\.app\/og-v3\.png"\/>/,
+  );
+  assert.match(
+    html,
+    /<meta name="twitter:image" content="https:\/\/www\.pulseticker\.app\/og-v3\.png"\/>/,
+  );
+  assert.doesNotMatch(html, /og-v2\.png/);
   assert.match(html, /Track stocks and markets/);
   assert.match(html, /from your menu bar/);
   assert.doesNotMatch(html, /from your menu bar\./);

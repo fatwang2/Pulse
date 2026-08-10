@@ -11,6 +11,28 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.11.2",
+    date: "2026-08-11",
+    kind: "fix",
+    highlights: {
+      zh: [
+        "修复自选列表拖拽排序不稳定的问题：此前行情刷新会在拖拽途中打断放置指示线,悬停到目标位置后松手常常失败;现在排序期间行情写入自动暂停,退出排序后立即补齐。",
+        "从标的详情页返回时,自选列表不再丢失滚动位置:列表页在子页面推入时保持存活,返回即回到原处。",
+        "记录买入/卖出支持全键盘操作:在价格或数量输入框中直接按回车即可确认交易,「快速校准」编辑器同样支持回车保存。",
+      ],
+      en: [
+        "Drag-to-reorder in the watchlist is now reliable. Quote refreshes used to reset the drop indicator mid-drag, so hovering over a target position made the drop fail; quote writes now hold while reorder mode is active and catch up the moment it ends.",
+        "Returning from a symbol's detail page no longer loses your scroll position in the watchlist — the list stays alive underneath pushed pages instead of being rebuilt on the way back.",
+        "Recording a buy or sell is now fully keyboard-driven: press Return in the price or quantity field to confirm the trade, and the quick-set position editor saves on Return the same way.",
+      ],
+      ja: [
+        "ウォッチリストのドラッグ並べ替えを安定化しました。これまでは相場の更新がドラッグ中のドロップ位置インジケーターをリセットし、目標位置で止まってから離すと失敗することがありました。並べ替え中は相場の書き込みを一時停止し、終了した瞬間に追いつきます。",
+        "銘柄詳細ページから戻ってもウォッチリストのスクロール位置が失われなくなりました。リストはページ遷移中も裏で保持され、戻るとそのままの位置に復帰します。",
+        "売買の記録がキーボードだけで完結するようになりました。価格または数量の入力欄で Return を押すとそのまま確定し、クイック調整エディタも同様に Return で保存できます。",
+      ],
+    },
+  },
+  {
     version: "0.11.1",
     date: "2026-08-09",
     kind: "improvement",

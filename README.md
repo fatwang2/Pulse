@@ -6,9 +6,9 @@
 
 Pulse is a lightweight market-watching app, not a trading terminal. It solves exactly one problem: seeing how the symbols you care about are doing — and whether your positions are up or down — in the shortest possible time, without leaving what you're working on.
 
-| | |
-|:---:|:---:|
-| ![](assets/readme/pulse-screenshot-en-01.png) | ![](assets/readme/pulse-screenshot-en-02.png) |
+| Watchlist | Quote Detail | Record Trade |
+|:---:|:---:|:---:|
+| ![](assets/readme/pulse-screenshot-en-01.png) | ![](assets/readme/pulse-screenshot-en-02.png) | ![](assets/readme/pulse-screenshot-en-03.png) |
 
 ## Features
 

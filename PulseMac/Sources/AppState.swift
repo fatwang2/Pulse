@@ -449,6 +449,9 @@ final class AppState {
     /// unsubscribes — the menu bar text is fine at poll granularity.
     func setPopoverVisible(_ visible: Bool) {
         isPopoverVisible = visible
+        // The reorder UI cannot outlive the popover; if it was active on close,
+        // release the quote hold so the menu bar keeps updating.
+        if !visible { setUserReordering(false) }
         watchlistStreamTask?.cancel()
         watchlistStreamTask = nil
         watchlistStreamSessionID = nil
@@ -528,7 +531,7 @@ final class AppState {
     /// its host view being re-rendered every 250ms, so store writes hold while any menu
     /// tracks; the buffer keeps absorbing ticks and flushes the moment tracking ends.
     private func flushPendingPushes() {
-        guard menuTrackingDepth == 0, !pendingPushes.isEmpty else { return }
+        guard menuTrackingDepth == 0, !isUserReordering, !pendingPushes.isEmpty else { return }
         let batch = Array(pendingPushes.values)
         pendingPushes = [:]
         applyQuoteNameUpgrades(batch)
@@ -554,6 +557,18 @@ final class AppState {
     }
 
     @ObservationIgnored private var menuTrackingDepth = 0
+    @ObservationIgnored private var isUserReordering = false
+
+    /// Drag-to-reorder shares the NSMenu constraint: the AppKit drag session (and its
+    /// drop indicator) dies the moment the host rows re-render under it. While the
+    /// reorder UI is active every quote path holds — pushes keep buffering above, the
+    /// polling engine skips applying — and both catch up the moment the mode ends.
+    func setUserReordering(_ active: Bool) {
+        guard isUserReordering != active else { return }
+        isUserReordering = active
+        engine.writesHeld = active
+        if !active { flushPendingPushes() }
+    }
 
     private func observeMenuTracking() {
         NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification,

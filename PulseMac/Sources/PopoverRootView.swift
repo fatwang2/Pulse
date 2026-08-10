@@ -65,14 +65,16 @@ struct PopoverRootView: View {
             )
     }
 
-    /// The list is the navigation root: it always lives to the left of its children.
-    private var rootTransition: AnyTransition {
-        reduceMotion
-            ? .opacity
-            : .asymmetric(
-                insertion: .move(edge: .leading).combined(with: .opacity),
-                removal: .move(edge: .leading).combined(with: .opacity)
-            )
+    /// A child route whose symbol has been removed from the watchlist resolves
+    /// back to the list; the stale `route` value is overwritten by the next push.
+    private var displayRoute: PopoverRoute {
+        switch route {
+        case .position(let symbol, _), .trade(let symbol, _, _),
+             .transactions(let symbol, _), .calibrate(let symbol, _):
+            appState.watchlist.item(for: symbol) == nil ? .list : route
+        default:
+            route
+        }
     }
 
     var body: some View {
@@ -83,45 +85,35 @@ struct PopoverRootView: View {
         // pin, both live view trees would relayout on every frame of the resize,
         // which is what made pushes stutter.
         ZStack(alignment: .top) {
-            switch route {
+            // The list is the navigation root and stays mounted while children
+            // sit on top of it, so its List scroll position survives the round
+            // trip. Covered, it is disabled and nudged out along the leading
+            // edge, tracing the same path its old removal transition drew.
+            WatchlistView(route: $route, searchSession: $searchSession)
+                .frame(height: height(for: .list))
+                .opacity(displayRoute == .list ? 1 : 0)
+                .offset(x: displayRoute == .list || reduceMotion ? 0 : -24)
+                .disabled(displayRoute != .list)
+
+            switch displayRoute {
             case .list:
-                WatchlistView(route: $route, searchSession: $searchSession)
-                    .frame(height: height(for: route))
-                    .transition(rootTransition)
+                EmptyView()
             case .detail(let symbol):
                 DetailView(symbol: symbol, route: $route)
-                    .frame(height: height(for: route))
+                    .frame(height: height(for: displayRoute))
                     .transition(pushTransition)
             case .position(let symbol, let returnRoute):
-                Group {
-                    if appState.watchlist.item(for: symbol) != nil {
-                        PositionHubView(symbol: symbol, returnRoute: returnRoute, route: $route)
-                    } else {
-                        WatchlistView(route: $route, searchSession: $searchSession)
-                    }
-                }
-                .frame(height: height(for: route))
-                .transition(pushTransition)
+                PositionHubView(symbol: symbol, returnRoute: returnRoute, route: $route)
+                    .frame(height: height(for: displayRoute))
+                    .transition(pushTransition)
             case .trade(let symbol, let side, let returnRoute):
-                Group {
-                    if appState.watchlist.item(for: symbol) != nil {
-                        TradeEntryView(symbol: symbol, side: side, returnRoute: returnRoute, route: $route)
-                    } else {
-                        WatchlistView(route: $route, searchSession: $searchSession)
-                    }
-                }
-                .frame(height: height(for: route))
-                .transition(pushTransition)
+                TradeEntryView(symbol: symbol, side: side, returnRoute: returnRoute, route: $route)
+                    .frame(height: height(for: displayRoute))
+                    .transition(pushTransition)
             case .transactions(let symbol, let returnRoute):
-                Group {
-                    if appState.watchlist.item(for: symbol) != nil {
-                        TransactionListView(symbol: symbol, returnRoute: returnRoute, route: $route)
-                    } else {
-                        WatchlistView(route: $route, searchSession: $searchSession)
-                    }
-                }
-                .frame(height: height(for: route))
-                .transition(pushTransition)
+                TransactionListView(symbol: symbol, returnRoute: returnRoute, route: $route)
+                    .frame(height: height(for: displayRoute))
+                    .transition(pushTransition)
             case .calibrate(let symbol, let returnRoute):
                 Group {
                     if let item = appState.watchlist.item(for: symbol) {
@@ -139,23 +131,21 @@ struct PopoverRootView: View {
                                 route = .position(symbol, returnRoute)
                             }
                         )
-                    } else {
-                        WatchlistView(route: $route, searchSession: $searchSession)
                     }
                 }
-                .frame(height: height(for: route))
+                .frame(height: height(for: displayRoute))
                 .transition(pushTransition)
             case .profile(let symbol):
                 ProfileView(symbol: symbol, route: $route)
-                    .frame(height: height(for: route))
+                    .frame(height: height(for: displayRoute))
                     .transition(pushTransition)
             case .settings:
                 SettingsView(route: $route)
-                    .frame(height: height(for: route))
+                    .frame(height: height(for: displayRoute))
                     .transition(pushTransition)
             case .dataSettings:
                 DataSettingsView(route: $route)
-                    .frame(height: height(for: route))
+                    .frame(height: height(for: displayRoute))
                     .transition(pushTransition)
             case .providerDetail(let id):
                 Group {
@@ -165,15 +155,15 @@ struct PopoverRootView: View {
                         ProviderDetailView(descriptor: descriptor, route: $route)
                     }
                 }
-                .frame(height: height(for: route))
+                .frame(height: height(for: displayRoute))
                 .transition(pushTransition)
             }
         }
-        .frame(width: 340, height: height(for: route), alignment: .top)
+        .frame(width: 340, height: height(for: displayRoute), alignment: .top)
         .clipped()
-        .animation(.snappy(duration: 0.28), value: route)
+        .animation(.snappy(duration: 0.28), value: displayRoute)
         .animation(.snappy(duration: 0.28), value: searchSession.isActive)
-        .animation(.snappy(duration: 0.28), value: height(for: route))
+        .animation(.snappy(duration: 0.28), value: height(for: displayRoute))
         // Live subscriptions run only while the popover is on screen
         .onAppear {
             appState.setPopoverVisible(true)

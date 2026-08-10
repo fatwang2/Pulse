@@ -18,6 +18,9 @@ struct TradeEntryView: View {
     @State private var quantityText = ""
     @State private var date = Calendar.current.startOfDay(for: .now)
     @State private var showsCalendar = false
+    /// Return can reach `save()` twice in one keypress (field submit + default
+    /// action); the first write wins so a trade is never recorded twice.
+    @State private var didSave = false
 
     private var item: WatchItem? { appState.watchlist.item(for: symbol) }
     private var quote: Quote? { appState.market.quote(for: symbol) }
@@ -70,6 +73,9 @@ struct TradeEntryView: View {
             .padding(12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // The whole form is keyboard-first; Return from either field confirms
+        // (the button's default action covers Return when no field has focus).
+        .onSubmit { save() }
     }
 
     // MARK: - Form rows
@@ -223,6 +229,7 @@ struct TradeEntryView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.pressable)
+        .keyboardShortcut(.defaultAction)
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(sideColor.opacity(0.92))
@@ -273,7 +280,8 @@ struct TradeEntryView: View {
     }
 
     private func save() {
-        guard let item, let price = parsedPrice, let quantity = parsedQuantity, isValid else { return }
+        guard !didSave, let item, let price = parsedPrice, let quantity = parsedQuantity, isValid else { return }
+        didSave = true
         appState.watchlist.addTransaction(item.symbol, PositionTransaction(
             kind: side == .buy ? .buy : .sell,
             price: price,

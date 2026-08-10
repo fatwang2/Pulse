@@ -70,6 +70,11 @@ struct WatchlistView: View {
                 .opacity(searchSession.isActive ? 0 : 1)
                 .allowsHitTesting(!searchSession.isActive)
         }
+        // Every enter/exit path (adjust action, Done, sort menu, group switch) funnels
+        // through this one state, so the quote-write hold can't leak in either direction.
+        .onChange(of: isReordering) { _, active in
+            appState.setUserReordering(active)
+        }
     }
 
     @ViewBuilder

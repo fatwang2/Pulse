@@ -14,6 +14,9 @@ struct PositionEditorView: View {
 
     @State private var quantityText: String
     @State private var costText: String
+    /// Return can reach `save()` twice in one keypress (field submit + default
+    /// action); the first write wins so the adjustment is never recorded twice.
+    @State private var didSave = false
 
     init(item: WatchItem, quote: Quote?, palette: ChangePalette,
          onCancel: @escaping () -> Void,
@@ -81,12 +84,16 @@ struct PositionEditorView: View {
                     save()
                 }
                 .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
                 .disabled(parsedQuantity == nil || parsedCost == nil)
             }
             .controlSize(.small)
         }
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // The whole form is keyboard-first; Return from either field saves
+        // (the button's default action covers Return when no field has focus).
+        .onSubmit { save() }
     }
 
     private var header: some View {
@@ -149,7 +156,8 @@ struct PositionEditorView: View {
     }
 
     private func save() {
-        guard let quantity = parsedQuantity, let cost = parsedCost else { return }
+        guard !didSave, let quantity = parsedQuantity, let cost = parsedCost else { return }
+        didSave = true
         onSave(quantity, cost)
     }
 

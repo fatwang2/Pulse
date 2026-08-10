@@ -17,6 +17,12 @@ public final class RefreshEngine {
 
     public private(set) var isRunning = false
 
+    /// UI-driven write hold. The popover's drag-to-reorder is an AppKit drag session and,
+    /// like a tracking NSMenu, it cannot survive its host rows being re-rendered under it.
+    /// While held the scheduler keeps ticking but applies nothing to the stores; skipped
+    /// work re-runs on the first tick after release (base tick keeps that under 5s).
+    @ObservationIgnored public var writesHeld = false
+
     @ObservationIgnored private let provider: CompositeProvider
     @ObservationIgnored private let store: MarketStore
     @ObservationIgnored private let watchlist: WatchlistStore
@@ -88,6 +94,7 @@ public final class RefreshEngine {
     }
 
     private func tick() async {
+        guard !writesHeld else { return }
         let symbols = watchlist.symbols
         guard !symbols.isEmpty else { return }
 
@@ -104,9 +111,16 @@ public final class RefreshEngine {
             lastPollAt[providerID] = .now
             do {
                 let quotes = try await provider.quotes(for: quoteSymbols)
+                guard !writesHeld else {
+                    // A hold began while this fetch was in flight. Drop the round and
+                    // clear the stamp so the provider re-polls right after release.
+                    lastPollAt[providerID] = nil
+                    return
+                }
                 store.apply(quotes: quotes)
                 applyQuoteNameUpgrades(quotes)
             } catch {
+                guard !writesHeld else { return }
                 store.reportError(String(describing: error))
             }
         }
@@ -139,6 +153,10 @@ public final class RefreshEngine {
         }
         lastNameRefreshAt = .now
         guard let names = try? await provider.preferredSecurityNames(for: symbols) else { return }
+        guard !writesHeld else {
+            lastNameRefreshAt = .distantPast // retry on the first tick after release
+            return
+        }
         for candidate in names {
             watchlist.upgradeDisplayName(
                 for: candidate.symbol,
@@ -164,6 +182,7 @@ public final class RefreshEngine {
     private func refreshSparklinesIfDue(symbols: [SymbolID]) async {
         var fetched = 0
         for symbol in symbols {
+            guard !writesHeld else { return }
             let last = lastSparklineAt[symbol] ?? .distantPast
             // A closed market's sparkline doesn't change; skip fetching if we already have data
             let active = TradingCalendar.isActive(symbol.market)
@@ -174,6 +193,10 @@ public final class RefreshEngine {
             lastSparklineAt[symbol] = .now
             let count = IntradayTrendSnapshot.recommendedCandleCount(for: symbol.market)
             if let candles = try? await provider.candles(for: symbol, period: .minute1, count: count) {
+                guard !writesHeld else {
+                    lastSparklineAt[symbol] = nil // re-fetch promptly after release
+                    return
+                }
                 applyIntradayTrend(candles, for: symbol)
                 // The cache keeps the full fetch (US bars include pre/post sessions);
                 // every consumer runs it through IntradayTrendSnapshot for its own view.

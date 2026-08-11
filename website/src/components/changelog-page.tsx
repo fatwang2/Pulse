@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { SiteHeader } from "./site-header";
 import { releases } from "../data/releases";
 import type { Language } from "../i18n";

@@ -11,6 +11,25 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.11.4",
+    date: "2026-08-12",
+    kind: "improvement",
+    highlights: {
+      zh: [
+        "新增 Esc 逐层返回：在标的详情、持仓、交易记录、下单和设置子页面按 Esc 即可返回上一层，同时保持 Pulse 菜单栏面板打开；返回与确认按钮的悬停提示也会标明 Esc 和回车键。",
+        "修复交易记录右键删除时系统确认框会关闭 Pulse 菜单栏面板、导致无法操作的问题；删除现在与自选列表标签一致，直接从右键菜单执行。",
+      ],
+      en: [
+        "Press Escape on any child page to go back one level while keeping the Pulse menu-bar panel open. Existing button tooltips now disclose Escape and Return without adding permanent interface chrome.",
+        "Deleting a trade from the transaction log no longer opens a system confirmation alert that closes the Pulse menu-bar panel. Like watchlist deletion, the destructive context-menu action now deletes immediately.",
+      ],
+      ja: [
+        "銘柄詳細、保有、取引履歴、売買入力、設定の各子ページで Esc を押すと、Pulse のメニューバーパネルを開いたまま一つ前の階層へ戻れるようになりました。戻るボタンと確定ボタンのツールチップにも Esc と Return を表示します。",
+        "取引履歴を右クリックして削除すると、システムの確認ダイアログによって Pulse のメニューバーパネルが閉じ、操作できなくなる問題を修正しました。ウォッチリストの削除と同様に、コンテキストメニューから直接削除します。",
+      ],
+    },
+  },
+  {
     version: "0.11.3",
     date: "2026-08-11",
     kind: "fix",

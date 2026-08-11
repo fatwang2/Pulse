@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const publishedDownloadVersion = "0.11.1";
+const publishedDownloadVersion = "0.11.3";
 
 async function loadWorker(tag) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -126,8 +126,8 @@ test("server-renders the full bilingual release timeline", async () => {
   assert.doesNotMatch(html, /class="release-link"/);
 
   const releaseEntries = html.match(/class="release-entry"/g) ?? [];
-  assert.equal(releaseEntries.length, 26);
-  assert.ok(html.indexOf("0.11.1") < html.indexOf("0.11.0"));
+  assert.equal(releaseEntries.length, 28);
+  assert.ok(html.indexOf("0.11.3") < html.indexOf("0.11.2"));
 });
 
 test("serves the Chinese homepage at /zh", async () => {

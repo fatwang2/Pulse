@@ -11,6 +11,22 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.11.3",
+    date: "2026-08-11",
+    kind: "fix",
+    highlights: {
+      zh: [
+        "修复从标的详情页返回后，自选列表行可能出现在 Pulse 标题和分组标签后方的问题；顶部栏现在独立占据布局空间，同时继续保留滚动位置。",
+      ],
+      en: [
+        "Fixed watchlist rows appearing behind the Pulse header and list tabs after returning from a symbol page. The header now occupies its own layout space while the watchlist still preserves your scroll position.",
+      ],
+      ja: [
+        "銘柄詳細から戻った後、ウォッチリストの行が Pulse ヘッダーやリストタブの背後に表示されることがある問題を修正しました。ヘッダーは独立したレイアウト領域を占め、スクロール位置の保持はそのままです。",
+      ],
+    },
+  },
+  {
     version: "0.11.2",
     date: "2026-08-11",
     kind: "fix",

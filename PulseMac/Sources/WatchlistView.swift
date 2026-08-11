@@ -41,9 +41,11 @@ struct WatchlistView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top chrome stays floating so rows can fade beneath it. The status
-            // bar is a real sibling below, giving the scrollable list an explicit
-            // lower boundary instead of overlaying its final rows.
+            // Keep the chrome in the layout so the first rows never render behind
+            // the brand, actions, or group tabs. A safe-area inset still lets List
+            // content underlap its inset on macOS, which makes the chrome unreadable.
+            chrome
+
             ZStack {
                 baseContent
                     .opacity(searchSession.isActive ? 0 : 1)
@@ -63,7 +65,6 @@ struct WatchlistView: View {
             .animation(.easeOut(duration: 0.15), value: searchSession.text.isEmpty)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .scrollEdgeEffectStyle(.soft, for: .all)
-            .safeAreaInset(edge: .top, spacing: 0) { chrome }
 
             bottomBar
                 .frame(height: 30)

@@ -11,8 +11,6 @@ struct TransactionListView: View {
     let returnRoute: PositionReturnRoute
     @Binding var route: PopoverRoute
 
-    @State private var pendingDeletion: PositionLedger.Entry?
-
     private var item: WatchItem? { appState.watchlist.item(for: symbol) }
     private var quote: Quote? { appState.market.quote(for: symbol) }
     private var currencyCode: String? { quote?.currencyCode ?? symbol.currencyCode }
@@ -37,7 +35,12 @@ struct TransactionListView: View {
                                 entry: entry,
                                 palette: appState.palette,
                                 currencyCode: currencyCode,
-                                onDelete: { pendingDeletion = entry }
+                                onDelete: {
+                                    appState.watchlist.deleteTransaction(
+                                        symbol,
+                                        id: entry.transaction.id
+                                    )
+                                }
                             )
                         }
                     }
@@ -52,29 +55,11 @@ struct TransactionListView: View {
             // Deleting the last entry leaves nothing to show here.
             if isEmpty { route = .position(symbol, returnRoute) }
         }
-        .alert(
-            PulseLocalization.localizedString("transaction.deleteConfirmTitle"),
-            isPresented: Binding(
-                get: { pendingDeletion != nil },
-                set: { if !$0 { pendingDeletion = nil } }
-            ),
-            presenting: pendingDeletion
-        ) { entry in
-            Button(PulseLocalization.localizedString("action.delete"), role: .destructive) {
-                appState.watchlist.deleteTransaction(symbol, id: entry.transaction.id)
-                pendingDeletion = nil
-            }
-            Button(PulseLocalization.localizedString("action.cancel"), role: .cancel) {
-                pendingDeletion = nil
-            }
-        } message: { entry in
-            Text(deletionSummary(entry))
-        }
     }
 
     private var header: some View {
         HStack(spacing: 8) {
-            IconButton(systemName: "chevron.left", help: PulseLocalization.localizedString("action.back")) {
+            IconButton(systemName: "chevron.left", help: PulseLocalization.localizedString("action.backHelp")) {
                 route = .position(symbol, returnRoute)
             }
             HStack(spacing: 6) {
@@ -111,20 +96,5 @@ struct TransactionListView: View {
             }
         }
         return groups
-    }
-
-    private func deletionSummary(_ entry: PositionLedger.Entry) -> String {
-        let kind = switch entry.transaction.kind {
-        case .buy: PulseLocalization.localizedString("transaction.kind.buy")
-        case .sell: PulseLocalization.localizedString("transaction.kind.sell")
-        case .adjustment: PulseLocalization.localizedString("transaction.kind.adjustment")
-        }
-        return PulseLocalization.localizedString(
-            "transaction.deleteConfirmMessage",
-            PositionDateFormat.monthDay(entry.transaction.date),
-            kind,
-            PriceFormatter.quantity(entry.transaction.quantity),
-            PriceFormatter.price(entry.transaction.price)
-        )
     }
 }

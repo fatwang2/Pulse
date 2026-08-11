@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import PulseCore
 
@@ -160,6 +161,13 @@ struct PopoverRootView: View {
             }
         }
         .frame(width: 340, height: height(for: displayRoute), alignment: .top)
+        .background {
+            EscapeBackMonitor {
+                guard let previousRoute = previousRoute(for: displayRoute) else { return false }
+                route = previousRoute
+                return true
+            }
+        }
         .clipped()
         .animation(.snappy(duration: 0.28), value: displayRoute)
         .animation(.snappy(duration: 0.28), value: searchSession.isActive)
@@ -181,6 +189,27 @@ struct PopoverRootView: View {
         }
         .onChange(of: appState.watchlist.groups.map(\.id)) { _, _ in
             appState.watchlistGroupsChanged()
+        }
+    }
+
+    private func previousRoute(for route: PopoverRoute) -> PopoverRoute? {
+        switch route {
+        case .list:
+            nil
+        case .detail:
+            .list
+        case .position(_, let returnRoute):
+            returnRoute.popoverRoute
+        case .trade(let symbol, _, let returnRoute),
+             .transactions(let symbol, let returnRoute),
+             .calibrate(let symbol, let returnRoute):
+            .position(symbol, returnRoute)
+        case .profile(let symbol):
+            .detail(symbol)
+        case .settings:
+            .list
+        case .providerDetail, .dataSettings:
+            .settings
         }
     }
 
@@ -218,5 +247,71 @@ struct PopoverRootView: View {
             // doesn't shrink on push and the taller pages don't need scrolling.
             return 540
         }
+    }
+}
+
+/// `MenuBarExtra` closes its window before SwiftUI's exit-command handlers
+/// receive Escape. Monitor the host window directly so child routes can consume
+/// Escape as back, while events in nested popovers and the root list retain
+/// their normal system behavior.
+private struct EscapeBackMonitor: NSViewRepresentable {
+    let onEscape: () -> Bool
+
+    func makeNSView(context: Context) -> EscapeBackMonitorView {
+        let view = EscapeBackMonitorView()
+        view.onEscape = onEscape
+        return view
+    }
+
+    func updateNSView(_ view: EscapeBackMonitorView, context: Context) {
+        view.onEscape = onEscape
+    }
+
+    static func dismantleNSView(_ view: EscapeBackMonitorView, coordinator: ()) {
+        view.removeMonitor()
+    }
+}
+
+@MainActor
+private final class EscapeBackMonitorView: NSView {
+    var onEscape: () -> Bool = { false }
+    private var monitor: Any?
+    private var isConsumingEscape = false
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        removeMonitor()
+        guard let hostWindow = window else { return }
+
+        monitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.keyDown, .keyUp]
+        ) { [weak self, weak hostWindow] event in
+            guard event.keyCode == 53, event.window === hostWindow, let self else {
+                return event
+            }
+
+            if event.type == .keyUp {
+                guard self.isConsumingEscape else { return event }
+                self.isConsumingEscape = false
+                return nil
+            }
+            if event.isARepeat {
+                return self.isConsumingEscape ? nil : event
+            }
+            guard self.onEscape() else { return event }
+            self.isConsumingEscape = true
+            return nil
+        }
+    }
+
+    func removeMonitor() {
+        guard let monitor else { return }
+        NSEvent.removeMonitor(monitor)
+        self.monitor = nil
+        isConsumingEscape = false
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
     }
 }

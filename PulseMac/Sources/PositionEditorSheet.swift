@@ -85,6 +85,7 @@ struct PositionEditorView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
+                .help(PulseLocalization.localizedString("action.saveHelp"))
                 .disabled(parsedQuantity == nil || parsedCost == nil)
             }
             .controlSize(.small)

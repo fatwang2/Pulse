@@ -57,7 +57,7 @@ struct ProviderDetailView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            IconButton(systemName: "chevron.left", help: PulseLocalization.localizedString("action.back")) {
+            IconButton(systemName: "chevron.left", help: PulseLocalization.localizedString("action.backHelp")) {
                 route = .settings
             }
             Text(descriptor.name)

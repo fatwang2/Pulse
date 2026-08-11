@@ -1,5 +1,6 @@
 "action.addPosition" = "保有を登録";
 "action.back" = "戻る";
+"action.backHelp" = "戻る（Esc）";
 "action.cancel" = "キャンセル";
 "action.clearPosition" = "保有を削除";
 "action.copyAsImage" = "画像としてコピー";
@@ -15,6 +16,7 @@
 "action.refreshNow" = "更新";
 "action.retry" = "再試行";
 "action.save" = "保存";
+"action.saveHelp" = "保存（Return）";
 "action.share" = "共有";
 
 "assetType.fund" = "ファンド";
@@ -280,7 +282,9 @@
 "trade.recordBuy" = "買いを記録";
 "trade.recordSell" = "売りを記録";
 "trade.confirmBuy" = "買いを確定";
+"trade.confirmBuyHelp" = "買いを確定（Return）";
 "trade.confirmSell" = "売りを確定";
+"trade.confirmSellHelp" = "売りを確定（Return）";
 "trade.price" = "価格";
 "trade.date" = "日付";
 "trade.dateToday" = "今日";

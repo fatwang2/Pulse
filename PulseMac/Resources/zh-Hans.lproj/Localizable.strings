@@ -1,5 +1,6 @@
 "action.addPosition" = "录入持仓";
 "action.back" = "返回";
+"action.backHelp" = "返回（Esc）";
 "action.cancel" = "取消";
 "action.clearPosition" = "一键删除";
 "action.copyAsImage" = "复制为图片";
@@ -15,6 +16,7 @@
 "action.refreshNow" = "立即刷新";
 "action.retry" = "重试";
 "action.save" = "保存";
+"action.saveHelp" = "保存（回车）";
 "action.share" = "分享";
 
 "assetType.fund" = "基金";
@@ -280,7 +282,9 @@
 "trade.recordBuy" = "记录买入";
 "trade.recordSell" = "记录卖出";
 "trade.confirmBuy" = "确认买入";
+"trade.confirmBuyHelp" = "确认买入（回车）";
 "trade.confirmSell" = "确认卖出";
+"trade.confirmSellHelp" = "确认卖出（回车）";
 "trade.price" = "价格";
 "trade.date" = "日期";
 "trade.dateToday" = "今天";

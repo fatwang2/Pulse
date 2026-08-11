@@ -1,5 +1,6 @@
 "action.addPosition" = "Add Position";
 "action.back" = "Back";
+"action.backHelp" = "Back (Esc)";
 "action.cancel" = "Cancel";
 "action.clearPosition" = "Remove Position";
 "action.copyAsImage" = "Copy as Image";
@@ -15,6 +16,7 @@
 "action.refreshNow" = "Refresh";
 "action.retry" = "Retry";
 "action.save" = "Save";
+"action.saveHelp" = "Save (Return)";
 "action.share" = "Share";
 
 "assetType.fund" = "Fund";
@@ -280,7 +282,9 @@
 "trade.recordBuy" = "Record a Buy";
 "trade.recordSell" = "Record a Sell";
 "trade.confirmBuy" = "Confirm Buy";
+"trade.confirmBuyHelp" = "Confirm Buy (Return)";
 "trade.confirmSell" = "Confirm Sell";
+"trade.confirmSellHelp" = "Confirm Sell (Return)";
 "trade.price" = "Price";
 "trade.date" = "Date";
 "trade.dateToday" = "Today";

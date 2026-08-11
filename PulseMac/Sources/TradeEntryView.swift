@@ -230,6 +230,9 @@ struct TradeEntryView: View {
         }
         .buttonStyle(.pressable)
         .keyboardShortcut(.defaultAction)
+        .help(PulseLocalization.localizedString(
+            side == .buy ? "trade.confirmBuyHelp" : "trade.confirmSellHelp"
+        ))
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(sideColor.opacity(0.92))

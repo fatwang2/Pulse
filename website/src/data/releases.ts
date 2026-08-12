@@ -11,6 +11,28 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.11.5",
+    date: "2026-08-12",
+    kind: "release",
+    highlights: {
+      zh: [
+        "交易记录现在会显示在日 K 图上：买入与卖出分别以 B/S 标记呈现，同一天同方向的交易会自动聚合；标记避开附近 K 线并通过中性点线关联，悬停可查看加权成交价、数量与金额。",
+        "修复 macOS 26 上自选列表可能无法拖动排序的问题：排序期间不再因鼠标经过其他行而重建原生拖放目标，插入指示线和放置操作更加稳定。",
+        "修复设置页向上滚动时选项会滑到标题下方并与标题重叠的问题；标题现在固定占据表单上方的独立区域。",
+      ],
+      en: [
+        "Recorded trades now appear on daily candlestick charts as B/S markers. Same-day trades are grouped by side, kept clear of nearby candles, and linked with a neutral dotted guide; hover the day to see weighted price, quantity, and amount.",
+        "Fixed watchlist reordering on macOS 26. Moving across rows during a reorder no longer rebuilds the native drop targets, keeping the insertion indicator and drop action reliable.",
+        "Fixed Settings options sliding underneath and overlapping the page title while scrolling. The title now stays in its own fixed area above the form.",
+      ],
+      ja: [
+        "取引履歴を日足チャートに B/S マーカーで表示するようになりました。同日の同方向の取引は自動で集約され、近くのローソク足を避けて中立色の点線で関連付けられます。該当日にポインタを合わせると、加重平均価格・数量・金額を確認できます。",
+        "macOS 26 でウォッチリストを並べ替えられないことがある問題を修正しました。並べ替え中に他の行を通過してもネイティブのドロップ対象が再構築されず、挿入位置の表示とドロップ操作が安定します。",
+        "設定画面を上へスクロールしたとき、項目がタイトルの下に入り込んで重なる問題を修正しました。タイトルはフォーム上部の独立した固定領域に表示されます。",
+      ],
+    },
+  },
+  {
     version: "0.11.4",
     date: "2026-08-12",
     kind: "improvement",

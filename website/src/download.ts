@@ -6,13 +6,13 @@
  */
 
 export const latestDownload = {
-  version: "0.11.4",
-  fileName: "Pulse-0.11.4.dmg",
-  key: "releases/v0.11.4/Pulse-0.11.4.dmg",
+  version: "0.11.5",
+  fileName: "Pulse-0.11.5.dmg",
+  key: "releases/v0.11.5/Pulse-0.11.5.dmg",
   sourceUrl:
-    "https://github.com/fatwang2/Pulse/releases/download/v0.11.4/Pulse-0.11.4.dmg",
-  size: 18_104_516,
-  sha256: "8359944231a120b226933b656046762f6d4a30a1c0370807f9dbdf3dffaceb58",
+    "https://github.com/fatwang2/Pulse/releases/download/v0.11.5/Pulse-0.11.5.dmg",
+  size: 18_161_860,
+  sha256: "7278fe6d0aeecace08160483bfbc869fb309e4d1340ccf2ae65ca6c84a79b0a6",
 } as const;
 
 interface DownloadObject {

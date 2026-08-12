@@ -19,6 +19,8 @@
 "action.saveHelp" = "保存（回车）";
 "action.share" = "分享";
 
+"diagnostics.copy" = "复制诊断日志";
+
 "assetType.fund" = "基金";
 "assetType.index" = "指数";
 "assetType.crypto" = "加密";

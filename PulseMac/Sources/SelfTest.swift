@@ -46,6 +46,52 @@ enum SelfTest {
     }
     @MainActor
     static func runIfRequested() {
+        #if DEBUG
+        if CommandLine.arguments.contains("--reorder-diagnostics-selftest") {
+            let diagnostics = ReorderDiagnostics.shared
+            diagnostics.reorderModeEntered(
+                itemCount: 4,
+                orderMode: "manual",
+                sortOption: "changePercent",
+                prioritizesOpenMarkets: true,
+                reduceMotion: false
+            )
+            diagnostics.pointerDown(horizontalZone: "trailing", clickCount: 1, modifierFlags: 0)
+            diagnostics.pointerDragStarted(initialDistance: 4)
+            diagnostics.pointerEnded(
+                dragged: true,
+                dragEventCount: 6,
+                maximumDistance: 42,
+                durationMilliseconds: 280
+            )
+            diagnostics.moveReceived(
+                sourceCount: 1,
+                destination: 3,
+                itemCount: 4,
+                committed: true
+            )
+            diagnostics.reorderModeExited()
+
+            do {
+                let data = try diagnostics.reportData()
+                let text = String(decoding: data, as: UTF8.self)
+                let passed = text.contains("watchlist.reorder")
+                    && text.contains("pointer.dragStarted")
+                    && text.contains("reorder.onMove")
+                    && !text.contains("AAPL")
+                print(passed
+                    ? "PULSE_REORDER_DIAGNOSTICS_SELFTEST ok"
+                    : "PULSE_REORDER_DIAGNOSTICS_SELFTEST failed error=unexpected-payload")
+                fflush(stdout)
+                exit(passed ? 0 : 1)
+            } catch {
+                print("PULSE_REORDER_DIAGNOSTICS_SELFTEST failed error=\(error)")
+                fflush(stdout)
+                exit(1)
+            }
+        }
+        #endif
+
         if CommandLine.arguments.contains("--watchlist-archive-selftest") {
             // Exercises the shipped binary's export/import path end to end. It runs
             // against an isolated defaults suite, so it never reads or writes the

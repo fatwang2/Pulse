@@ -19,6 +19,8 @@
 "action.saveHelp" = "Save (Return)";
 "action.share" = "Share";
 
+"diagnostics.copy" = "Copy Diagnostic Log";
+
 "assetType.fund" = "Fund";
 "assetType.index" = "Index";
 "assetType.crypto" = "Crypto";

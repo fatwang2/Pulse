@@ -133,7 +133,8 @@ if [[ -z "$SIGN_IDENTITY" ]]; then
   SIGN_IDENTITY="-"
 fi
 SIGN_OPTIONS=(--timestamp=none)
-if [[ "${CONFIGURATION:-}" == "Release" && "$SIGN_IDENTITY" != "-" ]]; then
+if [[ ( "${CONFIGURATION:-}" == "Release" || "${ENABLE_HARDENED_RUNTIME:-}" == "YES" ) \
+  && "$SIGN_IDENTITY" != "-" ]]; then
   SIGN_OPTIONS=(--timestamp --options=runtime)
 fi
 codesign \

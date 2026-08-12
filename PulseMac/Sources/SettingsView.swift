@@ -67,150 +67,162 @@ struct SettingsView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var route: PopoverRoute
     @StateObject private var softwareUpdate = SoftwareUpdateController.shared
+    @State private var diagnosticsFeedback: ShareFeedback?
 
     var body: some View {
         @Bindable var settings = appState.settings
 
-        Form {
-            Section {
-                Toggle(PulseLocalization.localizedString("settings.menuBar.showQuote"), isOn: $settings.showPriceInMenuBar)
-                if settings.showPriceInMenuBar {
-                    Picker(PulseLocalization.localizedString("settings.menuBar.displayMode"), selection: $settings.menuBarMode) {
-                        Text(MenuBarMode.single.displayName).tag(MenuBarMode.single)
-                        Text(MenuBarMode.rotate.displayName).tag(MenuBarMode.rotate)
-                    }
-                    .transition(contextualRowTransition)
-                    if settings.menuBarMode == .single {
-                        Picker(PulseLocalization.localizedString("settings.menuBar.fixedSymbol"), selection: $settings.primarySymbol) {
-                            Text(PulseLocalization.localizedString("settings.menuBar.firstWatchlistItem")).tag(SymbolID?.none)
-                            ForEach(appState.watchlist.allItems) { item in
-                                Text(item.resolvedDisplayName).tag(SymbolID?.some(item.symbol))
-                            }
+        VStack(spacing: 0) {
+            header
+
+            Form {
+                Section {
+                    Toggle(PulseLocalization.localizedString("settings.menuBar.showQuote"), isOn: $settings.showPriceInMenuBar)
+                    if settings.showPriceInMenuBar {
+                        Picker(PulseLocalization.localizedString("settings.menuBar.displayMode"), selection: $settings.menuBarMode) {
+                            Text(MenuBarMode.single.displayName).tag(MenuBarMode.single)
+                            Text(MenuBarMode.rotate.displayName).tag(MenuBarMode.rotate)
                         }
                         .transition(contextualRowTransition)
-                    }
-                    if settings.menuBarMode == .rotate {
-                        if appState.watchlist.groups.count > 1 {
-                            Picker(
-                                PulseLocalization.localizedString("settings.menuBar.rotateGroup"),
-                                selection: menuBarRotationGroupBinding
-                            ) {
-                                ForEach(appState.watchlist.groups) { group in
-                                    Text(group.name).tag(Optional(group.id))
+                        if settings.menuBarMode == .single {
+                            Picker(PulseLocalization.localizedString("settings.menuBar.fixedSymbol"), selection: $settings.primarySymbol) {
+                                Text(PulseLocalization.localizedString("settings.menuBar.firstWatchlistItem")).tag(SymbolID?.none)
+                                ForEach(appState.watchlist.allItems) { item in
+                                    Text(item.resolvedDisplayName).tag(SymbolID?.some(item.symbol))
                                 }
                             }
                             .transition(contextualRowTransition)
                         }
-                        Picker(PulseLocalization.localizedString("settings.menuBar.rotateInterval"), selection: $settings.rotateInterval) {
-                            Text(PulseLocalization.localizedString("duration.seconds", 3)).tag(TimeInterval(3))
-                            Text(PulseLocalization.localizedString("duration.seconds", 6)).tag(TimeInterval(6))
-                            Text(PulseLocalization.localizedString("duration.seconds", 10)).tag(TimeInterval(10))
+                        if settings.menuBarMode == .rotate {
+                            if appState.watchlist.groups.count > 1 {
+                                Picker(
+                                    PulseLocalization.localizedString("settings.menuBar.rotateGroup"),
+                                    selection: menuBarRotationGroupBinding
+                                ) {
+                                    ForEach(appState.watchlist.groups) { group in
+                                        Text(group.name).tag(Optional(group.id))
+                                    }
+                                }
+                                .transition(contextualRowTransition)
+                            }
+                            Picker(PulseLocalization.localizedString("settings.menuBar.rotateInterval"), selection: $settings.rotateInterval) {
+                                Text(PulseLocalization.localizedString("duration.seconds", 3)).tag(TimeInterval(3))
+                                Text(PulseLocalization.localizedString("duration.seconds", 6)).tag(TimeInterval(6))
+                                Text(PulseLocalization.localizedString("duration.seconds", 10)).tag(TimeInterval(10))
+                            }
+                            .transition(contextualRowTransition)
                         }
-                        .transition(contextualRowTransition)
+                    }
+                } header: {
+                    Text(PulseLocalization.localizedString("settings.section.menuBar"))
+                } footer: {
+                    if !settings.showPriceInMenuBar {
+                        Text(PulseLocalization.localizedString("settings.menuBar.iconOnlyHelp"))
+                            .transition(.opacity)
                     }
                 }
-            } header: {
-                Text(PulseLocalization.localizedString("settings.section.menuBar"))
-            } footer: {
-                if !settings.showPriceInMenuBar {
-                    Text(PulseLocalization.localizedString("settings.menuBar.iconOnlyHelp"))
-                        .transition(.opacity)
-                }
-            }
 
-            Section {
-                // Refresh cadence moved to each data source's detail page — sources have
-                // very different politeness budgets, so a global interval stopped making sense.
-                Picker(PulseLocalization.localizedString("settings.market.colorRule"), selection: $settings.redUp) {
-                    Text(PulseLocalization.localizedString("settings.market.redUp")).tag(true)
-                    Text(PulseLocalization.localizedString("settings.market.greenUp")).tag(false)
+                Section {
+                    // Refresh cadence moved to each data source's detail page — sources have
+                    // very different politeness budgets, so a global interval stopped making sense.
+                    Picker(PulseLocalization.localizedString("settings.market.colorRule"), selection: $settings.redUp) {
+                        Text(PulseLocalization.localizedString("settings.market.redUp")).tag(true)
+                        Text(PulseLocalization.localizedString("settings.market.greenUp")).tag(false)
+                    }
+                    Toggle(
+                        PulseLocalization.localizedString("settings.market.usExtendedHours"),
+                        isOn: $settings.showsUSExtendedHours
+                    )
+                    Toggle(
+                        PulseLocalization.localizedString("settings.market.prioritizeOpenMarkets"),
+                        isOn: $settings.prioritizeOpenMarkets
+                    )
+                } header: {
+                    Text(PulseLocalization.localizedString("settings.section.market"))
+                } footer: {
+                    Text(PulseLocalization.localizedString("settings.market.prioritizeOpenMarketsHelp"))
                 }
-                Toggle(
-                    PulseLocalization.localizedString("settings.market.usExtendedHours"),
-                    isOn: $settings.showsUSExtendedHours
-                )
-                Toggle(
-                    PulseLocalization.localizedString("settings.market.prioritizeOpenMarkets"),
-                    isOn: $settings.prioritizeOpenMarkets
-                )
-            } header: {
-                Text(PulseLocalization.localizedString("settings.section.market"))
-            } footer: {
-                Text(PulseLocalization.localizedString("settings.market.prioritizeOpenMarketsHelp"))
-            }
 
-            Section {
-                ForEach(appState.providerDescriptors, id: \.id) { descriptor in
-                    ProviderRow(descriptor: descriptor) {
-                        route = .providerDetail(descriptor.id)
+                Section {
+                    ForEach(appState.providerDescriptors, id: \.id) { descriptor in
+                        ProviderRow(descriptor: descriptor) {
+                            route = .providerDetail(descriptor.id)
+                        }
+                    }
+                } header: {
+                    Text(PulseLocalization.localizedString("settings.section.providers"))
+                } footer: {
+                    if appState.providerDescriptors.allSatisfy({ !appState.isProviderEnabled($0.id) }) {
+                        Text(PulseLocalization.localizedString("settings.providers.allDisabled"))
+                            .foregroundStyle(.orange)
+                    } else {
+                        Text(PulseLocalization.localizedString("settings.providers.help"))
                     }
                 }
-            } header: {
-                Text(PulseLocalization.localizedString("settings.section.providers"))
-            } footer: {
-                if appState.providerDescriptors.allSatisfy({ !appState.isProviderEnabled($0.id) }) {
-                    Text(PulseLocalization.localizedString("settings.providers.allDisabled"))
-                        .foregroundStyle(.orange)
-                } else {
-                    Text(PulseLocalization.localizedString("settings.providers.help"))
-                }
-            }
 
-            Section {
-                Picker(PulseLocalization.localizedString("settings.general.language"), selection: $settings.languagePreference) {
-                    ForEach(PulseLanguagePreference.allCases, id: \.self) { preference in
-                        Text(preference.localizedDisplayName).tag(preference)
+                Section {
+                    Picker(PulseLocalization.localizedString("settings.general.language"), selection: $settings.languagePreference) {
+                        ForEach(PulseLanguagePreference.allCases, id: \.self) { preference in
+                            Text(preference.localizedDisplayName).tag(preference)
+                        }
+                    }
+                    Toggle(PulseLocalization.localizedString("settings.general.launchAtLogin"), isOn: $settings.launchAtLogin)
+                    Toggle(
+                        PulseLocalization.localizedString("settings.general.anonymousAnalytics"),
+                        isOn: $settings.shareAnonymousUsageData
+                    )
+                } header: {
+                    Text(PulseLocalization.localizedString("settings.section.general"))
+                } footer: {
+                    Text(PulseLocalization.localizedString("settings.general.anonymousAnalyticsHelp"))
+                }
+
+                Section {
+                    Button {
+                        route = .dataSettings
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(PulseLocalization.localizedString("settings.data.row"))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.pressable)
+                } header: {
+                    Text(PulseLocalization.localizedString("settings.section.data"))
+                }
+
+                Section {
+                    LabeledContent(
+                        PulseLocalization.localizedString("settings.updates.currentVersion"),
+                        value: "\(softwareUpdate.currentVersion) (\(softwareUpdate.currentBuild))"
+                    )
+                    Button(PulseLocalization.localizedString("settings.updates.check")) {
+                        softwareUpdate.checkForUpdates()
+                    }
+                    .disabled(!softwareUpdate.isConfigured)
+                } header: {
+                    Text(PulseLocalization.localizedString("settings.section.updates"))
+                }
+
+                #if DEBUG
+                Section {
+                    Button(PulseLocalization.localizedString("diagnostics.copy")) {
+                        copyDiagnostics()
                     }
                 }
-                Toggle(PulseLocalization.localizedString("settings.general.launchAtLogin"), isOn: $settings.launchAtLogin)
-                Toggle(
-                    PulseLocalization.localizedString("settings.general.anonymousAnalytics"),
-                    isOn: $settings.shareAnonymousUsageData
-                )
-            } header: {
-                Text(PulseLocalization.localizedString("settings.section.general"))
-            } footer: {
-                Text(PulseLocalization.localizedString("settings.general.anonymousAnalyticsHelp"))
+                #endif
             }
-
-            Section {
-                Button {
-                    route = .dataSettings
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(PulseLocalization.localizedString("settings.data.row"))
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.tertiary)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.pressable)
-            } header: {
-                Text(PulseLocalization.localizedString("settings.section.data"))
-            }
-
-            Section {
-                LabeledContent(
-                    PulseLocalization.localizedString("settings.updates.currentVersion"),
-                    value: "\(softwareUpdate.currentVersion) (\(softwareUpdate.currentBuild))"
-                )
-                Button(PulseLocalization.localizedString("settings.updates.check")) {
-                    softwareUpdate.checkForUpdates()
-                }
-                .disabled(!softwareUpdate.isConfigured)
-            } header: {
-                Text(PulseLocalization.localizedString("settings.section.updates"))
-            }
+            .animation(contextualRowAnimation, value: settings.showPriceInMenuBar)
+            .animation(contextualRowAnimation, value: settings.menuBarMode)
+            .formStyle(.grouped)
+            .controlSize(.small)
+            .scrollContentBackground(.hidden)
+            .scrollEdgeEffectStyle(.soft, for: .all)
         }
-        .animation(contextualRowAnimation, value: settings.showPriceInMenuBar)
-        .animation(contextualRowAnimation, value: settings.menuBarMode)
-        .formStyle(.grouped)
-        .controlSize(.small)
-        .scrollContentBackground(.hidden)
-        .scrollEdgeEffectStyle(.soft, for: .all)
-        .safeAreaInset(edge: .top, spacing: 0) { header }
         .onAppear { PulseTelemetry.signal(.settingsOpened) }
     }
 
@@ -225,7 +237,35 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
+        .overlay(alignment: .trailing) {
+            if let diagnosticsFeedback {
+                ShareFeedbackHUD(feedback: diagnosticsFeedback)
+                    .padding(.trailing, 10)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .trailing)))
+                    .allowsHitTesting(false)
+            }
+        }
     }
+
+    #if DEBUG
+    @MainActor
+    private func copyDiagnostics() {
+        let feedback = ShareFeedback(
+            content: .text,
+            isSuccess: ReorderDiagnostics.shared.copyLog()
+        )
+        withAnimation(.snappy(duration: 0.2)) {
+            diagnosticsFeedback = feedback
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(feedback.isSuccess ? 1.5 : 3))
+            guard diagnosticsFeedback?.id == feedback.id else { return }
+            withAnimation(.snappy(duration: 0.2)) {
+                diagnosticsFeedback = nil
+            }
+        }
+    }
+    #endif
 
     private var contextualRowTransition: AnyTransition {
         reduceMotion

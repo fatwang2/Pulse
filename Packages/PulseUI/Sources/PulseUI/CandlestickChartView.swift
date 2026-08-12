@@ -20,6 +20,8 @@ public struct CandlestickChartView: View {
     let period: CandlePeriod
     let market: Market?
     let highlightsExtendedHours: Bool
+    let transactions: [PositionTransaction]
+    let currencyCode: String?
 
     @State private var viewport: CandleChartViewport
 
@@ -32,6 +34,8 @@ public struct CandlestickChartView: View {
         period: CandlePeriod = .day,
         market: Market? = nil,
         highlightsExtendedHours: Bool = false,
+        transactions: [PositionTransaction] = [],
+        currencyCode: String? = nil,
         viewport: CandleChartViewport? = nil
     ) {
         self.candles = candles
@@ -39,6 +43,8 @@ public struct CandlestickChartView: View {
         self.period = period
         self.market = market
         self.highlightsExtendedHours = highlightsExtendedHours
+        self.transactions = transactions
+        self.currencyCode = currencyCode
         _viewport = State(initialValue: viewport ?? CandleChartViewport())
     }
 
@@ -59,12 +65,30 @@ public struct CandlestickChartView: View {
         let range = viewport.visibleRange(dataCount: candles.count)
         let xDomain = (range.lowerBound - 1)...max(range.upperBound, 1)
         let visible = candles[safeRange: range]
+        let tradeMarkers = period == .day
+            ? CandleTradeMarker.dailyMarkers(
+                candles: candles,
+                transactions: transactions,
+                market: market
+            )
+            : []
+        let visibleTradeMarkers = tradeMarkers.filter { range.contains($0.candleIndex) }
         let showsDateOnIntradayAxis = visibleSpansMultipleDays(visible)
         // Volume shares the coordinate system as a bottom band (TradingView-style overlay):
         // one x scale means bars and candles align exactly, and the date axis sits at the
         // true bottom of the chart. Symbols without volume data reclaim the band.
         let maxVolume = visible.compactMap(\.volume).max() ?? 0
-        let yDomain = yDomain(for: visible, reserveVolumeBand: maxVolume > 0)
+        let yDomain = yDomain(
+            for: visible,
+            hasBuyMarkers: visibleTradeMarkers.contains { $0.side == .buy },
+            hasSellMarkers: visibleTradeMarkers.contains { $0.side == .sell },
+            reserveVolumeBand: maxVolume > 0
+        )
+        let tradeMarkerPlacements = tradeMarkerPlacements(
+            for: visibleTradeMarkers,
+            visibleRange: range,
+            yDomain: yDomain
+        )
         // `.ratio` widths collapse to hairlines on a continuous Int scale, which turns the
         // candles into bare wicks — size the bodies explicitly from the visible density.
         let barWidth = Self.barWidth(forVisible: range.count, containerWidth: containerWidth)
@@ -77,6 +101,7 @@ public struct CandlestickChartView: View {
                 volumeMarks(range: range, barWidth: barWidth, yDomain: yDomain, maxVolume: maxVolume)
             }
             candleMarks(range: range, priceDomain: yDomain, barWidth: barWidth)
+            tradeMarks(tradeMarkerPlacements)
         }
         .chartYScale(domain: yDomain)
         .chartXScale(domain: xDomain)
@@ -101,7 +126,8 @@ public struct CandlestickChartView: View {
             GeometryReader { geo in
                 CandlePriceOverlay(viewport: viewport, candles: candles, range: range,
                                    xDomain: xDomain, palette: palette, period: period,
-                                   market: market,
+                                   market: market, tradeMarkers: tradeMarkers,
+                                   currencyCode: currencyCode,
                                    proxy: proxy, geo: geo)
             }
         }
@@ -192,6 +218,51 @@ public struct CandlestickChartView: View {
         }
     }
 
+    @ChartContentBuilder
+    private func tradeMarks(_ placements: [TradeMarkerPlacement]) -> some ChartContent {
+        ForEach(placements) { placement in
+            let marker = placement.marker
+            let color = tradeColor(for: marker)
+            RuleMark(
+                x: .value("Trade", marker.candleIndex),
+                yStart: .value("Connector Start", placement.connectorStartPrice),
+                yEnd: .value("Trade Marker", placement.anchorPrice)
+            )
+            .foregroundStyle(Color.secondary.opacity(0.5))
+            .lineStyle(StrokeStyle(
+                lineWidth: 0.75,
+                lineCap: .round,
+                dash: [1.5, 2.5]
+            ))
+            PointMark(
+                x: .value("Trade", marker.candleIndex),
+                y: .value("Trade Marker", placement.anchorPrice)
+            )
+            .symbolSize(12)
+            .foregroundStyle(color)
+            .annotation(
+                position: marker.side == .buy ? .bottom : .top,
+                alignment: .center,
+                spacing: 2
+            ) {
+                CandleTradeMarkerBadge(
+                    text: markerLabel(marker),
+                    color: color
+                )
+                .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private func markerLabel(_ marker: CandleTradeMarker) -> String {
+        let side = marker.side == .buy ? "B" : "S"
+        return marker.count > 1 ? "\(side)×\(marker.count)" : side
+    }
+
+    private func tradeColor(for marker: CandleTradeMarker) -> Color {
+        palette.color(isUp: marker.side == .buy)
+    }
+
     /// Candle body / volume bar width from the visible density: 62% of the per-bar slot,
     /// clamped so deep zoom-out still shows a hairline and deep zoom-in stays proportioned.
     /// The container includes the trailing y-axis strip (~48pt); the domain pads one slot
@@ -218,13 +289,62 @@ public struct CandlestickChartView: View {
 
     /// Price scale adapts to the visible window, so zooming in re-spreads the candles
     /// instead of leaving them squashed against the full-history extremes. When volume is
-    /// present, the bottom reserves a band slightly taller than the volume overlay.
-    private func yDomain(for visible: ArraySlice<Candle>, reserveVolumeBand: Bool) -> ClosedRange<Double> {
+    /// present, the bottom reserves a band slightly taller than the volume overlay. Trade
+    /// prices are intentionally excluded: a bad or split-unadjusted entry must not flatten
+    /// the candles, and the precise execution price remains available in the hover detail.
+    private func yDomain(
+        for visible: ArraySlice<Candle>,
+        hasBuyMarkers: Bool,
+        hasSellMarkers: Bool,
+        reserveVolumeBand: Bool
+    ) -> ClosedRange<Double> {
         let lo = visible.map(\.low).min() ?? 0
         let hi = visible.map(\.high).max() ?? 1
         let span = max(hi - lo, hi * 0.001, 0.0001)
-        let bottomPad = reserveVolumeBand ? span * 0.28 : span * 0.05
-        return (lo - bottomPad)...(hi + span * 0.05)
+        let bottomPad: Double
+        if reserveVolumeBand {
+            // Leave a clean lane between the lowest wick and the volume strip for B badges.
+            bottomPad = span * (hasBuyMarkers ? 0.42 : 0.28)
+        } else {
+            bottomPad = span * (hasBuyMarkers ? 0.16 : 0.05)
+        }
+        let topPad = span * (hasSellMarkers ? 0.16 : 0.05)
+        return (lo - bottomPad)...(hi + topPad)
+    }
+
+    /// Badges sit outside the local candle envelope rather than at the execution price.
+    /// Looking two bars in either direction keeps a wider `B×N`/`S×N` badge away from
+    /// adjacent wicks. A deliberate gap before the neutral dotted connector prevents it
+    /// from reading as an extension of the candle wick. The execution price remains in hover.
+    private func tradeMarkerPlacements(
+        for markers: [CandleTradeMarker],
+        visibleRange: Range<Int>,
+        yDomain: ClosedRange<Double>
+    ) -> [TradeMarkerPlacement] {
+        let domainSpan = yDomain.upperBound - yDomain.lowerBound
+        let markerGap = domainSpan * 0.026
+        let connectorGap = domainSpan * 0.008
+        return markers.compactMap { marker in
+            guard candles.indices.contains(marker.candleIndex) else { return nil }
+            let lowerBound = max(visibleRange.lowerBound, marker.candleIndex - 2)
+            let upperBound = min(visibleRange.upperBound, marker.candleIndex + 3)
+            let neighbors = candles[lowerBound..<upperBound]
+            let anchorPrice: Double
+            let connectorStartPrice: Double
+            switch marker.side {
+            case .buy:
+                connectorStartPrice = candles[marker.candleIndex].low - connectorGap
+                anchorPrice = (neighbors.map(\.low).min() ?? candles[marker.candleIndex].low) - markerGap
+            case .sell:
+                connectorStartPrice = candles[marker.candleIndex].high + connectorGap
+                anchorPrice = (neighbors.map(\.high).max() ?? candles[marker.candleIndex].high) + markerGap
+            }
+            return TradeMarkerPlacement(
+                marker: marker,
+                connectorStartPrice: connectorStartPrice,
+                anchorPrice: anchorPrice
+            )
+        }
     }
 
     private func axisIndices(for range: Range<Int>) -> [Int] {
@@ -256,6 +376,14 @@ public struct CandlestickChartView: View {
         calendar.timeZone = market?.timeZone ?? .current
         return !calendar.isDate(first.time, inSameDayAs: last.time)
     }
+}
+
+private struct TradeMarkerPlacement: Identifiable {
+    var marker: CandleTradeMarker
+    var connectorStartPrice: Double
+    var anchorPrice: Double
+
+    var id: CandleTradeMarker.ID { marker.id }
 }
 
 // MARK: - Viewport (zoom/pan/hover state)
@@ -388,6 +516,8 @@ private struct CandlePriceOverlay: View {
     let palette: ChangePalette
     let period: CandlePeriod
     let market: Market?
+    let tradeMarkers: [CandleTradeMarker]
+    let currencyCode: String?
     let proxy: ChartProxy
     let geo: GeometryProxy
 
@@ -402,7 +532,11 @@ private struct CandlePriceOverlay: View {
                 let py = plot.origin.y + min(max(yPos, 0), plot.height)
                 ChartCrosshair.lines(px: px, py: py, in: plot)
                 priceTag(for: candle, py: py)
-                readout(for: candle, previous: candles[safe: index - 1])
+                readout(
+                    for: candle,
+                    previous: candles[safe: index - 1],
+                    tradeMarkers: tradeMarkers.filter { $0.candleIndex == index }
+                )
                     .padding(4)
                     .frame(width: plot.width, height: plot.height,
                            alignment: px > plot.midX ? .topLeading : .topTrailing)
@@ -423,7 +557,11 @@ private struct CandlePriceOverlay: View {
     }
 
     /// OHLC + volume readout, docked to the top corner away from the cursor.
-    private func readout(for candle: Candle, previous: Candle?) -> some View {
+    private func readout(
+        for candle: Candle,
+        previous: Candle?,
+        tradeMarkers: [CandleTradeMarker]
+    ) -> some View {
         let base = previous?.close ?? candle.open
         let changePercent = base == 0 ? 0 : (candle.close - base) / base * 100
         return VStack(alignment: .leading, spacing: 3) {
@@ -447,6 +585,17 @@ private struct CandlePriceOverlay: View {
                     GridRow {
                         readoutValue(PulseLocalization.localizedString("chart.volume"), PriceFormatter.compact(volume))
                     }
+                }
+            }
+            if !tradeMarkers.isEmpty {
+                Divider()
+                    .padding(.vertical, 1)
+                ForEach(tradeMarkers) { marker in
+                    CandleTradeMarkerReadout(
+                        marker: marker,
+                        palette: palette,
+                        currencyCode: currencyCode
+                    )
                 }
             }
         }
@@ -491,6 +640,87 @@ private struct CandlePriceOverlay: View {
         let startLabel = start.formatted(.dateTime.year().month(.twoDigits).day(.twoDigits))
         let endLabel = end.formatted(.dateTime.month(.twoDigits).day(.twoDigits))
         return "\(startLabel)–\(endLabel)"
+    }
+}
+
+private struct CandleTradeMarkerBadge: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 7.5, weight: .bold, design: .rounded).monospaced())
+            .foregroundStyle(.white)
+            .padding(.horizontal, text.count > 1 ? 4 : 0)
+            .frame(minWidth: 14)
+            .frame(height: 14)
+            .background(color, in: Capsule(style: .continuous))
+            .overlay {
+                Capsule(style: .continuous)
+                    .stroke(Color.white.opacity(0.8), lineWidth: 0.75)
+            }
+            .shadow(color: .black.opacity(0.16), radius: 1, y: 0.5)
+    }
+}
+
+private struct CandleTradeMarkerReadout: View {
+    let marker: CandleTradeMarker
+    let palette: ChangePalette
+    let currencyCode: String?
+
+    private var sideKey: String {
+        marker.side == .buy ? "trade.buy" : "trade.sell"
+    }
+
+    private var sideText: String {
+        PulseLocalization.localizedString(sideKey)
+    }
+
+    private var badgeText: String {
+        let side = marker.side == .buy ? "B" : "S"
+        return marker.count > 1 ? "\(side)×\(marker.count)" : side
+    }
+
+    private var color: Color {
+        palette.color(isUp: marker.side == .buy)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                CandleTradeMarkerBadge(text: badgeText, color: color)
+                    .scaleEffect(0.86, anchor: .leading)
+                    .frame(width: badgeText.count > 1 ? 23 : 14, height: 12, alignment: .leading)
+                Text(sideText)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(color)
+            }
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 2) {
+                GridRow {
+                    value(
+                        PulseLocalization.localizedString("trade.price"),
+                        PriceFormatter.price(marker.averagePrice)
+                    )
+                    value(
+                        PulseLocalization.localizedString("position.quantity"),
+                        PriceFormatter.quantity(marker.totalQuantity)
+                    )
+                }
+                GridRow {
+                    value(
+                        PulseLocalization.localizedString("trade.amount"),
+                        PriceFormatter.money(marker.totalAmount, currencyCode: currencyCode)
+                    )
+                }
+            }
+        }
+    }
+
+    private func value(_ label: String, _ value: String) -> some View {
+        HStack(spacing: 3) {
+            Text(label).foregroundStyle(.tertiary)
+            Text(value).foregroundStyle(.primary)
+        }
     }
 }
 

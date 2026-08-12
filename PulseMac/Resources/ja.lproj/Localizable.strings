@@ -19,6 +19,8 @@
 "action.saveHelp" = "保存（Return）";
 "action.share" = "共有";
 
+"diagnostics.copy" = "診断ログをコピー";
+
 "assetType.fund" = "ファンド";
 "assetType.index" = "指数";
 "assetType.crypto" = "暗号資産";

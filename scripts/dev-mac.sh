@@ -142,6 +142,9 @@ case "$MODE" in
     open_app
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
+  --reorder-diagnostics-selftest)
+    "$APP_BINARY" --reorder-diagnostics-selftest
+    ;;
   --longbridge-plugin-state-selftest)
     "$APP_BINARY" --longbridge-plugin-state-selftest
     ;;
@@ -175,7 +178,7 @@ case "$MODE" in
     pgrep -x "$APP_NAME" >/dev/null
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--release|--release-verify|--share-selftest|--watchlist-sort-selftest|--settings-persistence-selftest|--watchlist-archive-selftest|--release-settings-persistence-selftest|--release-sdk-live-selftest|--release-sdk-watchlist-selftest|--release-sdk-stability-selftest|--longbridge-plugin-state-selftest|--longbridge-plugin-selftest|--longbridge-sdk-live-selftest|--longbridge-sdk-watchlist-selftest|--longbridge-sdk-stability-selftest]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--reorder-diagnostics-selftest|--release|--release-verify|--share-selftest|--watchlist-sort-selftest|--settings-persistence-selftest|--watchlist-archive-selftest|--release-settings-persistence-selftest|--release-sdk-live-selftest|--release-sdk-watchlist-selftest|--release-sdk-stability-selftest|--longbridge-plugin-state-selftest|--longbridge-plugin-selftest|--longbridge-sdk-live-selftest|--longbridge-sdk-watchlist-selftest|--longbridge-sdk-stability-selftest]" >&2
     exit 2
     ;;
 esac

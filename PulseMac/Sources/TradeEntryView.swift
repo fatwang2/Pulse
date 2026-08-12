@@ -244,11 +244,11 @@ struct TradeEntryView: View {
     // MARK: - Parsing & simulation
 
     private var parsedPrice: Double? {
-        parseDecimal(priceText).flatMap { $0 > 0 ? $0 : nil }
+        parseDecimal(priceText).flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
     }
 
     private var parsedQuantity: Double? {
-        parseDecimal(quantityText).flatMap { $0 > 0 ? $0 : nil }
+        parseDecimal(quantityText).flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
     }
 
     private var isValid: Bool {

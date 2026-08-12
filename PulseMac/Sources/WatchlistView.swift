@@ -1,6 +1,12 @@
+import OSLog
 import SwiftUI
 import PulseCore
 import PulseUI
+
+private let watchlistReorderLogger = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "app.pulse.mac",
+    category: "WatchlistReorder"
+)
 
 /// Search UI state shared between the list page and the popover root: the root
 /// keeps it alive across detail pushes and uses it to size the search panel.
@@ -75,6 +81,25 @@ struct WatchlistView: View {
         // through this one state, so the quote-write hold can't leak in either direction.
         .onChange(of: isReordering) { _, active in
             appState.setUserReordering(active)
+            if active {
+                watchlistReorderLogger.info(
+                    "Reorder mode entered; itemCount=\(appState.watchlist.items.count, privacy: .public)"
+                )
+                #if DEBUG
+                ReorderDiagnostics.shared.reorderModeEntered(
+                    itemCount: appState.watchlist.items.count,
+                    orderMode: listOrderMode,
+                    sortOption: listSortOption,
+                    prioritizesOpenMarkets: appState.settings.prioritizeOpenMarkets,
+                    reduceMotion: reduceMotion
+                )
+                #endif
+            } else {
+                watchlistReorderLogger.info("Reorder mode exited")
+                #if DEBUG
+                ReorderDiagnostics.shared.reorderModeExited()
+                #endif
+            }
         }
     }
 
@@ -822,6 +847,9 @@ struct WatchlistView: View {
                 }
             }
             .onMove { source, destination in
+                watchlistReorderLogger.info(
+                    "List onMove received; sourceCount=\(source.count, privacy: .public) destination=\(destination, privacy: .public)"
+                )
                 // Reorder always edits the persisted baseline. Session grouping is
                 // bypassed while `isReordering` so indices match `group.symbols`.
                 let currentSymbols = appState.watchlist.items.map(\.symbol)
@@ -831,10 +859,22 @@ struct WatchlistView: View {
                     .map { currentSymbols[$0] }
                 var orderedSymbols = currentSymbols
                 orderedSymbols.move(fromOffsets: source, toOffset: destination)
-                if appState.watchlist.commitManualMove(
+                let committed = appState.watchlist.commitManualMove(
                     orderedSymbols: orderedSymbols,
                     movingSymbols: movingSymbols
-                ) {
+                )
+                watchlistReorderLogger.info(
+                    "List move commit completed; success=\(committed, privacy: .public)"
+                )
+                #if DEBUG
+                ReorderDiagnostics.shared.moveReceived(
+                    sourceCount: source.count,
+                    destination: destination,
+                    itemCount: currentSymbols.count,
+                    committed: committed
+                )
+                #endif
+                if committed {
                     listOrderMode = WatchlistOrderMode.manual.rawValue
                 }
             }
@@ -845,6 +885,13 @@ struct WatchlistView: View {
         // 12pt rail; WatchRow's own 8pt padding still protects its text and prices.
         .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollContentBackground(.hidden)
+        .background {
+            #if DEBUG
+            ReorderPointerMonitor(enabled: isReordering)
+            #else
+            EmptyView()
+            #endif
+        }
         // A persistent AppKit scroller becomes a heavy dark rail in this compact
         // glass popover. The system soft edge effect communicates overflow while
         // keeping scrolling, keyboard navigation, and List reordering unchanged.
@@ -1421,7 +1468,16 @@ struct WatchRow: View {
                 .fill(hovering || isReordering ? Color.primary.opacity(0.05) : .clear)
         )
         .contentShape(RoundedRectangle(cornerRadius: 7))
-        .onHover { hovering = $0 }
+        // AppKit owns the drag session once List starts moving a row. Updating local
+        // hover state while the pointer crosses rows rebuilds their hosting views and
+        // can invalidate the native drop indicator on macOS 26.
+        .onHover { isHovering in
+            guard !isReordering else { return }
+            hovering = isHovering
+        }
+        .onChange(of: isReordering) { _, active in
+            if active { hovering = false }
+        }
     }
 
     @ViewBuilder

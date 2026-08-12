@@ -715,6 +715,10 @@ struct DetailView: View {
                     market: symbol.market,
                     highlightsExtendedHours: period.isMinuteK
                         && appState.showsExtendedHours(for: symbol),
+                    transactions: period == .day
+                        ? item?.materializedTransactions() ?? []
+                        : [],
+                    currencyCode: currencyCode,
                     viewport: candleViewport
                 )
                     .transition(.opacity)

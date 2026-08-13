@@ -166,7 +166,7 @@ final class AppState {
             // A push subscription checks availability only when it starts, so an
             // already-running stream would keep delivering from a source the user
             // just turned off — resubscribe against the new availability.
-            if isPopoverVisible { restartWatchlistStream() }
+            if isAnyHostVisible { restartWatchlistStream() }
         }
     }
 
@@ -242,7 +242,7 @@ final class AppState {
             await longbridge.resetConnection()
             await provider.resetHealth(LongbridgeProvider.providerID)
             engine.poke()
-            if isPopoverVisible { restartWatchlistStream() }
+            if isAnyHostVisible { restartWatchlistStream() }
         }
     }
 
@@ -440,30 +440,44 @@ final class AppState {
 
     @ObservationIgnored private var watchlistStreamTask: Task<Void, Never>?
     @ObservationIgnored private var watchlistStreamSessionID: UUID?
-    @ObservationIgnored private var isPopoverVisible = false
+    @ObservationIgnored private var visibleHosts: Set<PulseHost> = []
     @ObservationIgnored private var pendingPushes: [SymbolID: Quote] = [:]
     @ObservationIgnored private var pushFlushTask: Task<Void, Never>?
 
-    /// While the popover is visible, every watchlist symbol served by a streaming source
-    /// ticks live; the rest keep their source's poll cadence. Closing the popover
-    /// unsubscribes — the menu bar text is fine at poll granularity.
-    func setPopoverVisible(_ visible: Bool) {
-        isPopoverVisible = visible
-        // The reorder UI cannot outlive the popover; if it was active on close,
+    private var isAnyHostVisible: Bool { !visibleHosts.isEmpty }
+
+    /// While the watchlist is on screen, every symbol served by a streaming source ticks
+    /// live; the rest keep their source's poll cadence. Nothing on screen unsubscribes —
+    /// the menu bar text is fine at poll granularity.
+    ///
+    /// The panel and the pinned window are independent hosts that can overlap, so the
+    /// subscription follows whether *any* of them is showing rather than the last one to
+    /// report. Only the transitions matter: a host appearing while another is already
+    /// visible must not tear down and rebuild a healthy stream.
+    func setHostVisible(_ host: PulseHost, _ visible: Bool) {
+        let wasVisible = isAnyHostVisible
+        if visible {
+            visibleHosts.insert(host)
+        } else {
+            visibleHosts.remove(host)
+        }
+        guard wasVisible != isAnyHostVisible else { return }
+
+        // The reorder UI cannot outlive its host; if it was active on close,
         // release the quote hold so the menu bar keeps updating.
-        if !visible { setUserReordering(false) }
+        if !isAnyHostVisible { setUserReordering(false) }
         watchlistStreamTask?.cancel()
         watchlistStreamTask = nil
         watchlistStreamSessionID = nil
-        // Keep the last known/expected streaming state while the popover disappears.
+        // Keep the last known/expected streaming state while the host disappears.
         // Resetting it here makes the still-visible closing frame flash "quotes healthy".
-        guard visible else { return }
+        guard isAnyHostVisible else { return }
         restartWatchlistStream()
     }
 
-    /// Re-subscribes after watchlist edits while the popover is open.
+    /// Re-subscribes after watchlist edits while the watchlist is on screen.
     func watchlistSymbolsChanged() {
-        guard isPopoverVisible else { return }
+        guard isAnyHostVisible else { return }
         restartWatchlistStream()
     }
 

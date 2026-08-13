@@ -65,6 +65,7 @@ struct ProviderRow: View {
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.pulseHost) private var host
     @Binding var route: PopoverRoute
     @StateObject private var softwareUpdate = SoftwareUpdateController.shared
     @State private var diagnosticsFeedback: ShareFeedback?
@@ -236,7 +237,8 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.top, host == .pinnedWindow ? 2 : 8)
+        .padding(.bottom, 8)
         .overlay(alignment: .trailing) {
             if let diagnosticsFeedback {
                 ShareFeedbackHUD(feedback: diagnosticsFeedback)

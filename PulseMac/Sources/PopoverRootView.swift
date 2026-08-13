@@ -43,7 +43,12 @@ enum PositionReturnRoute: Hashable {
 struct PopoverRootView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.pulseHost) private var host
     @State private var route: PopoverRoute = .list
+    /// The standalone window animates this staged value alongside route motion.
+    /// Owning the height explicitly keeps the lower-edge resize predictable while
+    /// the retained watchlist preserves its title-bar safe area during exit.
+    @State private var pinnedPresentedHeight: CGFloat?
     /// Search UI state lives at the root so pushing a detail page and coming back
     /// preserves the query, active state, and cached results.
     @State private var searchSession = SearchSession()
@@ -53,6 +58,8 @@ struct PopoverRootView: View {
     private static let maxHeight: CGFloat = 600
     private static let searchHeight: CGFloat = 480
     private static let listChromeHeight: CGFloat = 110
+    /// The brand-and-actions row plus the stack spacing below it.
+    private static let headerRowHeight: CGFloat = 33
     private static let listRowHeight: CGFloat = 48
 
     /// Children push in from the trailing edge and pop back out the same way
@@ -116,7 +123,17 @@ struct PopoverRootView: View {
                     .frame(height: height(for: displayRoute))
                     .transition(pushTransition)
             case .calibrate(let symbol, let returnRoute):
-                Group {
+                VStack(spacing: 0) {
+                    // The panel's compact editor has Cancel at the bottom. In a window,
+                    // every pushed page also needs the same visible navigation row as
+                    // the rest of the position flow.
+                    if host == .pinnedWindow {
+                        PositionPageHeader(
+                            symbol: symbol,
+                            title: nil,
+                            onBack: { route = .position(symbol, returnRoute) }
+                        )
+                    }
                     if let item = appState.watchlist.item(for: symbol) {
                         PositionEditorView(
                             item: item,
@@ -160,7 +177,15 @@ struct PopoverRootView: View {
                 .transition(pushTransition)
             }
         }
-        .frame(width: 340, height: height(for: displayRoute), alignment: .top)
+        .frame(width: 340, height: presentedHeight, alignment: .top)
+        // Keep one title-bar skeleton mounted for the lifetime of the pinned
+        // window. Route-specific views contribute actions, but an actionless page
+        // no longer collapses the bar from 52pt to the empty 32pt window strip.
+        .toolbar {
+            if host == .pinnedWindow {
+                ToolbarSpacer(.flexible)
+            }
+        }
         .background {
             EscapeBackMonitor {
                 guard let previousRoute = previousRoute(for: displayRoute) else { return false }
@@ -171,18 +196,49 @@ struct PopoverRootView: View {
         .clipped()
         .animation(.snappy(duration: 0.28), value: displayRoute)
         .animation(.snappy(duration: 0.28), value: searchSession.isActive)
-        .animation(.snappy(duration: 0.28), value: height(for: displayRoute))
-        // Live subscriptions run only while the popover is on screen
+        // The pinned window owns a staged height value below; the panel keeps
+        // its existing system-anchored resize animation.
+        .animation(host == .menuBar ? .snappy(duration: 0.28) : nil, value: height(for: displayRoute))
+        // Live subscriptions run only while a host is on screen
         .onAppear {
-            appState.setPopoverVisible(true)
-            PulseTelemetry.signal(.popoverOpened)
+            if host == .pinnedWindow {
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    pinnedPresentedHeight = height(for: displayRoute)
+                }
+            }
+            appState.setHostVisible(host, true)
+            // Product analytics counts panel opens only; the pinned window stays up for
+            // hours at a time and would otherwise read as a single enormous session.
+            if host == .menuBar { PulseTelemetry.signal(.popoverOpened) }
         }
         .onDisappear {
-            appState.setPopoverVisible(false)
-            // Closing the menu-bar panel ends the current search presentation.
+            appState.setHostVisible(host, false)
+            // Closing the host ends the current search presentation.
             // Keep the result cache warm, but reopen on the normal watchlist.
             searchSession.text = ""
             searchSession.isActive = false
+            // SwiftUI retains a closed Window scene and its @State. Without an
+            // explicit reset, re-pinning can resurrect the detail/settings route
+            // that happened to be open when the user closed the window.
+            if host == .pinnedWindow {
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    route = .list
+                    pinnedPresentedHeight = height(for: .list)
+                }
+            }
+        }
+        .onChange(of: height(for: displayRoute)) { _, targetHeight in
+            guard host == .pinnedWindow else { return }
+            // Resize in the same 280ms window as the route push. The retained
+            // list keeps its toolbar safe area, so its exit remains horizontal
+            // while the lower window edge moves.
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.28)) {
+                pinnedPresentedHeight = targetHeight
+            }
         }
         .onChange(of: appState.watchlist.symbols) { _, _ in
             appState.watchlistSymbolsChanged()
@@ -190,6 +246,20 @@ struct PopoverRootView: View {
         .onChange(of: appState.watchlist.groups.map(\.id)) { _, _ in
             appState.watchlistGroupsChanged()
         }
+    }
+
+    /// The pinned window animates this value alongside the page transition.
+    /// Menu-bar panels keep their existing live size behavior.
+    private var presentedHeight: CGFloat {
+        host == .pinnedWindow
+            ? (pinnedPresentedHeight ?? height(for: displayRoute))
+            : height(for: displayRoute)
+    }
+
+    /// The pinned window lifts the watchlist's brand-and-actions row into its title bar,
+    /// so the list page there is exactly that row shorter.
+    private var listChromeHeight: CGFloat {
+        host == .pinnedWindow ? Self.listChromeHeight - Self.headerRowHeight : Self.listChromeHeight
     }
 
     private func previousRoute(for route: PopoverRoute) -> PopoverRoute? {
@@ -220,7 +290,7 @@ struct PopoverRootView: View {
         case .list:
             // The search panel needs room for results/recents regardless of list size.
             if searchSession.isActive { return Self.searchHeight }
-            let content = Self.listChromeHeight + CGFloat(appState.watchlist.items.count) * Self.listRowHeight
+            let content = listChromeHeight + CGFloat(appState.watchlist.items.count) * Self.listRowHeight
             let minimum = appState.watchlist.items.isEmpty ? Self.minHeight : Self.minListHeight
             return min(max(content, minimum), Self.maxHeight)
         case .detail:

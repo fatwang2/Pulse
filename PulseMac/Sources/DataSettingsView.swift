@@ -13,6 +13,7 @@ import PulseCore
 /// the format is taught by a copyable example rather than described in prose.
 struct DataSettingsView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.pulseHost) private var host
     @Binding var route: PopoverRoute
 
     private enum Phase: Equatable {
@@ -59,7 +60,8 @@ struct DataSettingsView: View {
             Spacer()
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.top, host == .pinnedWindow ? 2 : 8)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Action bar

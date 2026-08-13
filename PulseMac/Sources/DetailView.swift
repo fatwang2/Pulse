@@ -6,6 +6,7 @@ struct DetailView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.pulseHost) private var host
     let symbol: SymbolID
     @Binding var route: PopoverRoute
 
@@ -40,7 +41,19 @@ struct DetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .scrollEdgeEffectStyle(.soft, for: .all)
+        // Navigation and instrument identity belong to the page, not the window.
+        // Keeping this row inline also aligns it with the pinned watchlist's first
+        // content row instead of squeezing a long name between the traffic lights
+        // and the title-bar actions.
         .safeAreaInset(edge: .top, spacing: 0) { header }
+        .toolbar {
+            if host == .pinnedWindow {
+                ToolbarSpacer(.flexible)
+                ToolbarItemGroup(placement: .primaryAction) {
+                    toolbarActions
+                }
+            }
+        }
         // Real-time push while the page is on screen: each tick lands in the store, and the
         // price / market-time views animate through their existing transitions. Closing the
         // page cancels the task, which unsubscribes upstream; polling remains the fallback.
@@ -177,85 +190,181 @@ struct DetailView: View {
 
     // MARK: - Chrome
 
+    private var backButton: some View {
+        IconButton(systemName: "chevron.left", help: PulseLocalization.localizedString("action.backHelp")) {
+            route = .list
+        }
+    }
+
+    private var titleCluster: some View {
+        HStack(spacing: 6) {
+            Text(appState.displayName(for: symbol))
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .layoutPriority(1)
+            MarketBadge(market: symbol.market)
+                .fixedSize()
+            Text(symbol.displayCode)
+                .font(.system(size: 10).monospaced())
+                .foregroundStyle(.secondary)
+                .fixedSize()
+        }
+    }
+
     private var header: some View {
         HStack(spacing: 8) {
-            IconButton(systemName: "chevron.left", help: PulseLocalization.localizedString("action.backHelp")) {
-                route = .list
-            }
-            HStack(spacing: 6) {
-                Text(appState.displayName(for: symbol))
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .layoutPriority(1)
-                MarketBadge(market: symbol.market)
-                    .fixedSize()
-                Text(symbol.displayCode)
-                    .font(.system(size: 10).monospaced())
-                    .foregroundStyle(.secondary)
-                    .fixedSize()
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            backButton
+            titleCluster
+                .frame(maxWidth: .infinity, alignment: .leading)
             Spacer()
-            ClusterMenu(
-                systemName: "square.and.arrow.up",
-                help: PulseLocalization.localizedString("action.share")
-            ) {
-                Button {
-                    copyShareImage()
-                } label: {
-                    Label(
-                        PulseLocalization.localizedString("action.copyAsImage"),
-                        systemImage: "photo"
-                    )
-                }
-                .disabled(quote == nil || chartCandles.isEmpty)
-                Button {
-                    copyShareText()
-                } label: {
-                    Label(
-                        PulseLocalization.localizedString("action.copyAsText"),
-                        systemImage: "doc.text"
-                    )
-                }
-                .disabled(quote == nil)
-            }
-            .disabled(quote == nil)
-            .opacity(quote == nil ? 0.45 : 1)
-            if item == nil {
-                // Opened from search without being watched: offer the add here so
-                // a lookup can graduate into the list without going back.
-                ClusterIcon(
-                    systemName: "plus",
-                    help: PulseLocalization.localizedString(
-                        "search.addToGroup",
-                        appState.watchlist.selectedGroup?.name ?? ""
-                    )
-                ) {
-                    addToWatchlist()
-                }
-            }
-            if let item, item.supportsPosition {
-                ClusterIcon(
-                    systemName: item.hasPosition ? "briefcase.fill" : "briefcase",
-                    help: item.hasPosition
-                        ? PulseLocalization.localizedString("action.editPosition")
-                        : PulseLocalization.localizedString("action.addPosition")
-                ) {
-                    route = .position(item.symbol, .detail(symbol))
-                }
+            if host == .menuBar {
+                headerActions
             }
         }
         .overlay(alignment: .trailing) {
             if let shareFeedback {
                 ShareFeedbackHUD(feedback: shareFeedback)
-                    .padding(.trailing, item?.supportsPosition == true ? 58 : 30)
+                    .padding(.trailing, host == .pinnedWindow ? 10 : (item?.supportsPosition == true ? 58 : 30))
                     .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .trailing)))
                     .allowsHitTesting(false)
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        // A standalone page header needs the panel's full inset, while the
+        // pinned window already has a title bar immediately above it.
+        .padding(.top, host == .pinnedWindow ? 2 : 7)
+        .padding(.bottom, 7)
+    }
+
+    private var shareMenu: some View {
+        ClusterMenu(
+            systemName: "square.and.arrow.up",
+            help: PulseLocalization.localizedString("action.share")
+        ) {
+            Button {
+                copyShareImage()
+            } label: {
+                Label(
+                    PulseLocalization.localizedString("action.copyAsImage"),
+                    systemImage: "photo"
+                )
+            }
+            .disabled(quote == nil || chartCandles.isEmpty)
+            Button {
+                copyShareText()
+            } label: {
+                Label(
+                    PulseLocalization.localizedString("action.copyAsText"),
+                    systemImage: "doc.text"
+                )
+            }
+            .disabled(quote == nil)
+        }
+        .disabled(quote == nil)
+        .opacity(quote == nil ? 0.45 : 1)
+    }
+
+    /// Opened from search without being watched: offer the add here so a lookup can
+    /// graduate into the list without going back.
+    private var addButton: some View {
+        ClusterIcon(
+            systemName: "plus",
+            help: PulseLocalization.localizedString(
+                "search.addToGroup",
+                appState.watchlist.selectedGroup?.name ?? ""
+            )
+        ) {
+            addToWatchlist()
+        }
+    }
+
+    @ViewBuilder private func positionButton(_ item: WatchItem) -> some View {
+        ClusterIcon(
+            systemName: item.hasPosition ? "briefcase.fill" : "briefcase",
+            help: item.hasPosition
+                ? PulseLocalization.localizedString("action.editPosition")
+                : PulseLocalization.localizedString("action.addPosition")
+        ) {
+            route = .position(item.symbol, .detail(symbol))
+        }
+    }
+
+    @ViewBuilder private var headerActions: some View {
+        shareMenu
+        if item == nil {
+            addButton
+        }
+        if let item, item.supportsPosition {
+            positionButton(item)
+        }
+    }
+
+    /// The pinned window's title bar carries only page-level actions. Navigation and
+    /// instrument identity stay in the page header below, where long names have room.
+    @ViewBuilder private var toolbarActions: some View {
+        Menu {
+            Button {
+                copyShareImage()
+            } label: {
+                Label(
+                    PulseLocalization.localizedString("action.copyAsImage"),
+                    systemImage: "photo"
+                )
+            }
+            .disabled(quote == nil || chartCandles.isEmpty)
+            Button {
+                copyShareText()
+            } label: {
+                Label(
+                    PulseLocalization.localizedString("action.copyAsText"),
+                    systemImage: "doc.text"
+                )
+            }
+            .disabled(quote == nil)
+        } label: {
+            Label(
+                PulseLocalization.localizedString("action.share"),
+                systemImage: "square.and.arrow.up"
+            )
+        }
+        .menuIndicator(.hidden)
+        .help(PulseLocalization.localizedString("action.share"))
+        .disabled(quote == nil)
+
+        if item == nil {
+            Button {
+                addToWatchlist()
+            } label: {
+                Label(
+                    PulseLocalization.localizedString(
+                        "search.addToGroup",
+                        appState.watchlist.selectedGroup?.name ?? ""
+                    ),
+                    systemImage: "plus"
+                )
+            }
+            .help(PulseLocalization.localizedString(
+                "search.addToGroup",
+                appState.watchlist.selectedGroup?.name ?? ""
+            ))
+        }
+
+        if let item, item.supportsPosition {
+            Button {
+                route = .position(item.symbol, .detail(symbol))
+            } label: {
+                Label(
+                    item.hasPosition
+                        ? PulseLocalization.localizedString("action.editPosition")
+                        : PulseLocalization.localizedString("action.addPosition"),
+                    systemImage: item.hasPosition ? "briefcase.fill" : "briefcase"
+                )
+            }
+            .help(item.hasPosition
+                ? PulseLocalization.localizedString("action.editPosition")
+                : PulseLocalization.localizedString("action.addPosition"))
+        }
     }
 
     @MainActor

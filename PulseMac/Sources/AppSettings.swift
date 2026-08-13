@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Observation
 import ServiceManagement
@@ -112,6 +113,16 @@ final class AppSettings {
         }
     }
 
+    /// Whether the watchlist was pinned to a floating window at last quit, so the
+    /// window comes back on the next launch. Written by the window itself on
+    /// appear/disappear, which covers the pin button, Cmd-W, and the close button alike.
+    var pinnedWindowVisible: Bool = false { didSet { save() } }
+
+    /// Where the pinned window's top-left corner sat, in AppKit screen coordinates.
+    /// SwiftUI re-centers a restored window scene, so remembering the spot the user
+    /// dragged it to is on us.
+    var pinnedWindowTopLeft: CGPoint? { didSet { save() } }
+
     /// Provider ids disabled by the user (all enabled by default)
     var disabledProviderIDs: Set<String> = [] { didSet { save() } }
 
@@ -192,6 +203,8 @@ final class AppSettings {
             }
             disabledProviderIDs = snapshot.disabledProviderIDs ?? []
             recentSearchQueries = snapshot.recentSearchQueries ?? []
+            pinnedWindowVisible = snapshot.pinnedWindowVisible ?? false
+            pinnedWindowTopLeft = snapshot.pinnedWindowTopLeft
             showPriceInMenuBar = snapshot.showPriceInMenuBar ?? false
             languagePreference = snapshot.languagePreference ?? .system
             shareAnonymousUsageData = snapshot.shareAnonymousUsageData ?? true
@@ -219,6 +232,8 @@ final class AppSettings {
         var minuteCandlePeriod: CandlePeriod?
         var disabledProviderIDs: Set<String>?
         var recentSearchQueries: [String]?
+        var pinnedWindowVisible: Bool?
+        var pinnedWindowTopLeft: CGPoint?
         var showPriceInMenuBar: Bool?
         var languagePreference: PulseLanguagePreference?
         var providerPollIntervals: [String: TimeInterval]?
@@ -236,6 +251,8 @@ final class AppSettings {
                                 minuteCandlePeriod: minuteCandlePeriod,
                                 disabledProviderIDs: disabledProviderIDs,
                                 recentSearchQueries: recentSearchQueries,
+                                pinnedWindowVisible: pinnedWindowVisible,
+                                pinnedWindowTopLeft: pinnedWindowTopLeft,
                                 showPriceInMenuBar: showPriceInMenuBar,
                                 languagePreference: languagePreference,
                                 providerPollIntervals: providerPollIntervals,

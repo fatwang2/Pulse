@@ -37,10 +37,46 @@ struct PulseMacApp: App {
             PopoverRootView()
                 .environment(appState)
                 .environment(\.locale, appState.settings.locale)
+                .environment(\.pulseHost, .menuBar)
         } label: {
             MenuBarLabel(appState: appState)
         }
         .menuBarExtraStyle(.window)
+
+        // The pinned host: the same view tree in a floating window that outlives losing
+        // focus. Sized by its content, so route pushes resize the window exactly the way
+        // they resize the panel.
+        // Deliberately title-less. The title bar is the Mac-native home for a window's
+        // identity, but at 340pt wide there is not room for both a title and the action
+        // group: macOS collapses the whole toolbar into a `»` overflow button, burying
+        // four one-click actions in a submenu. The actions win; the app's identity is
+        // already carried by the Dock icon and the menu bar item.
+        Window("Pulse", id: PinnedWindow.id) {
+            PinnedWindowHost(settings: appState.settings) {
+                PopoverRootView()
+                    .environment(appState)
+                    .environment(\.locale, appState.settings.locale)
+                    .environment(\.pulseHost, .pinnedWindow)
+                    .containerBackground(.thickMaterial, for: .window)
+                    .onAppear { appState.settings.pinnedWindowVisible = true }
+                    .onDisappear { appState.settings.pinnedWindowVisible = false }
+            }
+        }
+        // Not `.plain`: it would drop the empty 32pt title bar strip and give the panel's
+        // header the window's first row, but a plain window is borderless, and AppKit
+        // will not make a borderless window key. Verified on macOS 26: the search field
+        // ignores every keystroke, Cmd-W and Cmd-C are dead, and clicking the window
+        // never brings the app forward. Forcing `fullSizeContentView` under a titled
+        // style does not help either — SwiftUI lays scene content out below the title bar
+        // regardless. The strip stays; it is also the drag handle and close button.
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .windowLevel(.floating)
+        // Presentation at launch is decided by the persisted pin state alone, so a window
+        // the user left pinned comes back and one they unpinned stays gone. SwiftUI's own
+        // restoration is disabled to keep this the single source of truth.
+        .defaultLaunchBehavior(appState.settings.pinnedWindowVisible ? .presented : .suppressed)
+        .restorationBehavior(.disabled)
     }
 }
 

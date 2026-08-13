@@ -7,6 +7,7 @@ import PulseUI
 /// pages push from here and pop back here.
 struct PositionHubView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.pulseHost) private var host
     let symbol: SymbolID
     let returnRoute: PositionReturnRoute
     @Binding var route: PopoverRoute
@@ -21,9 +22,9 @@ struct PositionHubView: View {
                 symbol: symbol,
                 title: nil,
                 onBack: { route = returnRoute.popoverRoute },
-                // Quick set exists to calibrate an open position; with no
-                // position, recording a buy or sell is the only entry.
-                onEdit: item?.hasPosition == true
+                // In the menu-bar panel the action remains in the page row. The
+                // pinned window promotes it to the title bar below.
+                onEdit: host == .menuBar && item?.hasPosition == true
                     ? { route = .calibrate(symbol, returnRoute) }
                     : nil
             )
@@ -37,6 +38,21 @@ struct PositionHubView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .toolbar {
+            if host == .pinnedWindow, item?.hasPosition == true {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        route = .calibrate(symbol, returnRoute)
+                    } label: {
+                        Label(
+                            PulseLocalization.localizedString("position.quickEditTitle"),
+                            systemImage: "square.and.pencil"
+                        )
+                    }
+                    .help(PulseLocalization.localizedString("position.quickEditTitle"))
+                }
+            }
+        }
     }
 
     // MARK: - Open position
@@ -296,6 +312,7 @@ struct PositionHubView: View {
 /// Back chevron + instrument identity, matching the detail page's header row.
 struct PositionPageHeader: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.pulseHost) private var host
     let symbol: SymbolID
     /// Optional leading emphasis ("买入"/"卖出"), tinted by the caller.
     var title: (text: String, color: Color)?
@@ -338,8 +355,8 @@ struct PositionPageHeader: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
+        .padding(.top, host == .pinnedWindow ? 2 : 12)
+        .padding(.bottom, host == .pinnedWindow ? 7 : 10)
     }
 }
 

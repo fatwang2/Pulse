@@ -11,6 +11,8 @@
 "action.more" = "その他";
 "action.openGitHub" = "GitHub プロジェクト";
 "action.openWebsite" = "公式サイト";
+"action.pinWindow" = "ウインドウとして固定";
+"action.unpinWindow" = "固定を解除";
 "action.pinToMenuBar" = "メニューバーに表示";
 "action.quitPulse" = "Pulse を終了";
 "action.refreshNow" = "更新";

@@ -9,6 +9,7 @@ import PulseCore
 struct LongbridgeSetupView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.pulseHost) private var host
     @Binding var route: PopoverRoute
 
     @State private var showManualFields = false
@@ -75,7 +76,8 @@ struct LongbridgeSetupView: View {
             Spacer()
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.top, host == .pinnedWindow ? 2 : 8)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Account card

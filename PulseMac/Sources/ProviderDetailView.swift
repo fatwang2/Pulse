@@ -37,6 +37,7 @@ struct ProviderEnableCard: View {
 /// switch plus a fact card describing what the source covers.
 struct ProviderDetailView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.pulseHost) private var host
     let descriptor: ProviderDescriptor
     @Binding var route: PopoverRoute
 
@@ -65,7 +66,8 @@ struct ProviderDetailView: View {
             Spacer()
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.top, host == .pinnedWindow ? 2 : 8)
+        .padding(.bottom, 8)
     }
 }
 

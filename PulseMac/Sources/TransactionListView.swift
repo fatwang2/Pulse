@@ -7,6 +7,7 @@ import PulseUI
 /// and re-recorded, which keeps replay semantics unambiguous.
 struct TransactionListView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.pulseHost) private var host
     let symbol: SymbolID
     let returnRoute: PositionReturnRoute
     @Binding var route: PopoverRoute
@@ -74,7 +75,7 @@ struct TransactionListView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 12)
-        .padding(.top, 12)
+        .padding(.top, host == .pinnedWindow ? 2 : 12)
         .padding(.bottom, 6)
     }
 

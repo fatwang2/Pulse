@@ -25,6 +25,9 @@ struct WatchlistView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.pulseHost) private var host
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
     @Binding var route: PopoverRoute
 
     @Binding var searchSession: SearchSession
@@ -36,6 +39,7 @@ struct WatchlistView: View {
     @State private var refreshHovering = false
     @State private var isReordering = false
     @State private var shareFeedback: ShareFeedback?
+    @State private var hostWindow: NSWindow?
     @AppStorage("pulse.watchlist.orderMode.v1") private var listOrderMode = WatchlistOrderMode.manual.rawValue
     @AppStorage("pulse.watchlist.sortOption.v1") private var listSortOption = WatchlistSortOption.changePercent.rawValue
 
@@ -116,117 +120,205 @@ struct WatchlistView: View {
 
     // MARK: - Floating chrome (header + search field)
 
+    // MARK: Actions
+
+    /// The share and more menus' contents, shared by both renderings of the action
+    /// cluster below so the menus themselves are defined once.
+    @ViewBuilder private var shareMenuContent: some View {
+        Button {
+            copyShareImage()
+        } label: {
+            Label(
+                PulseLocalization.localizedString("action.copyAsImage"),
+                systemImage: "photo"
+            )
+        }
+        Button {
+            copyShareText()
+        } label: {
+            Label(
+                PulseLocalization.localizedString("action.copyAsText"),
+                systemImage: "doc.text"
+            )
+        }
+    }
+
+    @ViewBuilder private var moreMenuContent: some View {
+        Menu {
+            ForEach(WatchRowMetricMode.allCases, id: \.self) { mode in
+                Toggle(mode.displayName, isOn: metricModeBinding(mode))
+            }
+        } label: {
+            Text(PulseLocalization.localizedString("watchlist.menu.display"))
+        }
+        Divider()
+        Menu {
+            // State group: where the current order comes from (checkmark semantics).
+            Toggle(
+                PulseLocalization.localizedString("watchlist.sort.manual"),
+                isOn: orderModeBinding(.manual)
+            )
+
+            Divider()
+
+            ForEach(WatchlistSortOption.allCases) { option in
+                Toggle(option.title, isOn: sortOptionBinding(option))
+            }
+
+            Divider()
+
+            // Action: enter the drag-to-reorder state for the arrangement on screen.
+            Button {
+                beginAdjustingOrder()
+            } label: {
+                Text(PulseLocalization.localizedString(
+                    isReordering ? "watchlist.sort.adjustActive" : "watchlist.sort.adjust"
+                ))
+            }
+            .disabled(isReordering)
+        } label: {
+            Text(PulseLocalization.localizedString("watchlist.menu.sort"))
+        }
+        Divider()
+        Button {
+            NSWorkspace.shared.open(PulseExternalLinks.website)
+        } label: {
+            Text(PulseLocalization.localizedString("action.openWebsite"))
+        }
+        Button {
+            NSWorkspace.shared.open(PulseExternalLinks.github)
+        } label: {
+            Text(PulseLocalization.localizedString("action.openGitHub"))
+        }
+        Divider()
+        Button {
+            route = .settings
+        } label: {
+            Text(PulseLocalization.localizedString("settings.title"))
+        }
+        Divider()
+        Button {
+            NSApplication.shared.terminate(nil)
+        } label: {
+            Text(PulseLocalization.localizedString("action.quitPulse"))
+        }
+    }
+
+    private var pinHelp: String {
+        PulseLocalization.localizedString(isPinned ? "action.unpinWindow" : "action.pinWindow")
+    }
+
+    /// The panel's action cluster: `ClusterIcon` draws its own compact chip, including
+    /// the tinted background that marks an active toggle.
+    @ViewBuilder private var actionButtons: some View {
+        // The glyph names what the control governs; whether it is lit says if the window
+        // is up. A `pin.slash` for the on-state would read as "off" — a slash means muted
+        // or disabled everywhere else — and would clash with the search toggle beside it,
+        // which already states its state rather than its action.
+        ClusterIcon(
+            systemName: "pin",
+            help: pinHelp,
+            isActive: isPinned
+        ) {
+            togglePinnedWindow()
+        }
+        ClusterIcon(
+            systemName: "magnifyingglass",
+            help: PulseLocalization.localizedString("action.search"),
+            isActive: searchSession.isActive
+        ) {
+            toggleSearch()
+        }
+        .disabled(isReordering)
+        .opacity(isReordering ? 0.45 : 1)
+        ClusterMenu(
+            systemName: "square.and.arrow.up",
+            help: PulseLocalization.localizedString("action.share")
+        ) {
+            shareMenuContent
+        }
+        .disabled(appState.watchlist.items.isEmpty)
+        .opacity(appState.watchlist.items.isEmpty ? 0.45 : 1)
+        ClusterMenu(systemName: "ellipsis.circle", help: PulseLocalization.localizedString("action.more")) {
+            moreMenuContent
+        }
+        .frame(height: 26)
+    }
+
+    /// The same actions for the pinned window's title bar, as plain toolbar controls.
+    ///
+    /// A toolbar already owns this treatment: it draws the container and the selected
+    /// state for its items. Reusing `ClusterIcon` here nested its own tinted chip inside
+    /// the system's, leaving two chips with mismatched corners.
+    ///
+    /// Both toggles state their state rather than their action, which is what a macOS
+    /// toolbar does: Finder's sidebar and Xcode's inspectors light the plain glyph rather
+    /// than showing a struck-through one. The pin is lit for as long as this window is up.
+    @ViewBuilder private var toolbarActions: some View {
+        Toggle(isOn: Binding(get: { isPinned }, set: { _ in togglePinnedWindow() })) {
+            Label(pinHelp, systemImage: "pin")
+        }
+        .toggleStyle(.button)
+        .help(pinHelp)
+
+        Toggle(isOn: Binding(get: { searchSession.isActive }, set: { _ in toggleSearch() })) {
+            Label(PulseLocalization.localizedString("action.search"), systemImage: "magnifyingglass")
+        }
+        .toggleStyle(.button)
+        .help(PulseLocalization.localizedString("action.search"))
+        .disabled(isReordering)
+
+        Menu {
+            shareMenuContent
+        } label: {
+            Label(
+                PulseLocalization.localizedString("action.share"),
+                systemImage: "square.and.arrow.up"
+            )
+        }
+        .menuIndicator(.hidden)
+        .help(PulseLocalization.localizedString("action.share"))
+        .disabled(appState.watchlist.items.isEmpty)
+
+        Menu {
+            moreMenuContent
+        } label: {
+            Label(
+                PulseLocalization.localizedString("action.more"),
+                systemImage: "ellipsis.circle"
+            )
+        }
+        .menuIndicator(.hidden)
+        .help(PulseLocalization.localizedString("action.more"))
+    }
+
+    @ViewBuilder private var shareFeedbackOverlay: some View {
+        if let shareFeedback {
+            ShareFeedbackHUD(feedback: shareFeedback)
+                .padding(.trailing, host == .pinnedWindow ? 0 : 62)
+                .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .trailing)))
+                .allowsHitTesting(false)
+        }
+    }
+
     private var chrome: some View {
         VStack(spacing: 7) {
-            HStack(spacing: 8) {
-                PulseWaveformMark(primaryColor: .accentColor)
-                    .frame(width: 15, height: 11.5)
-                    .frame(width: 17, height: 13, alignment: .trailing)
-                    .accessibilityHidden(true)
-                // Bundle display name: "Pulse Dev" in Debug builds, "Pulse" in Release
-                Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Pulse")
-                    .font(.system(size: 12.5, weight: .semibold))
-                Spacer()
-                ClusterIcon(
-                    systemName: "magnifyingglass",
-                    help: PulseLocalization.localizedString("action.search"),
-                    isActive: searchSession.isActive
-                ) {
-                    toggleSearch()
+            // The pinned window has a title bar of its own; its actions move up into it
+            // rather than repeating a brand row underneath.
+            if host == .menuBar {
+                HStack(spacing: 8) {
+                    PulseWaveformMark(primaryColor: .accentColor)
+                        .frame(width: 15, height: 11.5)
+                        .frame(width: 17, height: 13, alignment: .trailing)
+                        .accessibilityHidden(true)
+                    // Bundle display name: "Pulse Dev" in Debug builds, "Pulse" in Release
+                    Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Pulse")
+                        .font(.system(size: 12.5, weight: .semibold))
+                    Spacer()
+                    actionButtons
                 }
-                .disabled(isReordering)
-                .opacity(isReordering ? 0.45 : 1)
-                ClusterMenu(
-                    systemName: "square.and.arrow.up",
-                    help: PulseLocalization.localizedString("action.share")
-                ) {
-                    Button {
-                        copyShareImage()
-                    } label: {
-                        Label(
-                            PulseLocalization.localizedString("action.copyAsImage"),
-                            systemImage: "photo"
-                        )
-                    }
-                    Button {
-                        copyShareText()
-                    } label: {
-                        Label(
-                            PulseLocalization.localizedString("action.copyAsText"),
-                            systemImage: "doc.text"
-                        )
-                    }
-                }
-                .disabled(appState.watchlist.items.isEmpty)
-                .opacity(appState.watchlist.items.isEmpty ? 0.45 : 1)
-                ClusterMenu(systemName: "ellipsis.circle", help: PulseLocalization.localizedString("action.more")) {
-                    Menu {
-                        ForEach(WatchRowMetricMode.allCases, id: \.self) { mode in
-                            Toggle(mode.displayName, isOn: metricModeBinding(mode))
-                        }
-                    } label: {
-                        Text(PulseLocalization.localizedString("watchlist.menu.display"))
-                    }
-                    Divider()
-                    Menu {
-                        // State group: where the current order comes from (checkmark semantics).
-                        Toggle(
-                            PulseLocalization.localizedString("watchlist.sort.manual"),
-                            isOn: orderModeBinding(.manual)
-                        )
-
-                        Divider()
-
-                        ForEach(WatchlistSortOption.allCases) { option in
-                            Toggle(option.title, isOn: sortOptionBinding(option))
-                        }
-
-                        Divider()
-
-                        // Action: enter the drag-to-reorder state for the arrangement on screen.
-                        Button {
-                            beginAdjustingOrder()
-                        } label: {
-                            Text(PulseLocalization.localizedString(
-                                isReordering ? "watchlist.sort.adjustActive" : "watchlist.sort.adjust"
-                            ))
-                        }
-                        .disabled(isReordering)
-                    } label: {
-                        Text(PulseLocalization.localizedString("watchlist.menu.sort"))
-                    }
-                    Divider()
-                    Button {
-                        NSWorkspace.shared.open(PulseExternalLinks.website)
-                    } label: {
-                        Text(PulseLocalization.localizedString("action.openWebsite"))
-                    }
-                    Button {
-                        NSWorkspace.shared.open(PulseExternalLinks.github)
-                    } label: {
-                        Text(PulseLocalization.localizedString("action.openGitHub"))
-                    }
-                    Divider()
-                    Button {
-                        route = .settings
-                    } label: {
-                        Text(PulseLocalization.localizedString("settings.title"))
-                    }
-                    Divider()
-                    Button {
-                        NSApplication.shared.terminate(nil)
-                    } label: {
-                        Text(PulseLocalization.localizedString("action.quitPulse"))
-                    }
-                }
-                .frame(height: 26)
-            }
-            .overlay(alignment: .trailing) {
-                if let shareFeedback {
-                    ShareFeedbackHUD(feedback: shareFeedback)
-                        .padding(.trailing, 62)
-                        .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .trailing)))
-                        .allowsHitTesting(false)
+                .overlay(alignment: .trailing) {
+                    shareFeedbackOverlay
                 }
             }
             WatchlistGroupBar(isDisabled: isReordering, onSelect: selectGroup)
@@ -234,8 +326,18 @@ struct WatchlistView: View {
                 searchField
             }
         }
+        .overlay(alignment: .topTrailing) {
+            // The panel hangs this off its header row. With the pinned window's actions
+            // up in the title bar, the copy confirmation lands just under them instead.
+            if host == .pinnedWindow {
+                shareFeedbackOverlay
+            }
+        }
         .padding(.horizontal, 12)
-        .padding(.top, 10)
+        // The system title bar already supplies separation below its controls.
+        // Keep the pinned surface compact instead of stacking the panel's full
+        // top inset on top of that built-in spacing.
+        .padding(.top, host == .pinnedWindow ? 5 : 10)
         .padding(.bottom, 7)
         .animation(.snappy(duration: 0.18), value: searchSession.isActive)
         .background {
@@ -246,6 +348,47 @@ struct WatchlistView: View {
                 .frame(width: 0, height: 0)
                 .accessibilityHidden(true)
         }
+        .background {
+            HostWindowReader { hostWindow = $0 }
+        }
+        // Keep the list's toolbar skeleton mounted while a child page covers it.
+        // The list itself stays mounted to preserve scroll position; removing its
+        // toolbar at route change would also remove 20pt of safe area and make the
+        // outgoing list jump upward before its horizontal exit begins.
+        .toolbar {
+            if host == .pinnedWindow {
+                ToolbarSpacer(.flexible)
+                if route == .list {
+                    ToolbarItemGroup(placement: .primaryAction) {
+                        toolbarActions
+                    }
+                }
+            }
+        }
+    }
+
+    /// Pinned state is a property of the app, not of the surface reading it: the panel
+    /// opened while the window is already up shows the same "unpin" affordance rather
+    /// than a pin that would do nothing.
+    private var isPinned: Bool { appState.settings.pinnedWindowVisible }
+
+    /// Pinning hands the watchlist over to the floating window: park it where the panel
+    /// stands so it reads as detaching in place, open it, bring the app forward (an
+    /// accessory app is not frontmost, so the window would otherwise surface behind
+    /// whatever the user was in), then close the panel, which does not dismiss itself
+    /// for a click inside its own bounds. Unpinning closes the window from either
+    /// surface; the menu bar icon always brings the watchlist back.
+    private func togglePinnedWindow() {
+        guard !isPinned else {
+            dismissWindow(id: PinnedWindow.id)
+            return
+        }
+        if let panel = hostWindow {
+            PinnedWindow.pendingTopLeft = CGPoint(x: panel.frame.minX, y: panel.frame.maxY)
+        }
+        openWindow(id: PinnedWindow.id)
+        PinnedWindow.activate()
+        hostWindow?.close()
     }
 
     private func activateSearch() {

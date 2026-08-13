@@ -11,6 +11,28 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.11.6",
+    date: "2026-08-13",
+    kind: "release",
+    highlights: {
+      zh: [
+        "新增独立置顶窗口：可从菜单栏面板将 Pulse 钉在桌面上方，并跨空间保持可见；窗口会记住位置与置顶状态，重新启动或显示器变化后也会恢复到可见区域。",
+        "置顶窗口采用原生 macOS 工具栏承载置顶、搜索、分享与更多操作；标的详情、持仓、交易、简介和设置页面的标题与返回导航保持统一对齐。",
+        "优化置顶窗口的页面切换与尺寸动画：标题栏和顶部基线不再跳动，窗口高度与页面导航同步变化；菜单栏面板与独立窗口同时打开时也只共用一套实时行情刷新。",
+      ],
+      en: [
+        "Pin Pulse into a standalone floating window that stays above other apps and follows you across Spaces. It remembers its position and pinned state, and safely returns to a visible display after relaunch or monitor changes.",
+        "The pinned window uses native macOS toolbar controls for pinning, search, sharing, and more, while quote, position, trade, profile, and settings pages keep their titles and back navigation aligned.",
+        "Improved pinned-window navigation and resizing: the title bar and top baseline no longer jump, window height animates in sync with page transitions, and the panel and window share one live market-data refresh session when both are open.",
+      ],
+      ja: [
+        "Pulse をほかのアプリより手前に保ち、すべての操作スペースで表示できる独立フローティングウインドウとして固定できるようになりました。位置と固定状態を記憶し、再起動後やディスプレイ構成の変更後も見える領域へ安全に復元します。",
+        "固定ウインドウでは、固定・検索・共有・その他の操作に macOS ネイティブのツールバーを採用しました。銘柄詳細、保有、取引、プロフィール、設定の各ページでも、タイトルと戻るナビゲーションの位置が揃います。",
+        "固定ウインドウのページ遷移とサイズ変更を改善しました。タイトルバーや上端の基準線が跳ねず、ウインドウの高さがページ遷移と同期して滑らかに変化します。メニューバーパネルと独立ウインドウを同時に開いても、リアルタイム相場更新は一つのセッションを共有します。",
+      ],
+    },
+  },
+  {
     version: "0.11.5",
     date: "2026-08-12",
     kind: "release",

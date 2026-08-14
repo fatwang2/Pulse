@@ -71,8 +71,8 @@ targets:
           "$SRCROOT/scripts/build-longbridge-plugin.sh"
     settings:
       base:
-        MARKETING_VERSION: "0.11.6"
-        CURRENT_PROJECT_VERSION: "1786621486"
+        MARKETING_VERSION: "0.11.7"
+        CURRENT_PROJECT_VERSION: "1786720235"
         SWIFT_VERSION: "6.0"
         DEVELOPMENT_LANGUAGE: en
         CODE_SIGN_IDENTITY: "-"

@@ -3,6 +3,7 @@ import Observation
 
 /// Watchlist instruments plus named tag membership, backed by UserDefaults.
 /// Instruments and positions are stored once even when they appear in several groups.
+/// Trade history for removed instruments is retained separately until the symbol is added again.
 @MainActor
 @Observable
 public final class WatchlistStore {
@@ -15,6 +16,7 @@ public final class WatchlistStore {
     @ObservationIgnored private let legacyStorageKey = "pulse.watchlist.v1"
     @ObservationIgnored private let legacyManualOrderKey = "pulse.watchlist.manualOrder.v1"
     @ObservationIgnored private let initialGroupName: String
+    @ObservationIgnored private var retainedHistoryItems: [WatchItem] = []
 
     public init(defaults: UserDefaults = .standard, defaultGroupName: String? = nil) {
         self.defaults = defaults
@@ -127,6 +129,7 @@ public final class WatchlistStore {
     public func add(_ info: SymbolInfo, to groupID: UUID? = nil) {
         guard let targetID = group(for: groupID ?? selectedGroupID)?.id,
               let groupIndex = groups.firstIndex(where: { $0.id == targetID }) else { return }
+        restoreRetainedHistory(for: info.symbol)
         var didUpdateItem = false
         if let itemIndex = allItems.firstIndex(where: { $0.symbol == info.symbol }) {
             if let source = info.displayNameSource,
@@ -171,13 +174,16 @@ public final class WatchlistStore {
             groups[groupIndex].manualOrder?.removeAll { $0 == symbol }
             groups[groupIndex].pinnedSymbols.removeAll { $0 == symbol }
             if !groups.contains(where: { $0.symbols.contains(symbol) }) {
-                allItems.removeAll { $0.symbol == symbol }
+                if let itemIndex = allItems.firstIndex(where: { $0.symbol == symbol }) {
+                    retainHistoryIfNeeded(from: allItems.remove(at: itemIndex))
+                }
             }
         }
         save()
     }
 
-    /// Removes an instrument from the selected group. Its position survives while another tag contains it.
+    /// Removes an instrument from the selected group. The active item survives in another tag;
+    /// after the final removal, its trade history remains dormant until the symbol is added again.
     public func remove(_ symbol: SymbolID) {
         guard let id = selectedGroup?.id else { return }
         setMembership(symbol, in: id, included: false)
@@ -548,6 +554,7 @@ public final class WatchlistStore {
                 guard let symbol = planItem.symbol else { continue }
                 let entry = planItem.entry
                 let archivedTransactions = entry.transactions ?? []
+                restoreRetainedHistory(for: symbol)
 
                 if let itemIndex = allItems.firstIndex(where: { $0.symbol == symbol }) {
                     // Only an empty position adopts the archive's trades; a live
@@ -603,6 +610,8 @@ public final class WatchlistStore {
         var items: [WatchItem]
         var groups: [WatchlistGroup]
         var selectedGroupID: UUID?
+        /// Optional so snapshots written before removed-history retention still decode.
+        var retainedHistoryItems: [WatchItem]?
     }
 
     private func load() {
@@ -611,6 +620,7 @@ public final class WatchlistStore {
             allItems = snapshot.items
             groups = snapshot.groups
             selectedGroupID = snapshot.selectedGroupID
+            retainedHistoryItems = snapshot.retainedHistoryItems ?? []
             normalizeLoadedState()
             save()
             return
@@ -652,9 +662,44 @@ public final class WatchlistStore {
         // Provider-specific legacy index aliases can now decode to the same
         // canonical SymbolID. Merge them instead of dropping the later entry and
         // silently losing any position lots attached to it.
+        let activeSymbols = Set(allItems.map(\.symbol))
+        let normalizedStoredItems = normalizedItems(allItems + retainedHistoryItems)
+        allItems = normalizedStoredItems.filter { activeSymbols.contains($0.symbol) }
+        retainedHistoryItems = normalizedStoredItems.filter {
+            !activeSymbols.contains($0.symbol) && !$0.materializedTransactions().isEmpty
+        }
+
+        if groups.isEmpty {
+            groups = [WatchlistGroup(name: initialGroupName, symbols: allItems.map(\.symbol))]
+        }
+
+        let known = Set(allItems.map(\.symbol))
+        for index in groups.indices {
+            groups[index].name = normalizedName(groups[index].name)
+            if groups[index].name.isEmpty { groups[index].name = initialGroupName }
+            groups[index].symbols = groups[index].symbols.filter { known.contains($0) }.uniqued()
+            if let manualOrder = groups[index].manualOrder {
+                groups[index].manualOrder = manualOrder.filter { known.contains($0) }.uniqued()
+            }
+            let members = Set(groups[index].symbols)
+            groups[index].pinnedSymbols = groups[index].pinnedSymbols
+                .filter { members.contains($0) }
+                .uniqued()
+        }
+
+        let assigned = Set(groups.flatMap(\.symbols))
+        for symbol in allItems.map(\.symbol) where !assigned.contains(symbol) {
+            groups[0].symbols.append(symbol)
+        }
+        if group(for: selectedGroupID) == nil {
+            selectedGroupID = groups[0].id
+        }
+    }
+
+    private func normalizedItems(_ storedItems: [WatchItem]) -> [WatchItem] {
         var normalizedItems: [WatchItem] = []
         var itemIndexBySymbol: [SymbolID: Int] = [:]
-        for var item in allItems {
+        for var item in storedItems {
             item.instrumentType = WatchItem.normalizedInstrumentType(
                 item.instrumentType,
                 for: item.symbol
@@ -693,38 +738,33 @@ public final class WatchlistStore {
                 normalizedItems.append(item)
             }
         }
-        allItems = normalizedItems
-        if groups.isEmpty {
-            groups = [WatchlistGroup(name: initialGroupName, symbols: allItems.map(\.symbol))]
-        }
-
-        let known = Set(allItems.map(\.symbol))
-        for index in groups.indices {
-            groups[index].name = normalizedName(groups[index].name)
-            if groups[index].name.isEmpty { groups[index].name = initialGroupName }
-            groups[index].symbols = groups[index].symbols.filter { known.contains($0) }.uniqued()
-            if let manualOrder = groups[index].manualOrder {
-                groups[index].manualOrder = manualOrder.filter { known.contains($0) }.uniqued()
-            }
-            let members = Set(groups[index].symbols)
-            groups[index].pinnedSymbols = groups[index].pinnedSymbols
-                .filter { members.contains($0) }
-                .uniqued()
-        }
-
-        let assigned = Set(groups.flatMap(\.symbols))
-        for symbol in allItems.map(\.symbol) where !assigned.contains(symbol) {
-            groups[0].symbols.append(symbol)
-        }
-        if group(for: selectedGroupID) == nil {
-            selectedGroupID = groups[0].id
-        }
+        return normalizedItems
     }
 
     private func save() {
-        let snapshot = Snapshot(items: allItems, groups: groups, selectedGroupID: selectedGroupID)
+        let snapshot = Snapshot(
+            items: allItems,
+            groups: groups,
+            selectedGroupID: selectedGroupID,
+            retainedHistoryItems: retainedHistoryItems
+        )
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         defaults.set(data, forKey: storageKey)
+    }
+
+    /// Keeps removed ledger data outside the active watchlist so it neither renders nor refreshes.
+    private func retainHistoryIfNeeded(from item: WatchItem) {
+        guard !item.materializedTransactions().isEmpty else { return }
+        retainedHistoryItems = normalizedItems(retainedHistoryItems + [item])
+    }
+
+    /// Rehydrates the original item before normal add/update logic refreshes its metadata.
+    private func restoreRetainedHistory(for symbol: SymbolID) {
+        guard allItems.allSatisfy({ $0.symbol != symbol }),
+              let index = retainedHistoryItems.firstIndex(where: { $0.symbol == symbol }) else {
+            return
+        }
+        allItems.append(retainedHistoryItems.remove(at: index))
     }
 
     /// Rebuilds the hidden custom-order baseline from a visible pinned-first order.

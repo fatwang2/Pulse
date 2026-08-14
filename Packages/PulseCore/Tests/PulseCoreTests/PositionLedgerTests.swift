@@ -346,6 +346,41 @@ struct WatchlistStoreTransactionTests {
     }
 
     @MainActor
+    @Test("Removing and later re-adding a symbol restores its persisted trade history")
+    func removedSymbolRestoresTransactions() throws {
+        let suiteName = "WatchlistStoreTransactionTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = WatchlistStore(defaults: defaults, defaultGroupName: "Watchlist")
+        store.add(apple)
+        let buy = PositionTransaction(kind: .buy, price: 100, quantity: 10)
+        let sell = PositionTransaction(kind: .sell, price: 130, quantity: 4)
+        store.addTransaction(apple.symbol, buy)
+        store.addTransaction(apple.symbol, sell)
+
+        store.remove(apple.symbol)
+
+        #expect(store.item(for: apple.symbol) == nil)
+        #expect(store.symbols.isEmpty)
+        #expect(store.isEmpty)
+
+        let reloaded = WatchlistStore(defaults: defaults, defaultGroupName: "Watchlist")
+        #expect(reloaded.item(for: apple.symbol) == nil)
+        #expect(reloaded.symbols.isEmpty)
+
+        reloaded.add(apple)
+
+        let restored = try #require(reloaded.item(for: apple.symbol))
+        #expect(restored.transactions.map(\.id) == [buy.id, sell.id])
+        #expect(restored.positionQuantity == 6)
+        #expect(restored.realizedPnL == 120)
+
+        let reloadedAgain = WatchlistStore(defaults: defaults, defaultGroupName: "Watchlist")
+        #expect(reloadedAgain.item(for: apple.symbol)?.transactions.map(\.id) == [buy.id, sell.id])
+    }
+
+    @MainActor
     @Test("Sell-first then buy records a short round trip through the store")
     func shortRoundTrip() throws {
         let (store, defaults, suiteName) = try makeStore()

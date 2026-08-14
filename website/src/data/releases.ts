@@ -11,6 +11,25 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.11.7",
+    date: "2026-08-14",
+    kind: "fix",
+    highlights: {
+      zh: [
+        "修复自选列表在布局测量文本时因系统字体不可用而崩溃的问题：Pulse 现在会回退到保证存在的系统字体，而不是直接退出。",
+        "从自选列表移除的标的，其交易历史现在会被保留；重新添加该标的时会恢复之前的交易记录，而不是从空开始。",
+      ],
+      en: [
+        "Fixed a crash where the watchlist could abort Pulse during layout when the system returned an unavailable font for text measurement. Pulse now falls back to a guaranteed system font instead of crashing.",
+        "Trade history for a symbol you remove from the watchlist is now retained, so adding the symbol back restores its previous transactions instead of starting empty.",
+      ],
+      ja: [
+        "ウォッチリストのレイアウト中にシステムが利用できないフォントを返したとき、テキスト計測で Pulse がクラッシュする問題を修正しました。保証されたシステムフォントへフォールバックし、クラッシュしなくなります。",
+        "ウォッチリストから削除した銘柄の取引履歴は保持されるようになり、銘柄を再追加すると以前の取引履歴が復元されます（空の状態から始まりません）。",
+      ],
+    },
+  },
+  {
     version: "0.11.6",
     date: "2026-08-13",
     kind: "release",

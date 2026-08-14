@@ -348,3 +348,11 @@
 "data.format.title" = "Format";
 "data.format.help" = "market is us, hk, sh, sz, or crypto; code is a ticker such as NVDA or 700, or a pair such as BTC/USDT. name, pinned, and transactions are optional.";
 "data.import.status.missingCode" = "no code";
+
+/* iOS app */
+"action.close" = "Close";
+"action.addSymbol" = "Add Symbol";
+"action.addToWatchlist" = "Add to Watchlist";
+"action.removeFromWatchlist" = "Remove from Watchlist";
+"watchlist.empty.title" = "Your Watchlist Is Empty";
+"stat.turnover" = "Turnover";

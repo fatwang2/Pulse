@@ -12,7 +12,7 @@ let package = Package(
         .target(
             name: "PulseCore",
             dependencies: [
-                .target(name: "LongbridgeCABI", condition: .when(platforms: [.macOS]))
+                .target(name: "LongbridgeCABI", condition: .when(platforms: [.macOS, .iOS]))
             ]
         ),
         .testTarget(name: "PulseCoreTests", dependencies: ["PulseCore"])

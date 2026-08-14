@@ -348,3 +348,11 @@
 "data.format.title" = "書式";
 "data.format.help" = "market は us・hk・sh・sz・crypto のいずれか。code は NVDA や 700 のようなコード、または BTC/USDT のようなペアです。name・pinned・transactions は省略できます。";
 "data.import.status.missingCode" = "コードなし";
+
+/* iOS app */
+"action.close" = "閉じる";
+"action.addSymbol" = "銘柄を追加";
+"action.addToWatchlist" = "ウォッチリストに追加";
+"action.removeFromWatchlist" = "ウォッチリストから削除";
+"watchlist.empty.title" = "ウォッチリストは空です";
+"stat.turnover" = "売買代金";

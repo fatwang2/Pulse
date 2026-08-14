@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 
 /// Longbridge OpenAPI quote source backed exclusively by the official SDK.
@@ -152,4 +151,3 @@ public actor LongbridgeProvider: QuoteProvider {
         }
     }
 }
-#endif

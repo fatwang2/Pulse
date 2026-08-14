@@ -137,7 +137,9 @@ public actor CompositeProvider: QuoteProvider {
         func preferredWeight(_ provider: any QuoteProvider) -> Int {
             let id = provider.descriptor.id
             if market == .crypto, id == BinanceProvider.providerID { return 0 }
-            if market != .crypto, id == LongbridgeProvider.providerID { return 0 }
+            // Spelled out: LongbridgeProvider only compiles on macOS, but routing
+            // rank must stay identical on every platform the composite runs on.
+            if market != .crypto, id == "longbridge" { return 0 }
             if market == .us, id == "yahoo" { return 1 }
             return 100 + (registrationOrder[id] ?? 10_000)
         }

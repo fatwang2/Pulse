@@ -99,6 +99,7 @@ public actor LongbridgeOAuthAuthenticator {
         let client = try await ensureClient()
         let authorizationHost = Self.authorizationHost(for: client)
 
+        #if os(macOS)
         var server: LongbridgeLoopbackServer? = LongbridgeLoopbackServer(
             port: Self.loopbackPort,
             callbackPath: Self.callbackPath
@@ -128,6 +129,16 @@ public actor LongbridgeOAuthAuthenticator {
             await server?.stop()
             throw error
         }
+        #else
+        // iOS authorizations run in ASWebAuthenticationSession, whose callback is
+        // the app's own URL scheme; a localhost listener has no browser to serve.
+        return try await runAuthorization(
+            client: client,
+            host: authorizationHost,
+            redirectURI: schemeRedirectURI,
+            openURL: openURL
+        )
+        #endif
     }
 
     private func runAuthorization(client: LongbridgeOAuthClient, host: URL, redirectURI: String,
@@ -173,6 +184,14 @@ public actor LongbridgeOAuthAuthenticator {
         ], host: host)
     }
 
+    /// Fails the in-flight authorization immediately (the user dismissed the
+    /// browser sheet); without this the flow would sit on its 5-minute timeout.
+    public func cancelAuthorization() {
+        guard let pending else { return }
+        self.pending = nil
+        pending.continuation.resume(throwing: CancellationError())
+    }
+
     /// Feed a `scheme://oauth/callback?...` URL from the system open-URL handler.
     /// Returns whether the URL belonged to an in-flight authorization.
     public func handleCallback(_ url: URL) -> Bool {
@@ -191,7 +210,11 @@ public actor LongbridgeOAuthAuthenticator {
     // MARK: - Dynamic client registration
 
     private var desiredRedirectURIs: [String] {
+        #if os(macOS)
         [Self.loopbackRedirectURI, schemeRedirectURI]
+        #else
+        [schemeRedirectURI]
+        #endif
     }
 
     private func ensureClient() async throws -> LongbridgeOAuthClient {

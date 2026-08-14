@@ -1,4 +1,3 @@
-#if os(macOS)
 import Darwin
 import CryptoKit
 import Foundation
@@ -6,7 +5,7 @@ import LongbridgeCABI
 import OSLog
 
 private let longbridgeLogger = Logger(
-    subsystem: Bundle.main.bundleIdentifier ?? "app.pulse.mac",
+    subsystem: Bundle.main.bundleIdentifier ?? "app.pulse",
     category: "Longbridge"
 )
 
@@ -273,7 +272,6 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
     typealias ErrorMessage = @convention(c) (OpaquePointer?) -> UnsafePointer<CChar>?
     typealias ErrorCode = @convention(c) (OpaquePointer?) -> Int64
 
-    let handle: UnsafeMutableRawPointer
     let configFromAPIKey: ConfigFromAPIKey
     let configFromOAuthToken: ConfigFromOAuthToken
     let enableOvernight: ConfigMutation
@@ -296,6 +294,7 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
     let errorMessage: ErrorMessage
     let errorCode: ErrorCode
 
+    #if os(macOS)
     init() throws {
         guard let pluginsURL = Bundle.main.builtInPlugInsURL else {
             throw LongbridgeError.socket("Pulse has no built-in PlugIns directory")
@@ -312,7 +311,6 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
             let detail = dlerror().map { String(cString: $0) } ?? "unknown loader error"
             throw LongbridgeError.socket("Unable to load Longbridge SDK: \(detail)")
         }
-        self.handle = handle
         self.configFromAPIKey = try Self.resolve(handle, "lb_config_from_apikey", as: ConfigFromAPIKey.self)
         self.configFromOAuthToken = try Self.resolve(
             handle,
@@ -408,6 +406,33 @@ private final class LongbridgeSDKDynamicLibrary: @unchecked Sendable {
         }
         return unsafeBitCast(symbol, to: type)
     }
+    #else
+    /// iOS links the SDK's static library into the app binary, so every entry
+    /// point binds at link time — same table, no loader in the picture.
+    init() throws {
+        self.configFromAPIKey = lb_config_from_apikey
+        self.configFromOAuthToken = lb_config_from_oauth_token
+        self.enableOvernight = lb_config_enable_overnight
+        self.disablePrintQuotePackages = lb_config_disable_print_quote_packages
+        self.setHTTPURL = lb_config_set_http_url
+        self.setQuoteWebSocketURL = lb_config_set_quote_ws_url
+        self.configFree = lb_config_free
+        self.contextNew = lb_quote_context_new
+        self.contextRetain = lb_quote_context_retain
+        self.contextRelease = lb_quote_context_release
+        self.quotePackageDetails = lb_quote_context_quote_package_details
+        self.setOnQuote = lb_quote_context_set_on_quote
+        self.staticInfo = lb_quote_context_static_info
+        self.quote = lb_quote_context_quote
+        self.subscribe = lb_quote_context_subscribe
+        self.unsubscribe = lb_quote_context_unsubscribe
+        self.candlesticks = lb_quote_context_candlesticks
+        self.historyCandlesticksByOffset = lb_quote_context_history_candlesticks_by_offset
+        self.decimalToDouble = lb_decimal_to_double
+        self.errorMessage = lb_error_message
+        self.errorCode = lb_error_code
+    }
+    #endif
 
     func decimal(_ pointer: OpaquePointer?) -> Double? {
         guard let pointer else { return nil }
@@ -1595,4 +1620,3 @@ enum LongbridgeMinuteCandleBackfill {
         return Array(byTime.values.sorted { $0.time < $1.time }.suffix(max(1, limit)))
     }
 }
-#endif

@@ -62,7 +62,12 @@ enum WatchRowColumnLayout {
     }
 
     private static func measure(_ text: String, font: NSFont) -> CGFloat {
-        ceil((text as NSString).size(withAttributes: [.font: font]).width)
+        // NSFont factory methods can return nil on some system builds, and because
+        // Swift types them as non-optional the nil reaches CoreText and crashes
+        // size(withAttributes:) with NSInvalidArgumentException. Fall back to a
+        // guaranteed system font so text measurement never aborts the app.
+        let safeFont = font.pointSize > 0 ? font : NSFont.systemFont(ofSize: NSFont.systemFontSize)
+        return ceil((text as NSString).size(withAttributes: [.font: safeFont]).width)
     }
 
     private struct Metrics {

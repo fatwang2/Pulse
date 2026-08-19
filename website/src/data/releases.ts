@@ -11,6 +11,22 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.11.8",
+    date: "2026-08-19",
+    kind: "improvement",
+    highlights: {
+      zh: [
+        "提升菜单栏面板在复杂桌面背景上的可读性：行情列表、详情和图表现在使用更厚的 macOS 标准材质作为内容背景，同时菜单和操作控件继续保留原生 Liquid Glass 外观。",
+      ],
+      en: [
+        "Improved the legibility of the menu-bar panel on visually busy desktops. Data-dense content now uses a stronger standard macOS material background, while menus and controls retain their native Liquid Glass appearance.",
+      ],
+      ja: [
+        "視覚的に複雑なデスクトップ上でも、メニューバーパネルを読みやすくしました。情報量の多いリスト・詳細・チャートにはより厚みのある macOS 標準マテリアル背景を使用し、メニューと操作コントロールはネイティブの Liquid Glass 表現を維持します。",
+      ],
+    },
+  },
+  {
     version: "0.11.7",
     date: "2026-08-14",
     kind: "fix",

@@ -38,6 +38,7 @@ struct PulseMacApp: App {
                 .environment(appState)
                 .environment(\.locale, appState.settings.locale)
                 .environment(\.pulseHost, .menuBar)
+                .background(.thickMaterial)
         } label: {
             MenuBarLabel(appState: appState)
         }

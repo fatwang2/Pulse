@@ -105,6 +105,42 @@ struct WatchlistView: View {
                 #endif
             }
         }
+        .onAppear { maybeStartTour() }
+        // Only the host currently carrying the tour may pause it: the panel
+        // closing must not interrupt a bubble shown in the pinned window.
+        .onDisappear {
+            if isTourHost { appState.onboarding.pauseTour() }
+        }
+        .onChange(of: appState.watchlist.allItems.isEmpty) { _, isEmpty in
+            // A first symbol from any path retires the search step.
+            if !isEmpty { appState.onboarding.completeStep(.search) }
+            maybeStartTour()
+        }
+        .onChange(of: searchSession.isActive) { _, active in
+            if active {
+                // Opening search is the search step performed; later steps pause.
+                appState.onboarding.completeStep(.search)
+                if isTourHost { appState.onboarding.pauseTour() }
+            } else {
+                maybeStartTour()
+            }
+        }
+        .onChange(of: route) { _, newRoute in
+            if newRoute == .list {
+                maybeStartTour()
+            } else {
+                // Opening any detail page is the detail step performed. The share
+                // stop belongs to that page and must survive this transition.
+                if case .detail = newRoute { appState.onboarding.completeStep(.detail) }
+                if isTourHost, let step = appState.onboarding.activeTourStep, step != .kline {
+                    appState.onboarding.pauseTour()
+                }
+            }
+        }
+        // The detail page moves the resume position on its way out (share seen,
+        // pin next); by then the route is already back on the list, so that
+        // route change alone would have checked too early.
+        .onChange(of: appState.onboarding.tourResumeStep) { _, _ in maybeStartTour() }
     }
 
     @ViewBuilder
@@ -222,6 +258,9 @@ struct WatchlistView: View {
         ) {
             togglePinnedWindow()
         }
+        .popover(isPresented: tourBinding(.pin), arrowEdge: .bottom) {
+            tourBubble(.pin)
+        }
         ClusterIcon(
             systemName: "magnifyingglass",
             help: PulseLocalization.localizedString("action.search"),
@@ -231,6 +270,11 @@ struct WatchlistView: View {
         }
         .disabled(isReordering)
         .opacity(isReordering ? 0.45 : 1)
+        // The tour teaches the magnifier, not the empty state's one-time button:
+        // this is where search still lives after the first symbol.
+        .popover(isPresented: tourBinding(.search), arrowEdge: .bottom) {
+            tourBubble(.search)
+        }
         ClusterMenu(
             systemName: "square.and.arrow.up",
             help: PulseLocalization.localizedString("action.share")
@@ -260,6 +304,9 @@ struct WatchlistView: View {
         }
         .toggleStyle(.button)
         .help(pinHelp)
+        .popover(isPresented: tourBinding(.pin), arrowEdge: .bottom) {
+            tourBubble(.pin)
+        }
 
         Toggle(isOn: Binding(get: { searchSession.isActive }, set: { _ in toggleSearch() })) {
             Label(PulseLocalization.localizedString("action.search"), systemImage: "magnifyingglass")
@@ -267,6 +314,9 @@ struct WatchlistView: View {
         .toggleStyle(.button)
         .help(PulseLocalization.localizedString("action.search"))
         .disabled(isReordering)
+        .popover(isPresented: tourBinding(.search), arrowEdge: .bottom) {
+            tourBubble(.search)
+        }
 
         Menu {
             shareMenuContent
@@ -379,6 +429,11 @@ struct WatchlistView: View {
     /// for a click inside its own bounds. Unpinning closes the window from either
     /// surface; the menu bar icon always brings the watchlist back.
     private func togglePinnedWindow() {
+        // Clicking the pin while its tip points at it is the tip followed:
+        // retire it instead of re-offering on the next visit.
+        if appState.onboarding.activeTourStep == .pin {
+            appState.onboarding.endTour()
+        }
         guard !isPinned else {
             dismissWindow(id: PinnedWindow.id)
             return
@@ -389,6 +444,118 @@ struct WatchlistView: View {
         openWindow(id: PinnedWindow.id)
         PinnedWindow.activate()
         hostWindow?.close()
+    }
+
+    // MARK: - Onboarding tour
+
+    /// Both hosts render the same shared tour, but only one carries it at a
+    /// time: the pinned window when it is up, else the menu bar panel.
+    private var isTourHost: Bool {
+        host == .pinnedWindow || !appState.settings.pinnedWindowVisible
+    }
+
+    private func tourBinding(_ step: OnboardingState.TourStep) -> Binding<Bool> {
+        Binding(
+            // Gated on the list route: while a child page covers this view its
+            // anchors are off screen, and the pin stop set up from the detail
+            // page must wait for the trip back.
+            get: { isTourHost && route == .list && appState.onboarding.activeTourStep == step },
+            set: { presented in
+                // Interactive dismissal is disabled; this fires for lifecycle
+                // teardown (host closing under an open bubble). Pause, not skip.
+                if !presented, appState.onboarding.activeTourStep == step {
+                    appState.onboarding.pauseTour()
+                }
+            }
+        )
+    }
+
+    private func tourBubble(_ step: OnboardingState.TourStep) -> OnboardingTourBubble {
+        let key = switch step {
+        case .search:
+            "onboarding.tour.search"
+        case .detail:
+            "onboarding.tour.detail"
+        case .kline:
+            // Anchored in DetailView; listed here only for exhaustiveness.
+            "onboarding.tour.kline"
+        case .pin:
+            // The same control, opposite meanings: the window's pin tucks Pulse
+            // away, the panel's pin breaks it out.
+            host == .pinnedWindow ? "onboarding.tour.pin.window" : "onboarding.tour.pin.panel"
+        }
+        return OnboardingTourBubble(
+            step: step,
+            text: PulseLocalization.localizedString(key),
+            onAdvance: tourAdvanceAction(step)
+        )
+    }
+
+    /// Next on an action step performs the taught action itself; the step then
+    /// completes through the same observers as a manual click. The bubble is
+    /// retired first and the action follows a beat later: overlapping the
+    /// popover's dismissal with a page transition reads as two unrelated
+    /// animations fighting, where the ordinary navigation has only one.
+    private func tourAdvanceAction(_ step: OnboardingState.TourStep) -> (() -> Void)? {
+        switch step {
+        case .search:
+            {
+                appState.onboarding.completeStep(.search)
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(180))
+                    activateSearch()
+                }
+            }
+        case .detail:
+            {
+                appState.onboarding.completeStep(.detail)
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(180))
+                    if let first = appState.watchlist.items.first {
+                        route = .detail(first.symbol)
+                    }
+                }
+            }
+        case .kline, .pin:
+            nil
+        }
+    }
+
+    /// The pending stop's anchor must be on this page: the search step lives on
+    /// the empty state, detail and pin on a populated list, and share not here
+    /// at all — the detail page offers that one itself.
+    private var tourAnchorAvailable: Bool {
+        switch appState.onboarding.tourResumeStep {
+        case .search:
+            appState.watchlist.items.isEmpty
+        case .detail, .pin:
+            !appState.watchlist.items.isEmpty
+        case .kline:
+            false
+        }
+    }
+
+    /// Starts (or resumes) the tour while the list is the quiet foreground:
+    /// no search, no reorder, no pushed page, and the next stop's anchor visible.
+    private func maybeStartTour() {
+        guard isTourHost,
+              appState.onboarding.tourAvailable,
+              appState.onboarding.activeTourStep == nil,
+              tourAnchorAvailable,
+              !searchSession.isActive,
+              !isReordering,
+              route == .list else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.8))
+            guard isTourHost,
+                  appState.onboarding.tourAvailable,
+                  appState.onboarding.activeTourStep == nil,
+                  tourAnchorAvailable,
+                  !searchSession.isActive,
+                  !isReordering,
+                  route == .list else { return }
+            appState.onboarding.beginTourIfNeeded()
+        }
     }
 
     private func activateSearch() {
@@ -913,6 +1080,25 @@ struct WatchlistView: View {
                     shouldAnimateEntrance ? .snappy(duration: 0.35).delay(0.06) : nil,
                     value: emptyStateShown
                 )
+            // The hint made clickable: same action as the magnifying glass above, so
+            // the first add teaches where search lives without leaving this screen.
+            Button {
+                activateSearch()
+            } label: {
+                Label(
+                    PulseLocalization.localizedString("empty.searchButton"),
+                    systemImage: "magnifyingglass"
+                )
+                .font(.system(size: 12, weight: .semibold))
+            }
+            .buttonStyle(.glassProminent)
+            .padding(.top, 6)
+            .opacity(shouldAnimateEntrance ? (emptyStateShown ? 1 : 0) : 1)
+            .offset(y: shouldAnimateEntrance && !emptyStateShown && !reduceMotion ? 6 : 0)
+            .animation(
+                shouldAnimateEntrance ? .snappy(duration: 0.35).delay(0.12) : nil,
+                value: emptyStateShown
+            )
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -934,6 +1120,15 @@ struct WatchlistView: View {
                     isReordering: isReordering
                 ) {
                     route = .detail(item.symbol)
+                }
+                // The detail stop anchors on the first row: one bubble, not one per row.
+                .popover(
+                    isPresented: item.symbol == items.first?.symbol
+                        ? tourBinding(.detail)
+                        : .constant(false),
+                    arrowEdge: .bottom
+                ) {
+                    tourBubble(.detail)
                 }
                 // Inset 4 + the row's internal 8pt padding puts row content on the same 12pt grid as the chrome
                 .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))

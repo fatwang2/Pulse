@@ -43,7 +43,19 @@
 
 "duration.seconds" = "%d초";
 
+"empty.searchButton" = "검색하여 추가";
 "empty.watchlist" = "종목을 검색해 시작하세요";
+
+"onboarding.reset" = "온보딩 재설정";
+"onboarding.tour.back" = "이전";
+"onboarding.tour.gotIt" = "확인";
+"onboarding.tour.next" = "다음";
+"onboarding.tour.pin.panel" = "핀을 클릭하면 Pulse를 플로팅 창으로 고정할 수 있습니다.";
+"onboarding.tour.pin.window" = "핀을 클릭하면 메뉴 막대로 들어갑니다. 메뉴 막대 아이콘으로 언제든지 다시 열 수 있습니다.";
+"onboarding.tour.detail" = "행을 클릭하면 분봉 차트, 캔들 등 자세한 정보를 볼 수 있습니다.";
+"onboarding.tour.search" = "여기서 종목 코드나 회사명을 검색하고, 결과의 +를 클릭해 추가하세요.";
+"onboarding.tour.kline" = "'일봉'을 클릭해 장기 추세를 확인하세요. 주봉·월봉도 여기에 있습니다.";
+"onboarding.tour.skip" = "건너뛰기";
 
 "error.client" = "이 데이터 소스가 요청을 처리하지 못했습니다: %@";
 "error.network" = "데이터 소스에 연결할 수 없습니다: %@";

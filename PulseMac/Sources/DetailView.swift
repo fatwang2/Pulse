@@ -54,6 +54,19 @@ struct DetailView: View {
                 }
             }
         }
+        .onAppear { maybeOfferKlineTourStep() }
+        .onDisappear {
+            // Leaving with the candle bubble up counts as the step seen; the pin
+            // stop then presents back on the list. An offer that never fired
+            // stays pending for the next detail visit.
+            if appState.onboarding.activeTourStep == .kline {
+                appState.onboarding.completeStep(.kline)
+            }
+        }
+        // Any period switch is the lesson learned, daily or not.
+        .onChange(of: period) { _, _ in
+            appState.onboarding.completeStep(.kline)
+        }
         // Real-time push while the page is on screen: each tick lands in the store, and the
         // price / market-time views animate through their existing transitions. Closing the
         // page cancels the task, which unsubscribes upstream; polling remains the fallback.
@@ -270,6 +283,58 @@ struct DetailView: View {
         }
         .disabled(quote == nil)
         .opacity(quote == nil ? 0.45 : 1)
+    }
+
+    // MARK: - Onboarding tour
+
+    /// Next on this stop performs the switch itself. The bubble goes first and
+    /// the chart swaps a beat later, so the popover's dismissal never overlaps
+    /// the content change — same sequencing as the list page's action steps.
+    private var klineTourBubble: OnboardingTourBubble {
+        OnboardingTourBubble(
+            step: .kline,
+            text: PulseLocalization.localizedString("onboarding.tour.kline")
+        ) {
+            appState.onboarding.completeStep(.kline)
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(180))
+                period = .day
+            }
+        }
+    }
+
+    /// Same election as the list page: the pinned window carries the tour while
+    /// it is up, else the panel does.
+    private var isTourHost: Bool {
+        host == .pinnedWindow || !appState.settings.pinnedWindowVisible
+    }
+
+    private var klineTourBinding: Binding<Bool> {
+        Binding(
+            get: { isTourHost && appState.onboarding.activeTourStep == .kline },
+            set: { presented in
+                if !presented, appState.onboarding.activeTourStep == .kline {
+                    appState.onboarding.pauseTour()
+                }
+            }
+        )
+    }
+
+    /// Offers the candle stop once this page settles; the stop was queued by the
+    /// detail step completing on the way in.
+    private func maybeOfferKlineTourStep() {
+        guard isTourHost,
+              appState.onboarding.tourAvailable,
+              appState.onboarding.activeTourStep == nil,
+              appState.onboarding.tourResumeStep == .kline else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.8))
+            guard isTourHost,
+                  appState.onboarding.tourAvailable,
+                  appState.onboarding.activeTourStep == nil,
+                  appState.onboarding.tourResumeStep == .kline else { return }
+            appState.onboarding.beginTourIfNeeded()
+        }
     }
 
     /// Opened from search without being watched: offer the add here so a lookup can
@@ -688,6 +753,9 @@ struct DetailView: View {
             periodButton(.minute1)
             minutePeriodMenu
             periodButton(.day)
+                .popover(isPresented: klineTourBinding, arrowEdge: .bottom) {
+                    klineTourBubble
+                }
             periodButton(.week)
             periodButton(.month)
         }

@@ -226,6 +226,75 @@ create_dmg() {
   fi
 }
 
+# The installer DMG with the branded background and drag-to-Applications layout.
+# Finder view options live in the volume's .DS_Store, so this works on a
+# read-write image first and compresses afterwards. If Finder scripting fails
+# (headless session, automation permission), the DMG ships unstyled rather than
+# blocking the release.
+# Regenerate the background with: swift scripts/generate-dmg-background.swift
+create_installer_dmg() {
+  local source_dir="$1"
+  local output_path="$2"
+  local volume_name="$3"
+  local background="$ROOT/assets/dmg/background.tiff"
+
+  if [[ ! -f "$background" ]]; then
+    echo "warning: assets/dmg/background.tiff missing; creating plain DMG" >&2
+    create_dmg "$source_dir" "$output_path" "$volume_name"
+    return 0
+  fi
+
+  mkdir -p "$source_dir/.background"
+  cp "$background" "$source_dir/.background/background.tiff"
+
+  local rw_path="${output_path%.dmg}-rw.dmg"
+  rm -f "$rw_path" "$output_path"
+  hdiutil create \
+    -volname "$volume_name" \
+    -srcfolder "$source_dir" \
+    -ov \
+    -format UDRW \
+    -fs HFS+ \
+    "$rw_path" >/dev/null
+
+  local device
+  device="$(hdiutil attach -readwrite -noverify -noautoopen "$rw_path" | awk '/\/dev\/disk/ {print $1; exit}')"
+
+  # Window bounds: 600x400 content (matching the background) plus the title bar.
+  # Icon positions pair with the arrow endpoints drawn into the background.
+  if ! osascript <<EOF
+tell application "Finder"
+  tell disk "$volume_name"
+    open
+    set current view of container window to icon view
+    set toolbar visible of container window to false
+    set statusbar visible of container window to false
+    set the bounds of container window to {400, 140, 1000, 568}
+    set view_options to the icon view options of container window
+    set arrangement of view_options to not arranged
+    set icon size of view_options to 112
+    set text size of view_options to 12
+    set background picture of view_options to file ".background:background.tiff"
+    set position of item "Pulse.app" of container window to {150, 205}
+    set position of item "Applications" of container window to {450, 205}
+    close
+    open
+    update without registering applications
+    delay 1
+    close
+  end tell
+end tell
+EOF
+  then
+    echo "warning: Finder layout scripting failed; the DMG ships without it" >&2
+  fi
+
+  sync
+  hdiutil detach "$device" >/dev/null
+  hdiutil convert "$rw_path" -format UDZO -o "$output_path" >/dev/null
+  rm -f "$rw_path"
+}
+
 GENERATE_APPCAST="$(find_sparkle_tool generate_appcast || true)"
 GENERATE_KEYS="$(find_sparkle_tool generate_keys || true)"
 if [[ -z "$GENERATE_APPCAST" ]]; then
@@ -326,7 +395,7 @@ rm -rf "$DMG_STAGE"
 mkdir -p "$DMG_STAGE"
 /usr/bin/ditto "$APP_PATH" "$DMG_STAGE/Pulse.app"
 ln -s /Applications "$DMG_STAGE/Applications"
-create_dmg "$DMG_STAGE" "$DMG_PATH" "Pulse"
+create_installer_dmg "$DMG_STAGE" "$DMG_PATH" "Pulse"
 
 echo "==> Signing disk image"
 codesign --force \

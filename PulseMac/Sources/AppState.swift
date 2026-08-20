@@ -15,6 +15,7 @@ final class AppState {
     private static let longbridgeAccessSnapshotKey = "pulse.longbridge.quoteAccess.v1"
 
     let settings: AppSettings
+    let onboarding: OnboardingState
     let watchlist: WatchlistStore
     let market: MarketStore
     let engine: RefreshEngine
@@ -53,8 +54,26 @@ final class AppState {
     var palette: ChangePalette { ChangePalette(redUp: settings.redUp) }
 
     init() {
-        let settings = AppSettings()
-        let watchlist = WatchlistStore()
+        #if DEBUG
+        // `--onboarding-demo` rehearses a pristine first launch: every store reads a
+        // throwaway suite that is wiped on the way in, so the developer container's
+        // real data is neither shown nor touched.
+        let storeDefaults: UserDefaults
+        if CommandLine.arguments.contains("--onboarding-demo"),
+           let demo = UserDefaults(suiteName: "app.pulse.mac.demo") {
+            demo.removePersistentDomain(forName: "app.pulse.mac.demo")
+            storeDefaults = demo
+        } else {
+            storeDefaults = .standard
+        }
+        #else
+        let storeDefaults = UserDefaults.standard
+        #endif
+        let settings = AppSettings(defaults: storeDefaults)
+        // Before WatchlistStore: its first load persists an empty snapshot, which would
+        // make every install look like an upgrade to the fresh-install check.
+        let onboarding = OnboardingState(defaults: storeDefaults)
+        let watchlist = WatchlistStore(defaults: storeDefaults)
         let market = MarketStore()
         // Image-rendering self-tests do not need live credentials. Skipping Keychain access
         // also keeps the headless test from waiting on an authorization prompt.
@@ -70,6 +89,7 @@ final class AppState {
                                                      ShanghaiGoldExchangeProvider(), EastmoneyProvider()],
                                          disabledIDs: disabledIDs)
         self.settings = settings
+        self.onboarding = onboarding
         self.watchlist = watchlist
         self.market = market
         self.provider = provider

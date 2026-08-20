@@ -43,7 +43,19 @@
 
 "duration.seconds" = "%d sec";
 
+"empty.searchButton" = "Search to Add";
 "empty.watchlist" = "Search for a symbol to get started";
+
+"onboarding.reset" = "Reset Onboarding";
+"onboarding.tour.back" = "Back";
+"onboarding.tour.gotIt" = "Got It";
+"onboarding.tour.next" = "Next";
+"onboarding.tour.pin.panel" = "Click the pin to keep Pulse as a floating window.";
+"onboarding.tour.pin.window" = "Click the pin to tuck Pulse into the menu bar — the menu bar icon brings it back anytime.";
+"onboarding.tour.detail" = "Click a row to see the intraday chart, candles, and more.";
+"onboarding.tour.search" = "Search for a ticker or company here, then click + on a result to add it.";
+"onboarding.tour.kline" = "Click Daily for the longer-term trend — Weekly and Monthly live here too.";
+"onboarding.tour.skip" = "Skip";
 
 "error.client" = "This data source couldn’t complete the request: %@";
 "error.network" = "Can’t connect to the data source: %@";

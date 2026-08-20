@@ -218,6 +218,9 @@ struct SettingsView: View {
                     Button(PulseLocalization.localizedString("diagnostics.copy")) {
                         copyDiagnostics()
                     }
+                    Button(PulseLocalization.localizedString("onboarding.reset")) {
+                        appState.onboarding.reset()
+                    }
                 }
                 #endif
             }

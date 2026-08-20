@@ -43,7 +43,19 @@
 
 "duration.seconds" = "%d秒";
 
+"empty.searchButton" = "検索して追加";
 "empty.watchlist" = "銘柄を検索して追加しましょう";
+
+"onboarding.reset" = "オンボーディングをリセット";
+"onboarding.tour.back" = "戻る";
+"onboarding.tour.gotIt" = "わかりました";
+"onboarding.tour.next" = "次へ";
+"onboarding.tour.pin.panel" = "ピンをクリックすると、Pulse を常駐のフローティングウィンドウにできます。";
+"onboarding.tour.pin.window" = "ピンをクリックするとメニューバーに収納されます。メニューバーのアイコンからいつでも再表示できます。";
+"onboarding.tour.detail" = "行をクリックすると、分足やローソク足などの詳細が見られます。";
+"onboarding.tour.search" = "ここで銘柄コードや会社名を検索し、結果の + をクリックして追加します。";
+"onboarding.tour.kline" = "「日足」で長期のトレンドを確認できます。週足・月足もここにあります。";
+"onboarding.tour.skip" = "スキップ";
 
 "error.client" = "このデータソースはリクエストを完了できませんでした: %@";
 "error.network" = "データソースに接続できません: %@";

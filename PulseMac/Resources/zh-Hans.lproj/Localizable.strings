@@ -43,7 +43,19 @@
 
 "duration.seconds" = "%d 秒";
 
+"empty.searchButton" = "搜索添加";
 "empty.watchlist" = "搜索添加你的第一只自选";
+
+"onboarding.reset" = "重置新手引导";
+"onboarding.tour.back" = "上一步";
+"onboarding.tour.gotIt" = "知道了";
+"onboarding.tour.next" = "下一步";
+"onboarding.tour.pin.panel" = "点击图钉可把 Pulse 钉成常驻浮窗。";
+"onboarding.tour.pin.window" = "点击图钉可收回到菜单栏，之后点菜单栏图标随时打开。";
+"onboarding.tour.detail" = "点击这一行，查看分时、K 线与更多详情。";
+"onboarding.tour.search" = "点这里搜索代码或公司，在结果里点 + 添加自选。";
+"onboarding.tour.kline" = "点「日K」查看更长周期的走势，周K、月K也在这里。";
+"onboarding.tour.skip" = "跳过";
 
 "error.client" = "数据源不支持该查询：%@";
 "error.network" = "网络不可达：%@";

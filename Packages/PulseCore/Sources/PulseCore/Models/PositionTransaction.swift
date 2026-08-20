@@ -162,11 +162,24 @@ public struct PositionLedger: Sendable, Hashable {
 
     /// Chronological replay order: trade date first, insertion order breaking
     /// same-day ties so re-sorting never shuffles what the user entered.
+    ///
+    /// Two trades recorded back to back share both timestamps about three times
+    /// in four — `Date.now` is not fine-grained enough to separate consecutive
+    /// calls — so the final tie-break decides the order far more often than it
+    /// looks. It has to be the position in the stored array, which is the order
+    /// the user entered them in; ordering by `id` there sorted random UUIDs and
+    /// shuffled the ledger roughly half the time it was consulted.
     public static func replayOrdered(_ transactions: [PositionTransaction]) -> [PositionTransaction] {
-        transactions.sorted {
-            if $0.date != $1.date { return $0.date < $1.date }
-            if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
-            return $0.id.uuidString < $1.id.uuidString
-        }
+        transactions.enumerated()
+            .sorted { lhs, rhs in
+                if lhs.element.date != rhs.element.date {
+                    return lhs.element.date < rhs.element.date
+                }
+                if lhs.element.createdAt != rhs.element.createdAt {
+                    return lhs.element.createdAt < rhs.element.createdAt
+                }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
     }
 }

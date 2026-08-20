@@ -232,6 +232,44 @@ struct PositionLedgerTests {
         #expect(item.positionQuantity == 120)
         #expect(item.averageCost == 187.2)
     }
+
+    /// Two trades entered back to back share both timestamps roughly three times
+    /// in four, so this is the ordinary case rather than an edge one. Replay must
+    /// fall back to the order they are stored in — the order the user entered
+    /// them — and not to anything derived from `id`, which is a random UUID.
+    @Test("Trades with identical timestamps replay in the order they were stored")
+    func identicalTimestampsKeepStoredOrder() throws {
+        let stamp = Date(timeIntervalSince1970: 1_787_000_000)
+        let buy = PositionTransaction(
+            kind: .buy, price: 100, quantity: 10, date: stamp, createdAt: stamp)
+        let sell = PositionTransaction(
+            kind: .sell, price: 130, quantity: 4, date: stamp, createdAt: stamp)
+
+        #expect(PositionLedger.replayOrdered([buy, sell]).map(\.id) == [buy.id, sell.id])
+        // The reverse array is a different ledger, not the same one re-sorted.
+        #expect(PositionLedger.replayOrdered([sell, buy]).map(\.id) == [sell.id, buy.id])
+
+        // Sorting is idempotent: replaying an already-ordered list cannot reshuffle it.
+        let once = PositionLedger.replayOrdered([buy, sell])
+        #expect(PositionLedger.replayOrdered(once).map(\.id) == once.map(\.id))
+    }
+
+    /// A real timestamp difference still outranks stored order, so an entry
+    /// back-dated to an earlier day replays first however it was appended.
+    @Test("An earlier trade date still wins over stored order")
+    func earlierDateWinsOverStoredOrder() throws {
+        let older = PositionTransaction(
+            kind: .buy, price: 100, quantity: 10,
+            date: Date(timeIntervalSince1970: 1_786_000_000),
+            createdAt: Date(timeIntervalSince1970: 1_787_000_000))
+        let newer = PositionTransaction(
+            kind: .sell, price: 130, quantity: 4,
+            date: Date(timeIntervalSince1970: 1_787_000_000),
+            createdAt: Date(timeIntervalSince1970: 1_787_000_000))
+
+        #expect(PositionLedger.replayOrdered([newer, older]).map(\.id) == [older.id, newer.id])
+    }
+
 }
 
 @Suite("Watchlist store transactions")

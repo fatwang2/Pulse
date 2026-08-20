@@ -107,6 +107,50 @@ struct CompositeProviderTests {
         #expect(elapsed < .milliseconds(500))
     }
 
+    @Test("Metal catalog hits lead search, and only while a source can price them")
+    func metalCatalogSearch() async throws {
+        let stock = SymbolInfo(
+            symbol: SymbolID(market: .us, code: "GOLD"),
+            name: "Gold.com, Inc.",
+            type: .equity
+        )
+        let quotesMetals = MockProvider(id: "metals", searchResults: [stock])
+        let withMetals = CompositeProvider(providers: [quotesMetals])
+
+        // "gold" names the COMEX contract, London spot and Shanghai; all lead.
+        let results = try await withMetals.search("gold")
+        #expect(results.map(\.symbol) == [
+            SymbolID(metal: .goldSpot), SymbolID(metal: .gold),
+            SymbolID(metal: .shanghaiGoldSpot), SymbolID(metal: .shanghaiGold),
+            stock.symbol,
+        ])
+        #expect(results.first?.resolvedDisplayName == PreciousMetalID.goldSpot.displayName)
+
+        // No source covers the metal market: offering a row nothing can quote
+        // would be worse than not finding it.
+        var equitiesOnly = MockProvider(id: "equities", searchResults: [stock])
+        equitiesOnly.markets = [.us]
+        let withoutMetals = CompositeProvider(providers: [equitiesOnly])
+        #expect(try await withoutMetals.search("gold").map(\.symbol) == [stock.symbol])
+    }
+
+    @Test("A provider name never overrides the metal catalog name")
+    func metalNameStaysCanonical() async throws {
+        let yahooStyle = SymbolInfo(
+            symbol: SymbolID(metal: .gold),
+            name: "Gold Dec 26",
+            type: .commodity
+        )
+        let composite = CompositeProvider(providers: [MockProvider(id: "yahoo", searchResults: [yahooStyle])])
+
+        let results = try await composite.search("GC")
+        #expect(results.count == 1)
+        #expect(results[0].resolvedDisplayName == PreciousMetalID.gold.displayName)
+
+        let names = try await composite.preferredSecurityNames(for: [SymbolID(metal: .gold)])
+        #expect(names.isEmpty)
+    }
+
     @Test("Weak crypto results rank behind stocks regardless of provider order")
     func globalSearchRankingPutsWeakCryptoLast() async throws {
         let crypto = SymbolInfo(

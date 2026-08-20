@@ -3,6 +3,9 @@ import Foundation
 /// Tencent quote snapshots (qt.gtimg.cn, unofficial API).
 /// Capabilities: batch quotes plus real-time A-share minute series; other markets and historical K-line periods fall back to the next provider.
 /// The response is GBK-encoded text of the form `v_sh600519="1~<name>~600519~<price>~<prevClose>~<open>~...";`.
+/// The `hf_` channel (international futures, which is how Pulse reaches the
+/// precious metals) answers on the same endpoint in a different, comma-separated
+/// format — see `InternationalFuturesQuote`.
 public struct TencentProvider: QuoteProvider {
     let http: HTTPClient
 
@@ -14,11 +17,11 @@ public struct TencentProvider: QuoteProvider {
         ProviderDescriptor(
             id: "tencent",
             name: PulseLocalization.localizedString("provider.tencent"),
-            markets: [.us, .hk, .sh, .sz],
+            markets: [.us, .hk, .sh, .sz, .metal],
             capabilities: [.quotes, .search, .candles],
             candleMarkets: [.sh, .sz],
             candlePeriods: [.minute1, .minute5, .minute15, .minute30, .hour1],
-            delay: [.us: 0, .hk: 900, .sh: 0, .sz: 0],
+            delay: [.us: 0, .hk: 900, .sh: 0, .sz: 0, .metal: 0],
             rateLimit: RateLimitPolicy(minInterval: 2, batchSize: 60),
             suggestedPollInterval: 15
         )
@@ -26,7 +29,25 @@ public struct TencentProvider: QuoteProvider {
 
     // MARK: - Symbol mapping
 
+    /// International-futures channel prefix. Its payload format differs from the
+    /// equity one, so the prefix also routes parsing.
+    static let internationalPrefix = "hf_"
+
     static func tencentSymbol(for id: SymbolID) -> String? {
+        if let metal = id.metalID {
+            // Only the international channel: this endpoint does not serve the
+            // domestic `nf_` futures at all.
+            let contract: String? = switch metal {
+            case .gold: "GC"
+            case .silver: "SI"
+            case .platinum: "XPT"
+            case .palladium: "XPD"
+            case .goldSpot: "XAU"
+            case .silverSpot: "XAG"
+            case .shanghaiGoldSpot, .shanghaiGold, .shanghaiSilver: nil
+            }
+            return contract.map { internationalPrefix + $0 }
+        }
         if let index = id.indexID {
             return switch index {
             case .sp500: "usINX"
@@ -40,6 +61,9 @@ public struct TencentProvider: QuoteProvider {
             case .shanghaiComposite: "sh000001"
             case .shenzhenComponent: "sz399001"
             case .chiNext: "sz399006"
+            // No code on this endpoint answers for either: `jpN225`, `krKS11`
+            // and the `int_` variants all come back `pv_none_match`.
+            case .nikkei225, .kospi: nil
             }
         }
         switch id.market {
@@ -48,6 +72,14 @@ public struct TencentProvider: QuoteProvider {
         case .sh: return "sh" + id.code
         case .sz: return "sz" + id.code
         case .crypto: return id.code
+        // Tencent's international channel has no domestic-futures counterpart:
+        // `nf_` codes are not served on this endpoint at all.
+        case .metal, .metalCN: return nil
+        // Tencent does serve Tokyo and Seoul (`jp7203`, `kr005930`), but only as
+        // quotes: the minute endpoint answers with a single point and the daily
+        // K-line with a single bar, so there is no history behind them. Measured,
+        // not assumed. Yahoo covers both markets fully, so nothing is routed here.
+        case .jp, .kr, .kq: return nil
         }
     }
 
@@ -184,8 +216,17 @@ public struct TencentProvider: QuoteProvider {
         for line in text.split(separator: ";") {
             guard let eq = line.firstIndex(of: "=") else { continue }
             let key = line[..<eq].trimmingCharacters(in: .whitespacesAndNewlines)
-            guard key.hasPrefix("v_"), let symbol = mapping[String(key.dropFirst(2))] else { continue }
+            guard key.hasPrefix("v_") else { continue }
+            let wireSymbol = String(key.dropFirst(2))
+            guard let symbol = mapping[wireSymbol] else { continue }
             let payload = line[line.index(after: eq)...].trimmingCharacters(in: CharacterSet(charactersIn: "\"\n\r "))
+            if wireSymbol.hasPrefix(internationalPrefix) {
+                // A different payload shape entirely; see InternationalFuturesQuote.
+                if let quote = InternationalFuturesQuote.parse(payload: payload, symbol: symbol) {
+                    result.append(quote)
+                }
+                continue
+            }
             let f = payload.components(separatedBy: "~")
             guard f.count > 37,
                   let price = Double(f[3]), price > 0,

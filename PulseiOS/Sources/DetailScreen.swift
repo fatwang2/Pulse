@@ -120,8 +120,15 @@ struct DetailScreen: View {
             case .hk: 330
             case .us: 16 * 60
             case .crypto: 24 * 60
+            case .metal: 23 * 60
+            case .metalCN: 780
+            case .jp: 330
+            case .kr, .kq: 390
             }
-            let historyDays = symbol.market == .crypto ? 1 : 5
+            let historyDays = switch symbol.market {
+            case .crypto, .metal: 1
+            case .us, .hk, .sh, .sz, .metalCN, .jp, .kr, .kq: 5
+            }
             return min(max(sessionMinutes / minutes * historyDays, 240), 1_000)
         case .day: return 250
         case .week: return 260

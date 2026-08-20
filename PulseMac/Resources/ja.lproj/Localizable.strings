@@ -64,14 +64,30 @@
 "index.hangSengTech" = "ハンセンテック指数";
 "index.shanghaiComposite" = "上海総合指数";
 "index.shenzhenComponent" = "深セン成分指数";
+"index.nikkei225" = "日経平均株価";
+"index.kospi" = "韓国総合株価指数";
 "index.chiNext" = "創業板指数";
+"metal.gold" = "NY金";
+"metal.goldSpot" = "ロンドン金";
+"metal.silver" = "NY銀";
+"metal.silverSpot" = "ロンドン銀";
+"metal.platinum" = "NYプラチナ";
+"metal.palladium" = "NYパラジウム";
+"metal.shanghaiGoldSpot" = "上海金";
+"metal.shanghaiGold" = "上海金先物";
+"metal.shanghaiSilver" = "上海銀先物";
 
 "market.hk" = "香港株";
 "market.crypto" = "暗号資産";
+"market.jp" = "日本株";
+"market.kr" = "韓国株";
+"market.metal" = "貴金属";
 "market.sh" = "上海";
 "market.sz" = "深セン";
 "market.timeZone.cn" = "上海時間";
 "market.timeZone.hk" = "香港時間";
+"market.timeZone.jp" = "東京時間";
+"market.timeZone.kr" = "ソウル時間";
 "market.timeZone.us" = "ニューヨーク時間";
 "market.timeZone.utc" = "UTC";
 "market.us" = "米国株";
@@ -179,9 +195,14 @@
 "longbridge.credentials.error" = "検証に失敗しました。認証情報と Access Token の有効期限を確認してください";
 "longbridge.credentials.help" = "App Key・App Secret・Access Token は open.longbridge.com のユーザーセンターで取得できます。認証情報はこの Mac のキーチェーンにのみ保存されます。";
 "provider.tencent" = "Tencent Finance";
+"provider.sina" = "新浪財経";
+"provider.naver" = "Naver ファイナンス";
+"provider.sge" = "上海金取引所";
+"provider.eastmoney" = "東方財富";
 "provider.yahoo" = "Yahoo Finance";
 
 "quote.delay.minutes" = "約%d分遅延";
+"quote.cadence.seconds" = "%d秒更新";
 "quote.price.close" = "終値";
 "quote.regularClose.previous" = "前日終値";
 "quote.regularClose.today" = "終値";
@@ -222,7 +243,7 @@
 "settings.market.redUp" = "赤＝値上がり";
 "settings.market.usExtendedHours" = "米国株の日中チャートに時間外取引を表示";
 "settings.market.prioritizeOpenMarkets" = "取引時間で並べ替え";
-"settings.market.prioritizeOpenMarketsHelp" = "市場ごとにグループ化します。北京時間 8:00–17:00 は香港 → 中国A株 → 米国、17:00–8:00 は米国 → 香港 → 中国A株の順です。ピン留めは各市場内で維持され、暗号資産は常に最後に表示されます。";
+"settings.market.prioritizeOpenMarketsHelp" = "市場ごとにグループ化します。北京時間 8:00–17:00 は香港 → 中国A株 → 日本 → 韓国 → 米国、17:00–8:00 は米国 → 香港 → 中国A株 → 日本 → 韓国の順です。ピン留めは各市場内で維持され、貴金属と暗号資産は常に最後に表示されます。";
 "settings.menuBar.displayMode" = "表示モード";
 "settings.menuBar.firstWatchlistItem" = "ウォッチリストの先頭";
 "settings.menuBar.fixedSymbol" = "銘柄";

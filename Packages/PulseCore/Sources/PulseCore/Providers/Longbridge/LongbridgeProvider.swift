@@ -104,8 +104,10 @@ public actor LongbridgeProvider: QuoteProvider {
         sdk.quoteStream(for: symbols)
     }
 
-    /// Pulse `SymbolID` → Longbridge `ticker.region`. Crypto is not covered by the
-    /// OpenAPI quote packages, so it stays with the other providers.
+    /// Pulse `SymbolID` → Longbridge `ticker.region`. Crypto and the metal
+    /// contracts are not covered by the OpenAPI quote packages (its boards are
+    /// equities, ETFs, indices, options and warrants only), so they stay with the
+    /// other providers.
     static func longbridgeSymbol(for symbol: SymbolID) -> String? {
         if let index = symbol.indexID {
             return switch index {
@@ -122,6 +124,8 @@ public actor LongbridgeProvider: QuoteProvider {
             case .shanghaiComposite: "000001.SH"
             case .shenzhenComponent: "399001.SZ"
             case .chiNext: "399006.SZ"
+            // Longbridge's quote packages stop at HK, US and mainland China.
+            case .nikkei225, .kospi: nil
             }
         }
         switch symbol.market {
@@ -136,7 +140,7 @@ public actor LongbridgeProvider: QuoteProvider {
         case .hk: return "\(symbol.code).HK"
         case .sh: return "\(symbol.code).SH"
         case .sz: return "\(symbol.code).SZ"
-        case .crypto: return nil
+        case .crypto, .metal, .metalCN, .jp, .kr, .kq: return nil
         }
     }
 

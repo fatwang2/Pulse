@@ -73,9 +73,11 @@ public struct WatchItem: Codable, Sendable, Hashable, Identifiable {
 
     /// The persisted name is the user-facing identity chosen when the symbol was
     /// added. Quote providers must not replace it as routing or failover changes.
-    /// Indices use Pulse's localized catalog so every provider presents one name.
+    /// Indices and metals use Pulse's localized catalog so every provider
+    /// presents one name.
     public var resolvedDisplayName: String {
         if let index = symbol.indexID { return index.displayName }
+        if let metal = symbol.metalID { return metal.displayName }
         let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? symbol.displayCode : displayName
     }
@@ -84,10 +86,13 @@ public struct WatchItem: Codable, Sendable, Hashable, Identifiable {
         Self.normalizedInstrumentType(instrumentType, for: symbol)
     }
 
-    /// An index is a calculated benchmark rather than a directly held security.
-    /// ETFs and other exchange-traded products remain position-eligible.
+    /// An index is a calculated benchmark rather than a directly held security,
+    /// and a metal quote is a futures contract whose exchange multiplier Pulse
+    /// does not model — cost basis there would be wrong by a factor of the
+    /// contract size. ETFs and other exchange-traded products remain
+    /// position-eligible.
     public var supportsPosition: Bool {
-        resolvedInstrumentType != .index
+        resolvedInstrumentType != .index && resolvedInstrumentType != .commodity
     }
 
     static func normalizedInstrumentType(
@@ -95,6 +100,7 @@ public struct WatchItem: Codable, Sendable, Hashable, Identifiable {
         for symbol: SymbolID
     ) -> InstrumentType? {
         if symbol.indexID != nil { return .index }
+        if symbol.metalID != nil { return .commodity }
         if symbol.cryptoPair != nil { return .crypto }
         return instrumentType
     }

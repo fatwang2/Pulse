@@ -1,8 +1,14 @@
 import Foundation
 
 /// Yahoo Finance v8 chart / v1 search (unofficial API).
-/// Capabilities: search + quotes + candles across US/HK/SH/SZ; A-shares and HK are delayed by about 15 minutes.
-/// Crypto is intentionally excluded: Binance is the sole source of truth for crypto pairs.
+/// Capabilities: search + quotes + candles across US/HK/SH/SZ/JP/KR and the
+/// metal contracts; A-shares and HK are delayed by about 15 minutes, Tokyo and
+/// Seoul by about 20, CME-group futures by about 10. Crypto is intentionally
+/// excluded: Binance is the sole source of truth for crypto pairs.
+///
+/// Yahoo indexes only English names and tickers: `任天堂`, `サムスン` and
+/// `삼성전자` all return nothing, so Japanese and Korean stocks are reachable by
+/// code or English name until a native-language index is wired.
 public struct YahooProvider: QuoteProvider {
     let http: HTTPClient
     /// Shared by every call through this provider instance, which is what lets
@@ -17,9 +23,13 @@ public struct YahooProvider: QuoteProvider {
         ProviderDescriptor(
             id: "yahoo",
             name: PulseLocalization.localizedString("provider.yahoo"),
-            markets: [.us, .hk, .sh, .sz],
+            markets: [.us, .hk, .sh, .sz, .jp, .kr, .kq, .metal],
             capabilities: [.search, .quotes, .candles, .profile],
-            delay: [.us: 0, .hk: 900, .sh: 900, .sz: 900],
+            // Yahoo is the only wired source of metal history, so it stays a
+            // candle provider for that market even though Tencent quotes it live.
+            // Seoul measured at ~21 minutes behind the tape; Tokyo is licensed the
+            // same way. Both are rounded to the 20 minutes Yahoo publishes.
+            delay: [.us: 0, .hk: 900, .sh: 900, .sz: 900, .jp: 1_200, .kr: 1_200, .kq: 1_200, .metal: 600],
             rateLimit: RateLimitPolicy(minInterval: 1, batchSize: 1),
             // Yahoo rate-limits aggressively per IP; poll politely and let pushes/others carry liveliness
             suggestedPollInterval: 60
@@ -29,6 +39,7 @@ public struct YahooProvider: QuoteProvider {
     // MARK: - Symbol mapping
 
     static func yahooSymbol(for id: SymbolID) -> String {
+        if let metal = id.metalID { return metalSymbol(for: metal) }
         if let index = id.indexID {
             return switch index {
             case .sp500: "^GSPC"
@@ -43,6 +54,8 @@ public struct YahooProvider: QuoteProvider {
             case .shanghaiComposite: "000001.SS"
             case .shenzhenComponent: "399001.SZ"
             case .chiNext: "399006.SZ"
+            case .nikkei225: "^N225"
+            case .kospi: "^KS11"
             }
         }
         switch id.market {
@@ -50,8 +63,22 @@ public struct YahooProvider: QuoteProvider {
         case .hk: return id.paddedCode(width: 4) + ".HK"
         case .sh: return id.code + ".SS"
         case .sz: return id.code + ".SZ"
+        case .jp: return id.code + ".T"
+        // The board is part of the address, and it cannot be derived from the
+        // code: 035720 is KOSPI even though its neighbours in that range are not.
+        case .kr: return id.code + ".KS"
+        case .kq: return id.code + ".KQ"
         case .crypto: return id.code // Unreachable through provider routing.
+        // A hand-typed metal code Pulse does not model (say `XAU`) keeps its own
+        // text: Yahoo answers 404, which is the truth, rather than the app
+        // quietly pricing a different contract.
+        case .metal, .metalCN: return id.code
         }
+    }
+
+    /// Continuous front-month futures, which is what Yahoo's `=F` suffix means.
+    static func metalSymbol(for metal: PreciousMetalID) -> String {
+        "\(metal.displayCode)=F"
     }
 
     static func symbolID(fromYahoo raw: String) -> SymbolID? {
@@ -69,12 +96,22 @@ public struct YahooProvider: QuoteProvider {
         case "000001.SS": .shanghaiComposite
         case "399001.SZ": .shenzhenComponent
         case "399006.SZ": .chiNext
+        case "^N225": .nikkei225
+        case "^KS11": .kospi
         default: nil
         }
         if let index { return SymbolID(index: index) }
+        // Metals are checked before the `=` rejection below: their futures
+        // notation is the one Yahoo symbol shape Pulse understands.
+        if let metal = PreciousMetalID.resolve(market: .us, code: upper) {
+            return SymbolID(metal: metal)
+        }
         if upper.hasSuffix(".HK") { return SymbolID(market: .hk, code: String(upper.dropLast(3))) }
         if upper.hasSuffix(".SS") { return SymbolID(market: .sh, code: String(upper.dropLast(3))) }
         if upper.hasSuffix(".SZ") { return SymbolID(market: .sz, code: String(upper.dropLast(3))) }
+        if upper.hasSuffix(".T") { return SymbolID(market: .jp, code: String(upper.dropLast(2))) }
+        if upper.hasSuffix(".KS") { return SymbolID(market: .kr, code: String(upper.dropLast(3))) }
+        if upper.hasSuffix(".KQ") { return SymbolID(market: .kq, code: String(upper.dropLast(3))) }
         if looksLikeCryptoPair(upper) { return nil }
         // Other exchange suffixes / FX symbols are not supported yet; no suffix means US (including indices like ^GSPC, tickers like BRK-B)
         if upper.contains(".") || upper.contains("=") { return nil }
@@ -116,6 +153,9 @@ public struct YahooProvider: QuoteProvider {
             case "ETF": .etf
             case "INDEX": .index
             case "MUTUALFUND": .fund
+            // Only the metal contracts resolve to a SymbolID; every other
+            // future (`CL=F`, `MGC=F`, …) is dropped by the mapping below.
+            case "FUTURE": .commodity
             case "CRYPTOCURRENCY": .other
             default: .other
             }
@@ -154,6 +194,7 @@ public struct YahooProvider: QuoteProvider {
 
     func quote(for symbol: SymbolID) async throws -> Quote {
         guard symbol.market != .crypto else { throw ProviderError.unsupported(.quotes) }
+        guard symbol.metalID?.isSpot != true else { throw ProviderError.unsupported(.quotes) }
         if symbol.market == .us, let quote = try? await extendedHoursQuote(for: symbol) {
             return quote
         }
@@ -268,6 +309,9 @@ public struct YahooProvider: QuoteProvider {
 
     public func candles(for symbol: SymbolID, period: CandlePeriod, count: Int) async throws -> [Candle] {
         guard symbol.market != .crypto else { throw ProviderError.unsupported(.candles) }
+        // London spot has never had a working Yahoo symbol; say so instead of
+        // spending a request on a guaranteed 404 before failing over.
+        guard symbol.metalID?.isSpot != true else { throw ProviderError.unsupported(.candles) }
         var (interval, range) = Self.chartParams(for: period)
         // Fetch the complete US pre/regular/post series for every intraday resolution.
         // Presentation applies the user's session preference without another network load.

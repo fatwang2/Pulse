@@ -64,14 +64,30 @@
 "index.hangSengTech" = "Hang Seng TECH Index";
 "index.shanghaiComposite" = "Shanghai Composite";
 "index.shenzhenComponent" = "Shenzhen Component Index";
+"index.nikkei225" = "Nikkei 225";
+"index.kospi" = "KOSPI Composite Index";
 "index.chiNext" = "ChiNext Index";
+"metal.gold" = "COMEX Gold";
+"metal.goldSpot" = "London Gold Spot";
+"metal.silver" = "COMEX Silver";
+"metal.silverSpot" = "London Silver Spot";
+"metal.platinum" = "NYMEX Platinum";
+"metal.palladium" = "NYMEX Palladium";
+"metal.shanghaiGoldSpot" = "Shanghai Gold Spot";
+"metal.shanghaiGold" = "SHFE Gold";
+"metal.shanghaiSilver" = "SHFE Silver";
 
 "market.hk" = "HK";
 "market.crypto" = "Crypto";
+"market.jp" = "JP";
+"market.kr" = "KR";
+"market.metal" = "Metals";
 "market.sh" = "SH";
 "market.sz" = "SZ";
 "market.timeZone.cn" = "Shanghai";
 "market.timeZone.hk" = "Hong Kong";
+"market.timeZone.jp" = "Tokyo";
+"market.timeZone.kr" = "Seoul";
 "market.timeZone.us" = "New York";
 "market.timeZone.utc" = "UTC";
 "market.us" = "US";
@@ -179,9 +195,14 @@
 "longbridge.credentials.error" = "Verification failed: check the credentials and whether the access token has expired";
 "longbridge.credentials.help" = "Get the App Key, App Secret and Access Token from the open.longbridge.com user center. Credentials are stored only in the local Keychain.";
 "provider.tencent" = "Tencent Finance";
+"provider.sina" = "Sina Finance";
+"provider.naver" = "Naver Finance";
+"provider.sge" = "Shanghai Gold Exchange";
+"provider.eastmoney" = "Eastmoney";
 "provider.yahoo" = "Yahoo Finance";
 
 "quote.delay.minutes" = "Delayed ~%d min";
+"quote.cadence.seconds" = "%ds refresh";
 "quote.price.close" = "Close";
 "quote.regularClose.previous" = "Prev Close";
 "quote.regularClose.today" = "At Close";
@@ -222,7 +243,7 @@
 "settings.market.redUp" = "Red for Gains";
 "settings.market.usExtendedHours" = "US Pre/Post-Market on Intraday Charts";
 "settings.market.prioritizeOpenMarkets" = "Order by Market Hours";
-"settings.market.prioritizeOpenMarketsHelp" = "Groups the list by market. 8:00–17:00 Beijing time runs HK → China A → US; 17:00–8:00 runs US → HK → China A. Pins stay within their market; crypto always stays last.";
+"settings.market.prioritizeOpenMarketsHelp" = "Groups the list by market. 8:00–17:00 Beijing time runs HK → China A → Japan → Korea → US; 17:00–8:00 runs US → HK → China A → Japan → Korea. Pins stay within their market; metals and crypto always stay last.";
 "settings.menuBar.displayMode" = "Display Mode";
 "settings.menuBar.firstWatchlistItem" = "First in Watchlist";
 "settings.menuBar.fixedSymbol" = "Symbol";

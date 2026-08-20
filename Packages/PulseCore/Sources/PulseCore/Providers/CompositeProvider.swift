@@ -352,7 +352,9 @@ public actor CompositeProvider: QuoteProvider {
     /// Resolves the best currently available static names without changing quote
     /// routing health. A metadata failure must not make prices fall back.
     public func preferredSecurityNames(for symbols: [SymbolID]) async throws -> [SourcedSecurityName] {
-        let requested = symbols.filter { $0.indexID == nil }
+        // Indices and metals carry Pulse's own catalog name; asking a source to
+        // name them would only invite a provider spelling to win.
+        let requested = symbols.filter { $0.indexID == nil && $0.metalID == nil }
         guard !requested.isEmpty else { return [] }
 
         var resolved: [SymbolID: SourcedSecurityName] = [:]
@@ -545,6 +547,14 @@ public actor CompositeProvider: QuoteProvider {
         // Sources exist but are all in circuit-breaker cooldown — that's not the same as disabled: report rate limiting, which recovers automatically
         guard !capable.isEmpty else { throw ProviderError.rateLimited }
 
+        // Pulse carries the metal catalog itself: no provider search covers the
+        // international channel these contracts are quoted on, so the identities
+        // can only come from the app. Offer them only while some source can
+        // actually price them.
+        let metals = candidates(.quotes, market: .metal).isEmpty
+            ? []
+            : PreciousMetalCatalog.search(query)
+
         // Search providers are independent. Return soon after the first useful source,
         // while keeping a short window for other fast sources to enrich the result set.
         // A hard deadline prevents one stalled source from holding every result hostage.
@@ -622,8 +632,12 @@ public actor CompositeProvider: QuoteProvider {
         }
         try Task.checkCancellation()
 
-        var merged: [SymbolInfo] = []
-        var indexBySymbol: [SymbolID: Int] = [:]
+        // Catalog hits lead the merge: an exact alias match ("黄金", "XAU") is a
+        // stronger answer than anything a provider returns for the same words.
+        var merged: [SymbolInfo] = metals
+        var indexBySymbol = Dictionary(
+            uniqueKeysWithValues: metals.enumerated().map { ($0.element.symbol, $0.offset) }
+        )
         var lastError: (any Error)?
         for (index, outcome) in aggregation.outcomes {
             switch outcome {
@@ -761,6 +775,7 @@ public actor CompositeProvider: QuoteProvider {
         switch providerID {
         case "tencent": "zh-Hans"
         case "yahoo": "en"
+        case NaverProvider.providerID: "ko"
         default: PulseLocalization.currentLanguageIdentifier
         }
     }

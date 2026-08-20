@@ -164,6 +164,63 @@ struct TencentParserTests {
         #expect(candles.compactMap(\.volume) == [2_000, 2_000, 2_000, 2_000])
     }
 
+    /// Excerpt from a real `hf_` response (international futures, 2026-08-19).
+    /// Fourteen comma-separated fields, no volume, timestamps in Beijing time.
+    static let metalFixture = """
+    v_hf_GC="4413.61,-0.16,4412.90,4413.30,4417.20,4378.00,16:53:00,4420.60,4391.40,0,2,2,2026-08-19,纽约黄金";
+    v_hf_XPD="1292.30,-0.10,1291.50,1293.00,1295.00,1279.50,16:51:36,1293.60,1289.50,0,4,3,2026-08-19,纽约钯金";
+    """
+
+    @Test("Parses an international metal snapshot")
+    func parseMetal() throws {
+        let gold = SymbolID(metal: .gold)
+        let palladium = SymbolID(metal: .palladium)
+        let quotes = TencentProvider.parseQuotes(
+            text: Self.metalFixture,
+            mapping: ["hf_GC": gold, "hf_XPD": palladium]
+        )
+        #expect(quotes.count == 2)
+
+        let quote = try #require(quotes.first { $0.symbol == gold })
+        #expect(quote.name == "纽约黄金")
+        #expect(quote.price == 4413.61)
+        #expect(quote.previousClose == 4420.60)
+        #expect(quote.open == 4391.40)
+        #expect(quote.high == 4417.20)
+        #expect(quote.low == 4378.00)
+        #expect(quote.currencyCode == "USD")
+        // The derived change percent matches the API's own figure (-0.16%)
+        #expect(abs(quote.changePercent - -0.16) < 0.01)
+        // The channel reports open interest and bid/ask sizes, never traded volume.
+        #expect(quote.volume == nil)
+        #expect(quote.turnover == nil)
+
+        // Date and time are stamped in Beijing time whatever the contract's exchange.
+        var beijing = Calendar(identifier: .gregorian)
+        beijing.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let parts = beijing.dateComponents([.year, .month, .day, .hour, .minute], from: quote.timestamp)
+        #expect(parts.year == 2026)
+        #expect(parts.month == 8)
+        #expect(parts.day == 19)
+        #expect(parts.hour == 16)
+        #expect(parts.minute == 53)
+    }
+
+    @Test("A metal payload without a usable reference still quotes its price")
+    func parseMetalWithoutPreviousClose() throws {
+        let fixture = #"v_hf_SI="63.29,0.00,63.29,63.30,0.00,0.00,00:00:00,0.00,0.00,0,0,0,2026-08-19,纽约白银";"#
+        let silver = SymbolID(metal: .silver)
+        let quote = try #require(
+            TencentProvider.parseQuotes(text: fixture, mapping: ["hf_SI": silver]).first
+        )
+        #expect(quote.price == 63.29)
+        #expect(quote.previousClose == 63.29)
+        #expect(quote.changePercent == 0)
+        #expect(quote.open == nil)
+        #expect(quote.high == nil)
+        #expect(quote.low == nil)
+    }
+
     @Test("Tencent candle coverage is limited to A-share intraday periods")
     func candleCoverage() {
         let descriptor = TencentProvider().descriptor

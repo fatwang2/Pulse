@@ -421,7 +421,7 @@ public final class WatchlistStore {
         source: DisplayNameSource,
         allowSameProviderRefresh: Bool = false
     ) -> Bool {
-        guard symbol.indexID == nil,
+        guard symbol.indexID == nil, symbol.metalID == nil,
               let index = allItems.firstIndex(where: { $0.symbol == symbol }) else {
             return false
         }

@@ -154,8 +154,15 @@ struct DetailView: View {
             // regular hours or 04:00–20:00 ET without a second request.
             case .us: 16 * 60
             case .crypto: 24 * 60
+            case .metal: 23 * 60
+            case .metalCN: 780
+            case .jp: 330
+            case .kr, .kq: 390
             }
-            let historyDays = symbol.market == .crypto ? 1 : 5
+            let historyDays = switch symbol.market {
+            case .crypto, .metal: 1
+            case .us, .hk, .sh, .sz, .metalCN, .jp, .kr, .kq: 5
+            }
             return min(max(sessionMinutes / minutes * historyDays, 240), 1_000)
         case .day: return 250
         case .week: return 260
@@ -395,6 +402,7 @@ struct DetailView: View {
     private var sharedInstrumentType: InstrumentType? {
         if let type = item?.resolvedInstrumentType { return type }
         if symbol.indexID != nil { return .index }
+        if symbol.metalID != nil { return .commodity }
         if symbol.cryptoPair != nil { return .crypto }
         return nil
     }
@@ -554,12 +562,18 @@ struct DetailView: View {
     /// Bottom-aligns with the price block so the metadata reads as an annotation to the quote.
     private func quoteMeta(for quote: Quote) -> some View {
         let delayText = appState.quoteDelayText(for: quote)
+        // A polled source is current but steps; saying so next to "realtime"
+        // keeps the word honest without spending another line.
+        let freshness = [delayText ?? PulseLocalization.localizedString("quote.realtime"),
+                         appState.quoteCadenceText(for: quote)]
+            .compactMap { $0 }
+            .joined(separator: " · ")
         return VStack(alignment: .trailing, spacing: 4) {
             HStack(spacing: 4) {
                 Circle()
                     .fill(delayText == nil ? Color.green.opacity(0.8) : .orange)
                     .frame(width: 5, height: 5)
-                Text(delayText ?? PulseLocalization.localizedString("quote.realtime"))
+                Text(freshness)
                     .foregroundStyle(delayText == nil ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.orange.opacity(0.85)))
             }
             if let sourceName = quote.sourceName {

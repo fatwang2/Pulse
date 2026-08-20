@@ -1490,7 +1490,8 @@ struct SearchResultRow: View {
 
     private var typeLabel: String? {
         switch info.type {
-        case .equity, .crypto:
+        // The market badge already names these; a second tag would repeat it.
+        case .equity, .crypto, .commodity:
             nil
         case .etf:
             "ETF"

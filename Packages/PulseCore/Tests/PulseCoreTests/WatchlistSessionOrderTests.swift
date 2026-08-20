@@ -33,6 +33,7 @@ struct WatchlistSessionOrderTests {
     private let maotai = SymbolID(market: .sh, code: "600519")
     private let pingAn = SymbolID(market: .sz, code: "000001")
     private let btc = SymbolID(market: .crypto, code: "BTC-USDT")
+    private let gold = SymbolID(metal: .gold)
 
     private func beijing(_ iso: String) -> Date {
         let formatter = ISO8601DateFormatter()
@@ -58,6 +59,20 @@ struct WatchlistSessionOrderTests {
             at: beijing("2025-06-16T10:00:00Z") // 18:00 Beijing
         )
         #expect(ordered == [aapl, tsla, tencent, maotai, pingAn, btc])
+    }
+
+    @Test("Metals follow the session-bound blocks and lead crypto")
+    func metalBlockPlacement() {
+        let base = [btc, gold, aapl, tencent]
+        #expect(MarketBlock(market: .metal) == .metal)
+        #expect(
+            WatchlistSessionOrder.orderedSymbols(base, at: beijing("2025-06-16T02:00:00Z"))
+                == [tencent, aapl, gold, btc]
+        )
+        #expect(
+            WatchlistSessionOrder.orderedSymbols(base, at: beijing("2025-06-16T10:00:00Z"))
+                == [aapl, tencent, gold, btc]
+        )
     }
 
     @Test("Pins stay inside their market block")

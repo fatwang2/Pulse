@@ -65,6 +65,8 @@ public enum MarketIndexID: String, Codable, Sendable, CaseIterable {
     case shanghaiComposite
     case shenzhenComponent
     case chiNext
+    case nikkei225
+    case kospi
 
     public var market: Market {
         switch self {
@@ -77,6 +79,10 @@ public enum MarketIndexID: String, Codable, Sendable, CaseIterable {
             .sh
         case .shenzhenComponent, .chiNext:
             .sz
+        case .nikkei225:
+            .jp
+        case .kospi:
+            .kr
         }
     }
 
@@ -95,6 +101,8 @@ public enum MarketIndexID: String, Codable, Sendable, CaseIterable {
         case .shanghaiComposite: "000001"
         case .shenzhenComponent: "399001"
         case .chiNext: "399006"
+        case .nikkei225: "N225"
+        case .kospi: "KOSPI"
         }
     }
 
@@ -119,6 +127,8 @@ public enum MarketIndexID: String, Codable, Sendable, CaseIterable {
         case .shanghaiComposite: chinese ? "上证指数" : "Shanghai Composite"
         case .shenzhenComponent: chinese ? "深证成指" : "Shenzhen Component Index"
         case .chiNext: chinese ? "创业板指" : "ChiNext Index"
+        case .nikkei225: chinese ? "日经225指数" : "Nikkei 225"
+        case .kospi: chinese ? "韩国综合指数" : "KOSPI Composite Index"
         }
     }
 
@@ -138,6 +148,8 @@ public enum MarketIndexID: String, Codable, Sendable, CaseIterable {
         case .shanghaiComposite: "000001"
         case .shenzhenComponent: "399001"
         case .chiNext: "399006"
+        case .nikkei225: "^N225"
+        case .kospi: "^KS11"
         }
     }
 
@@ -184,14 +196,27 @@ public enum MarketIndexID: String, Codable, Sendable, CaseIterable {
             case "399006": return .chiNext
             default: return nil
             }
-        case .crypto:
+        case .jp:
+            if code.hasSuffix(".T") { code.removeLast(2) }
+            switch code {
+            case "N225", "^N225", ".N225", "NKY": return .nikkei225
+            default: return nil
+            }
+        case .kr, .kq:
+            if code.hasSuffix(".KS") || code.hasSuffix(".KQ") { code.removeLast(3) }
+            switch code {
+            case "KS11", "^KS11", ".KS11", "KOSPI": return .kospi
+            default: return nil
+            }
+        case .crypto, .metal, .metalCN:
             return nil
         }
     }
 }
 
 /// Globally unique instrument identifier. Stocks and ETFs use a native exchange
-/// code, indices use a semantic identity, and cryptocurrencies use a structured pair.
+/// code, indices and precious metals use a semantic identity, and
+/// cryptocurrencies use a structured pair.
 public struct SymbolID: Hashable, Codable, Sendable, CustomStringConvertible {
     public let market: Market
     private let storage: Storage
@@ -199,6 +224,7 @@ public struct SymbolID: Hashable, Codable, Sendable, CustomStringConvertible {
     private enum Storage: Hashable, Sendable {
         case securityCode(String)
         case marketIndex(MarketIndexID)
+        case preciousMetal(PreciousMetalID)
         case cryptoPair(CryptoPair)
     }
 
@@ -206,6 +232,9 @@ public struct SymbolID: Hashable, Codable, Sendable, CustomStringConvertible {
         if market == .crypto, let pair = CryptoPair.parse(code) {
             self.market = market
             storage = .cryptoPair(pair)
+        } else if let metal = PreciousMetalID.resolve(market: market, code: code) {
+            self.market = metal.market
+            storage = .preciousMetal(metal)
         } else if let index = MarketIndexID.resolve(market: market, code: code) {
             self.market = index.market
             storage = .marketIndex(index)
@@ -218,6 +247,11 @@ public struct SymbolID: Hashable, Codable, Sendable, CustomStringConvertible {
     public init(index: MarketIndexID) {
         market = index.market
         storage = .marketIndex(index)
+    }
+
+    public init(metal: PreciousMetalID) {
+        market = metal.market
+        storage = .preciousMetal(metal)
     }
 
     public init(cryptoPair: CryptoPair) {
@@ -235,6 +269,7 @@ public struct SymbolID: Hashable, Codable, Sendable, CustomStringConvertible {
         switch storage {
         case .securityCode(let code): code
         case .marketIndex(let index): index.displayCode
+        case .preciousMetal(let metal): metal.displayCode
         case .cryptoPair(let pair): pair.canonicalCode
         }
     }
@@ -244,16 +279,22 @@ public struct SymbolID: Hashable, Codable, Sendable, CustomStringConvertible {
         return index
     }
 
+    public var metalID: PreciousMetalID? {
+        guard case .preciousMetal(let metal) = storage else { return nil }
+        return metal
+    }
+
     public var cryptoPair: CryptoPair? {
         guard case .cryptoPair(let pair) = storage else { return nil }
         return pair
     }
 
     /// Whether a business summary could exist for this symbol at all. An index
-    /// is a calculated benchmark and a crypto pair has no issuer, so there is
-    /// no company for any source to describe — known before asking one.
+    /// is a calculated benchmark, a metal contract is a commodity, and a crypto
+    /// pair has no issuer, so there is no company for any source to describe —
+    /// known before asking one.
     public var isDescribable: Bool {
-        indexID == nil && cryptoPair == nil
+        indexID == nil && cryptoPair == nil && metalID == nil
     }
 
     public var displayCode: String {
@@ -271,19 +312,27 @@ public struct SymbolID: Hashable, Codable, Sendable, CustomStringConvertible {
         case .sh: "\(code).SH"
         case .sz: "\(code).SZ"
         case .crypto: displayCode
+        case .metal, .metalCN: code
+        case .jp: "\(code).T"
+        case .kr: "\(code).KS"
+        case .kq: "\(code).KQ"
         }
     }
 
     private static func normalizeSecurityCode(_ code: String, market: Market) -> String {
         let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
         switch market {
-        case .us, .crypto:
+        // Tokyo codes are four characters and, since 2024, may end in a letter
+        // (130A); uppercasing is the only normalization they need.
+        case .us, .crypto, .metal, .metalCN, .jp:
             return trimmed.uppercased()
         case .hk:
             // "00700" -> "700"; non-numeric codes are kept as is.
             if trimmed.allSatisfy(\.isNumber), let number = Int(trimmed) { return String(number) }
             return trimmed.uppercased()
-        case .sh, .sz:
+        // Korean codes are six digits whose leading zeros are part of the code
+        // (005930 is Samsung), so they are kept verbatim the way A-share codes are.
+        case .sh, .sz, .kr, .kq:
             return trimmed
         }
     }
@@ -300,12 +349,23 @@ public struct SymbolID: Hashable, Codable, Sendable, CustomStringConvertible {
         case market
         case code
         case indexID
+        case metalID
         case cryptoPair
     }
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         let market = try values.decode(Market.self, forKey: .market)
+
+        // A metal snapshot deliberately stores `us` in `market` (see `encode`),
+        // so its own key decides the market rather than the stored value. A
+        // metal this build does not know (written by a newer one) falls through
+        // to the stored code rather than failing the whole snapshot.
+        if let metal = try? values.decodeIfPresent(PreciousMetalID.self, forKey: .metalID) {
+            self.market = metal.market
+            storage = .preciousMetal(metal)
+            return
+        }
         self.market = market
 
         if let index = try values.decodeIfPresent(MarketIndexID.self, forKey: .indexID) {
@@ -349,14 +409,24 @@ public struct SymbolID: Hashable, Codable, Sendable, CustomStringConvertible {
 
     public func encode(to encoder: any Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
-        try values.encode(market, forKey: .market)
         switch storage {
         case .securityCode(let code):
+            try values.encode(market, forKey: .market)
             try values.encode(code, forKey: .code)
         case .marketIndex(let index):
+            try values.encode(market, forKey: .market)
             try values.encode(index.backwardCompatibleCode, forKey: .code)
             try values.encode(index, forKey: .indexID)
+        case .preciousMetal(let metal):
+            // An unknown `market` value fails the whole snapshot on an older
+            // build, which would cost the user their entire watchlist on a
+            // downgrade. Metals therefore persist as the US futures symbol they
+            // are quoted under, and `metalID` restores the identity here.
+            try values.encode(Market.us, forKey: .market)
+            try values.encode(metal.backwardCompatibleCode, forKey: .code)
+            try values.encode(metal, forKey: .metalID)
         case .cryptoPair(let pair):
+            try values.encode(market, forKey: .market)
             try values.encode(pair, forKey: .cryptoPair)
         }
     }

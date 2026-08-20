@@ -41,6 +41,16 @@ public struct IntradayTradingSession: Sendable, Hashable {
             morningEnd = at(12, 0)
             afternoonStart = at(13, 0)
             close = at(16, 0)
+        case .jp:
+            open = at(9, 0)
+            morningEnd = at(11, 30)
+            afternoonStart = at(12, 30)
+            close = at(15, 30)
+        case .kr, .kq:
+            open = at(9, 0)
+            morningEnd = nil
+            afternoonStart = nil
+            close = at(15, 30)
         case .us:
             open = at(9, 30)
             morningEnd = nil
@@ -51,6 +61,40 @@ public struct IntradayTradingSession: Sendable, Hashable {
             morningEnd = nil
             afternoonStart = nil
             close = at(23, 59)
+        case .metal:
+            // One metal session runs 18:00 ET through 17:00 ET the next day, and
+            // the axis follows it rather than the calendar day: London spot is
+            // only quoted from the session open, so a midnight axis would strand
+            // its line in the right quarter of an otherwise empty plot. Framing
+            // the session also trims the older bars Yahoo returns for `GC=F`
+            // (its window starts at midnight) down to the session on screen.
+            let openDay = calendar.component(.hour, from: referenceDate) >= 18
+                ? day
+                : calendar.date(byAdding: .day, value: -1, to: day) ?? day
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: openDay) ?? openDay
+            func at(_ hour: Int, _ minute: Int, of base: Date) -> Date {
+                calendar.date(bySettingHour: hour, minute: minute, second: 0, of: base) ?? base
+            }
+            open = at(18, 0, of: openDay)
+            morningEnd = nil
+            afternoonStart = nil
+            close = at(17, 0, of: nextDay)
+        case .metalCN:
+            // One Shanghai trading day opens with the night session at 20:00 and
+            // settles at 15:30 the next afternoon — the union of the two
+            // exchanges' hours. The 02:30–09:00 gap collapses onto the axis
+            // exactly the way an A-share lunch break does.
+            let openDay = calendar.component(.hour, from: referenceDate) >= 20
+                ? day
+                : calendar.date(byAdding: .day, value: -1, to: day) ?? day
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: openDay) ?? openDay
+            func at(_ hour: Int, _ minute: Int, of base: Date) -> Date {
+                calendar.date(bySettingHour: hour, minute: minute, second: 0, of: base) ?? base
+            }
+            open = at(20, 0, of: openDay)
+            morningEnd = at(2, 30, of: nextDay)
+            afternoonStart = at(9, 0, of: nextDay)
+            close = at(15, 30, of: nextDay)
         }
         if includesExtendedHours, market == .us {
             preOpen = at(4, 0)
@@ -223,11 +267,18 @@ public struct IntradayTrendSnapshot: Sendable, Hashable {
     public static func recommendedCandleCount(for market: Market) -> Int {
         switch market {
         case .crypto: 24 * 60
+        // A metal session is 23 hours long; ask for a little more so the closing
+        // minute still fits.
+        case .metal: 1_400
+        // A Shanghai session is 390 night minutes plus 390 day minutes.
+        case .metalCN: 800
         // Longbridge's All session can contain 1,440 minute slots: overnight 480 +
         // pre 330 + regular 390 + post 240. Its API caps a page at 1,000, so the
         // provider loads 1,000 recent rows plus a 600-row older page when needed.
         case .us: 1_600
         case .sh, .sz, .hk: 400
+        // Tokyo trades 330 minutes, Seoul 390.
+        case .jp, .kr, .kq: 400
         }
     }
 }

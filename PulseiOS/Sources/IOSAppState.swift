@@ -43,7 +43,7 @@ final class IOSAppState {
         var disabledIDs: Set<String> = []
         if authState == .none { disabledIDs.insert(LongbridgeProvider.providerID) }
         let provider = CompositeProvider(
-            providers: [longbridge, binance, TencentProvider(), YahooProvider()],
+            providers: [longbridge, binance, TencentProvider(), NaverProvider(), YahooProvider(), SinaProvider(), ShanghaiGoldExchangeProvider(), EastmoneyProvider()],
             disabledIDs: disabledIDs
         )
         self.settings = settings
@@ -290,6 +290,9 @@ final class IOSAppState {
         if let index = symbol.indexID {
             return index.displayName
         }
+        if let metal = symbol.metalID {
+            return metal.displayName
+        }
         return market.quote(for: symbol)?.name ?? symbol.displayCode
     }
 
@@ -329,6 +332,14 @@ final class IOSAppState {
         let delay = quoteDelay(for: quote)
         if delay > 0 {
             parts.append(PulseLocalization.localizedString("quote.delay.minutes", Int(delay / 60)))
+        } else if let sourceID = quote.sourceID,
+                  let descriptor = provider.registeredDescriptors.first(where: { $0.id == sourceID }),
+                  let seconds = descriptor.pollingCadenceSeconds(
+                      interval: engine.pollInterval(for: sourceID)
+                  ) {
+            // A polled source is current but steps; "realtime" alone would
+            // promise a ticking price it cannot deliver.
+            parts.append(PulseLocalization.localizedString("quote.cadence.seconds", seconds))
         }
         return parts.joined(separator: " · ")
     }

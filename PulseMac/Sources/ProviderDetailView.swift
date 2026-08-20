@@ -112,13 +112,13 @@ struct ProviderFactsCard: View {
                 .controlSize(.small)
                 .fixedSize()
             }
-            ForEach(coveredMarkets, id: \.self) { market in
+            ForEach(coveredMarkets, id: \.name) { row in
                 Divider().padding(.leading, 12)
-                factRow(market.displayName) {
+                factRow(row.name) {
                     if descriptor.id == LongbridgeProvider.providerID {
-                        longbridgeFreshnessLabel(for: market)
+                        longbridgeFreshnessLabel(for: row.market)
                     } else {
-                        freshnessLabel(for: descriptor.delay[market] ?? 0)
+                        freshnessLabel(for: row.delay)
                     }
                 }
             }
@@ -164,8 +164,20 @@ struct ProviderFactsCard: View {
         }
     }
 
-    private var coveredMarkets: [Market] {
-        Market.allCases.filter { descriptor.markets.contains($0) }
+    /// One row per label rather than per market: metals cover two markets under
+    /// a single name, and the freshness shown for them is the slower of the two
+    /// so the row never promises more than every instrument behind it delivers.
+    private var coveredMarkets: [(name: String, delay: TimeInterval, market: Market)] {
+        var rows: [(name: String, delay: TimeInterval, market: Market)] = []
+        for market in Market.allCases where descriptor.markets.contains(market) {
+            let delay = descriptor.delay[market] ?? 0
+            if let index = rows.firstIndex(where: { $0.name == market.displayName }) {
+                rows[index].delay = max(rows[index].delay, delay)
+            } else {
+                rows.append((market.displayName, delay, market))
+            }
+        }
+        return rows
     }
 
     private var capabilities: String {

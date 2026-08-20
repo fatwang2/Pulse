@@ -75,6 +75,11 @@ enum LongbridgeQuoteFreshness {
         case .sz: SymbolID(market: .sz, code: "000001")
         case .us: SymbolID(market: .us, code: "AAPL")
         case .crypto: SymbolID(cryptoBase: "BTC", quote: "USDT")
+        case .metal: SymbolID(metal: .gold)
+        case .metalCN: SymbolID(metal: .shanghaiGold)
+        case .jp: SymbolID(market: .jp, code: "7203")
+        case .kr: SymbolID(market: .kr, code: "005930")
+        case .kq: SymbolID(market: .kq, code: "247540")
         }
         return switch packageDelay(for: representative, packages: packages, at: date) {
         case 0: .realtime
@@ -121,7 +126,7 @@ enum LongbridgeQuoteFreshness {
             return key.hasPrefix("CN_")
         case .us:
             return key.hasPrefix("US_")
-        case .crypto:
+        case .crypto, .metal, .metalCN, .jp, .kr, .kq:
             return false
         }
     }

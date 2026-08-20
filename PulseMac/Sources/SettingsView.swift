@@ -55,10 +55,14 @@ struct ProviderRow: View {
         // The list only previews market coverage; capabilities and freshness live on
         // the detail page. Derive this from the descriptor so the two stay in sync.
         let separator = PulseLocalization.localizedString("provider.summary.separator")
-        return Market.allCases
-            .filter { descriptor.markets.contains($0) }
-            .map(\.displayName)
-            .joined(separator: separator)
+        // Metals present as one asset class across two markets; the preview
+        // should name it once.
+        var names: [String] = []
+        for market in Market.allCases where descriptor.markets.contains(market) {
+            let name = market.displayName
+            if !names.contains(name) { names.append(name) }
+        }
+        return names.joined(separator: separator)
     }
 }
 
@@ -77,6 +81,17 @@ struct SettingsView: View {
             header
 
             Form {
+                Section {
+                    Picker(PulseLocalization.localizedString("settings.general.language"), selection: $settings.languagePreference) {
+                        ForEach(PulseLanguagePreference.allCases, id: \.self) { preference in
+                            Text(preference.localizedDisplayName).tag(preference)
+                        }
+                    }
+                    Toggle(PulseLocalization.localizedString("settings.general.launchAtLogin"), isOn: $settings.launchAtLogin)
+                } header: {
+                    Text(PulseLocalization.localizedString("settings.section.general"))
+                }
+
                 Section {
                     Toggle(PulseLocalization.localizedString("settings.menuBar.showQuote"), isOn: $settings.showPriceInMenuBar)
                     if settings.showPriceInMenuBar {
@@ -162,23 +177,6 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Picker(PulseLocalization.localizedString("settings.general.language"), selection: $settings.languagePreference) {
-                        ForEach(PulseLanguagePreference.allCases, id: \.self) { preference in
-                            Text(preference.localizedDisplayName).tag(preference)
-                        }
-                    }
-                    Toggle(PulseLocalization.localizedString("settings.general.launchAtLogin"), isOn: $settings.launchAtLogin)
-                    Toggle(
-                        PulseLocalization.localizedString("settings.general.anonymousAnalytics"),
-                        isOn: $settings.shareAnonymousUsageData
-                    )
-                } header: {
-                    Text(PulseLocalization.localizedString("settings.section.general"))
-                } footer: {
-                    Text(PulseLocalization.localizedString("settings.general.anonymousAnalyticsHelp"))
-                }
-
-                Section {
                     Button {
                         route = .dataSettings
                     } label: {
@@ -192,8 +190,14 @@ struct SettingsView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.pressable)
+                    Toggle(
+                        PulseLocalization.localizedString("settings.general.anonymousAnalytics"),
+                        isOn: $settings.shareAnonymousUsageData
+                    )
                 } header: {
                     Text(PulseLocalization.localizedString("settings.section.data"))
+                } footer: {
+                    Text(PulseLocalization.localizedString("settings.general.anonymousAnalyticsHelp"))
                 }
 
                 Section {

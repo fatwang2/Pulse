@@ -6,6 +6,10 @@ public enum MarketBlock: String, Sendable, Hashable, CaseIterable {
     case chinaA
     case hk
     case us
+    case jp
+    /// Both Korea Exchange boards, the way `chinaA` holds both Chinese ones.
+    case korea
+    case metal
     case crypto
 
     public init(market: Market) {
@@ -13,6 +17,9 @@ public enum MarketBlock: String, Sendable, Hashable, CaseIterable {
         case .sh, .sz: self = .chinaA
         case .hk: self = .hk
         case .us: self = .us
+        case .jp: self = .jp
+        case .kr, .kq: self = .korea
+        case .metal, .metalCN: self = .metal
         case .crypto: self = .crypto
         }
     }
@@ -20,9 +27,9 @@ public enum MarketBlock: String, Sendable, Hashable, CaseIterable {
 
 /// Beijing-time watchlist layout. Daytime follows Asia; evening follows the US session.
 public enum MarketScheduleWindow: String, Sendable, Hashable {
-    /// 08:00..<17:00 Asia/Shanghai → HK → China A → US → crypto
+    /// 08:00..<17:00 Asia/Shanghai → HK → China A → Japan → Korea → US → metals → crypto
     case asiaDay
-    /// 17:00..<08:00 Asia/Shanghai → US → HK → China A → crypto
+    /// 17:00..<08:00 Asia/Shanghai → US → HK → China A → Japan → Korea → metals → crypto
     case usEvening
 
     public static var beijingTimeZone: TimeZone { TimeZone(identifier: "Asia/Shanghai")! }
@@ -36,8 +43,13 @@ public enum MarketScheduleWindow: String, Sendable, Hashable {
 
     public var blockOrder: [MarketBlock] {
         switch self {
-        case .asiaDay: [.hk, .chinaA, .us, .crypto]
-        case .usEvening: [.us, .hk, .chinaA, .crypto]
+        // Metals and crypto trade around the clock, so no schedule window can
+        // promote them; they stay after the session-bound blocks.
+        // Tokyo and Seoul open at 08:00 Beijing, ahead of both Chinese markets,
+        // but they sit behind them here: opening first does not make them the
+        // block a Pulse user is watching.
+        case .asiaDay: [.hk, .chinaA, .jp, .korea, .us, .metal, .crypto]
+        case .usEvening: [.us, .hk, .chinaA, .jp, .korea, .metal, .crypto]
         }
     }
 }

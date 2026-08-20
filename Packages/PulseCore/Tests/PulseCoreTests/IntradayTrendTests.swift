@@ -30,6 +30,57 @@ struct IntradayTrendTests {
         // Longbridge pages the US request as 1,000 recent + up to 600 older rows.
         #expect(IntradayTrendSnapshot.recommendedCandleCount(for: .us) == 1_600)
         #expect(IntradayTrendSnapshot.recommendedCandleCount(for: .crypto) == 1_440)
+        // A metal session is 23 hours plus room for the closing bar.
+        #expect(IntradayTrendSnapshot.recommendedCandleCount(for: .metal) == 1_400)
+    }
+
+    @Test("A metal chart spans one session, 18:00 ET to 17:00 ET")
+    func metalSessionFrame() throws {
+        let calendar = exchangeCalendar(.metal)
+        let wednesday = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 19)))
+
+        // Morning in New York: the session under way opened the evening before.
+        let morning = IntradayTradingSession(
+            market: .metal,
+            referenceDate: wednesday.addingTimeInterval(9 * 3600)
+        )
+        #expect(calendar.dateComponents([.day, .hour], from: morning.open) == DateComponents(day: 18, hour: 18))
+        #expect(calendar.dateComponents([.day, .hour], from: morning.close) == DateComponents(day: 19, hour: 17))
+        #expect(morning.totalMinutes == 23 * 60)
+        #expect(morning.morningEnd == nil)
+        // 09:00 ET is fifteen hours into a session that opened at 18:00.
+        #expect(morning.minuteOffset(for: wednesday.addingTimeInterval(9 * 3600)) == 15 * 60)
+
+        // Past 18:00 the next session has already started.
+        let evening = IntradayTradingSession(
+            market: .metal,
+            referenceDate: wednesday.addingTimeInterval(19 * 3600)
+        )
+        #expect(calendar.dateComponents([.day, .hour], from: evening.open) == DateComponents(day: 19, hour: 18))
+    }
+
+    /// London spot is only quoted from the session open, so its line has to start
+    /// at the left edge; the older bars Yahoo returns for the COMEX contract
+    /// belong to the previous session and are trimmed by the same frame.
+    @Test("A metal trend keeps the session on screen, not the calendar day")
+    func metalTrendKeepsSession() throws {
+        let calendar = exchangeCalendar(.metal)
+        let wednesday = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 19)))
+        let tuesday = try #require(calendar.date(byAdding: .day, value: -1, to: wednesday))
+        let candles = [
+            candle(at: wednesday.addingTimeInterval(10 * 3600), close: 90),    // previous session
+            candle(at: wednesday.addingTimeInterval(18 * 3600), close: 100),   // session open
+            candle(at: wednesday.addingTimeInterval(22 * 3600), close: 101),   // New York evening
+            candle(at: tuesday.addingTimeInterval(48 * 3600 + 3 * 3600), close: 102),  // Thu 03:00, small hours
+        ]
+
+        let trend = IntradayTrendSnapshot(candles: candles, market: .metal)
+
+        #expect(trend.candles.map(\.close) == [100, 101, 102])
+        // The session open sits at the very left of the axis.
+        #expect(trend.session.minuteOffset(for: trend.candles[0].time) == 0)
+        #expect(trend.session.minuteOffset(for: trend.candles[1].time) == 4 * 60)
+        #expect(trend.session.minuteOffset(for: trend.candles[2].time) == 9 * 60)
     }
 
     @Test("Extended-hours wings compress onto 15% of the plot each")

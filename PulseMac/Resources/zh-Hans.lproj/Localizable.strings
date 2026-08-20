@@ -64,14 +64,30 @@
 "index.hangSengTech" = "恒生科技指数";
 "index.shanghaiComposite" = "上证指数";
 "index.shenzhenComponent" = "深证成指";
+"index.nikkei225" = "日经225指数";
+"index.kospi" = "韩国综合指数";
 "index.chiNext" = "创业板指";
+"metal.gold" = "纽约金";
+"metal.goldSpot" = "伦敦金";
+"metal.silver" = "纽约银";
+"metal.silverSpot" = "伦敦银";
+"metal.platinum" = "纽约铂金";
+"metal.palladium" = "纽约钯金";
+"metal.shanghaiGoldSpot" = "上海金";
+"metal.shanghaiGold" = "沪金主连";
+"metal.shanghaiSilver" = "沪银主连";
 
 "market.hk" = "港股";
 "market.crypto" = "加密";
+"market.jp" = "日股";
+"market.kr" = "韩股";
+"market.metal" = "贵金属";
 "market.sh" = "沪";
 "market.sz" = "深";
 "market.timeZone.cn" = "上海时间";
 "market.timeZone.hk" = "香港时间";
+"market.timeZone.jp" = "东京时间";
+"market.timeZone.kr" = "首尔时间";
 "market.timeZone.us" = "纽约时间";
 "market.timeZone.utc" = "UTC 时间";
 "market.us" = "美股";
@@ -179,9 +195,14 @@
 "longbridge.credentials.error" = "校验失败:请检查凭证是否正确、Access Token 是否过期";
 "longbridge.credentials.help" = "在 open.longbridge.com 用户中心获取 App Key、App Secret 与 Access Token。凭证仅保存在本机钥匙串。";
 "provider.tencent" = "腾讯行情";
+"provider.sina" = "新浪财经";
+"provider.naver" = "Naver 财经";
+"provider.sge" = "上海黄金交易所";
+"provider.eastmoney" = "东方财富";
 "provider.yahoo" = "Yahoo Finance";
 
 "quote.delay.minutes" = "延时约%d分钟";
+"quote.cadence.seconds" = "%d秒刷新";
 "quote.price.close" = "收盘价";
 "quote.regularClose.previous" = "昨收";
 "quote.regularClose.today" = "收盘";
@@ -222,7 +243,7 @@
 "settings.market.redUp" = "红涨绿跌";
 "settings.market.usExtendedHours" = "美股盘中图表显示盘前盘后";
 "settings.market.prioritizeOpenMarkets" = "按市场时段排序";
-"settings.market.prioritizeOpenMarketsHelp" = "按市场分块。北京时间 8:00–17:00 为港→A→美，17:00–8:00 为美→港→A。置顶仅在各自市场内生效。数字货币始终在最后。";
+"settings.market.prioritizeOpenMarketsHelp" = "按市场分块。北京时间 8:00–17:00 为港→A→日→韩→美，17:00–8:00 为美→港→A→日→韩。置顶仅在各自市场内生效。贵金属与数字货币始终在最后。";
 "settings.menuBar.displayMode" = "显示模式";
 "settings.menuBar.firstWatchlistItem" = "自选第一个";
 "settings.menuBar.fixedSymbol" = "固定标的";

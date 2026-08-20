@@ -2,6 +2,8 @@ import Foundation
 
 public enum InstrumentType: String, Codable, Sendable, Hashable {
     case equity, etf, index, fund, crypto, other
+    /// Exchange-traded commodity contract (currently the precious metals).
+    case commodity
 }
 
 /// A search result entry
@@ -30,9 +32,10 @@ public struct SymbolInfo: Codable, Sendable, Hashable, Identifiable {
 
     public var id: SymbolID { symbol }
 
-    /// Search providers may spell the same index differently. Pulse owns the
-    /// canonical index name; ordinary securities keep the search-result name.
+    /// Search providers may spell the same index or metal contract differently.
+    /// Pulse owns those canonical names; ordinary securities keep the
+    /// search-result name.
     public var resolvedDisplayName: String {
-        symbol.indexID?.displayName ?? name
+        symbol.indexID?.displayName ?? symbol.metalID?.displayName ?? name
     }
 }

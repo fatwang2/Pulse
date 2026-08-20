@@ -126,9 +126,13 @@ public struct IntradayChartView: View {
             return [session.axisLowerBound, 0, session.totalMinutes, session.axisUpperBound]
         }
         switch market {
-        case .sh, .sz, .hk: return [0, session.morningMinutes, session.totalMinutes]
+        case .sh, .sz, .hk, .metalCN, .jp: return [0, session.morningMinutes, session.totalMinutes]
+        // Seoul trades straight through; 195 minutes past 9:00 is 12:15.
+        case .kr, .kq: return [0, 195, session.totalMinutes]
         case .us: return [0, 150, session.totalMinutes]  // 150 trading minutes past 9:30 = 12:00
         case .crypto: return [0, 720, session.totalMinutes]
+        // The metal session opens at 18:00 ET, so its midpoint is 05:30 ET.
+        case .metal: return [0, session.totalMinutes / 2, session.totalMinutes]
         }
     }
 

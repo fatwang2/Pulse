@@ -106,4 +106,17 @@ public struct ProviderDescriptor: Codable, Sendable, Hashable {
     public func supports(candles period: CandlePeriod, in market: Market) -> Bool {
         supports(.candles, in: market) && (candlePeriods?.contains(period) ?? true)
     }
+
+    /// How often a price from this source can actually change on screen, in
+    /// seconds — or nil when it pushes them as they happen.
+    ///
+    /// Source delay and this are different dimensions, and a zero-delay source is
+    /// the case where the difference shows: its data is current the moment it is
+    /// read, but polling it every 15 seconds still means the number moves in
+    /// 15-second steps. Only a pushing source is live in the way "realtime" reads.
+    public func pollingCadenceSeconds(interval: TimeInterval) -> Int? {
+        guard !capabilities.contains(.streaming) else { return nil }
+        guard interval.isFinite, interval > 0 else { return nil }
+        return max(Int(interval.rounded()), 1)
+    }
 }

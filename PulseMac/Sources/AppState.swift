@@ -66,7 +66,8 @@ final class AppState {
         let binance = BinanceProvider()
         var disabledIDs = settings.disabledProviderIDs
         if authState == .none { disabledIDs.insert(LongbridgeProvider.providerID) }
-        let provider = CompositeProvider(providers: [longbridge, binance, TencentProvider(), YahooProvider()],
+        let provider = CompositeProvider(providers: [longbridge, binance, TencentProvider(), NaverProvider(), YahooProvider(), SinaProvider(),
+                                                     ShanghaiGoldExchangeProvider(), EastmoneyProvider()],
                                          disabledIDs: disabledIDs)
         self.settings = settings
         self.watchlist = watchlist
@@ -635,6 +636,18 @@ final class AppState {
         let delay = quoteDelay(for: quote)
         guard delay > 0 else { return nil }
         return PulseLocalization.localizedString("quote.delay.minutes", Int(delay / 60))
+    }
+
+    /// How often a realtime price actually refreshes, for sources Pulse polls.
+    /// Nil for pushing sources — there "realtime" already says it — and nil when
+    /// the source is delayed, since that number is the one that matters then.
+    func quoteCadenceText(for quote: Quote) -> String? {
+        guard quoteDelay(for: quote) == 0,
+              let sourceID = quote.sourceID,
+              let descriptor = providerDescriptors.first(where: { $0.id == sourceID }),
+              let seconds = descriptor.pollingCadenceSeconds(interval: pollInterval(for: sourceID))
+        else { return nil }
+        return PulseLocalization.localizedString("quote.cadence.seconds", seconds)
     }
 
     private func formatMarketTime(_ date: Date, market: Market) -> String {

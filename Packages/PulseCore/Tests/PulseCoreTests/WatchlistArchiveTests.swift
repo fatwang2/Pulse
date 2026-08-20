@@ -117,6 +117,45 @@ struct WatchlistArchiveTests {
     }
 
     @MainActor
+    @Test("A metal entry survives export and can be typed by hand")
+    func metalEntriesImport() throws {
+        let (store, defaults, suite) = try makeStore("metal")
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let text = """
+        {
+          "format": "pulse.watchlist",
+          "version": 1,
+          "lists": [
+            { "name": "Metals", "entries": [
+                { "market": "metal", "code": "GC" },
+                { "market": "metal", "code": "SI" }
+            ] }
+          ]
+        }
+        """
+
+        let plan = store.merge(try WatchlistArchive.decoded(from: text))
+        #expect(plan.addCount == 2)
+        #expect(plan.skippedCount == 0)
+
+        let gold = try #require(store.item(for: SymbolID(metal: .gold)))
+        #expect(gold.symbol.metalID == .gold)
+        // The catalog names it; no quote refresh has to fill anything in.
+        #expect(gold.resolvedDisplayName == PreciousMetalID.gold.displayName)
+        // A futures contract's exchange multiplier is not modeled, so it carries
+        // no position.
+        #expect(!gold.supportsPosition)
+
+        // The export writes the market the user typed, not the compatibility
+        // shape the internal snapshot uses.
+        let entry = try #require(
+            store.archive().lists.flatMap(\.entries).first { $0.code == "GC" }
+        )
+        #expect(entry.market == "metal")
+    }
+
+    @MainActor
     @Test("Importing is additive and never overwrites existing work")
     func importOnlyAdds() throws {
         let (store, defaults, suite) = try makeStore("additive")

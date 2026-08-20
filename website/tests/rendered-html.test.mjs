@@ -55,6 +55,8 @@ test("server-renders the English landing page at the root", async () => {
   // Hong Kong listings.
   assert.doesNotMatch(html, /工业富联/);
   assert.doesNotMatch(html, /腾讯控股/);
+  assert.match(html, /class="market-coverage"/);
+  assert.match(html, /Japan and Korea stocks, crypto, precious metals/);
   assert.match(html, /class="market-pulse" aria-hidden="true"/);
   assert.match(html, /class="brand-mark"/);
   assert.match(html, /href="\/download"/);
@@ -146,6 +148,7 @@ test("serves the Chinese homepage at /zh", async () => {
   assert.match(html, /href="\/zh\/changelog"/);
   assert.match(html, /href="\/"[^>]*>EN<\/a>/);
   assert.match(html, /下载最新版/);
+  assert.match(html, /日股、韩股、加密货币、贵金属/);
   // Localized SEO: canonical + hreflang alternates.
   assert.match(
     html,
@@ -173,6 +176,7 @@ test("serves the Japanese homepage at /ja", async () => {
   assert.match(html, /Macのメニューバーから、/);
   assert.match(html, /株価とマーケットをすばやく確認/);
   assert.doesNotMatch(html, /株価とマーケットをすばやく確認。/);
+  assert.match(html, /日本株・韓国株・暗号資産・貴金属/);
   assert.match(html, /href="\/ja\/changelog"/);
   assert.match(
     html,
@@ -200,6 +204,43 @@ test("serves the Japanese changelog at /ja/changelog", async () => {
   assert.match(
     html,
     /hreflang="zh" href="https:\/\/www\.pulseticker\.app\/zh\/changelog"/,
+  );
+});
+
+test("serves the Korean homepage at /ko", async () => {
+  const response = await render("/ko");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /<html lang="ko">/);
+  assert.match(html, /<title>Pulse — macOS 메뉴 막대 주식 시세 앱<\/title>/i);
+  assert.match(html, /가벼운 시세 앱입니다/);
+  assert.match(html, /Mac 메뉴 막대에서/);
+  assert.match(html, /주식과 시장을 바로 확인/);
+  assert.match(html, /일본·한국 주식, 암호화폐, 귀금속/);
+  assert.match(html, /href="\/ko\/changelog"/);
+  assert.match(
+    html,
+    /rel="canonical" href="https:\/\/www\.pulseticker\.app\/ko"/,
+  );
+});
+
+test("serves the Korean changelog at /ko/changelog", async () => {
+  const response = await render("/ko/changelog");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /<html lang="ko">/);
+  assert.match(
+    html,
+    /<title>Pulse 업데이트 내역 — 모든 릴리스를 한눈에<\/title>/i,
+  );
+  assert.match(html, /모든 릴리스를,/);
+  assert.match(html, /정식 Pulse macOS 앱 아이콘을 넣었습니다/);
+  assert.match(html, /href="\/ko"/);
+  assert.match(
+    html,
+    /rel="canonical" href="https:\/\/www\.pulseticker\.app\/ko\/changelog"/,
   );
 });
 
@@ -315,7 +356,7 @@ test("enables GA4 analytics while keeping advertising consent disabled", async (
   assert.match(head, /googletagmanager\.com\/gtag\/js/);
 });
 
-test("changelog copy ships in all three languages", async () => {
+test("changelog copy ships in every language", async () => {
   const changelogPage = await readFile(
     new URL("../src/components/changelog-page.tsx", import.meta.url),
     "utf8",
@@ -333,6 +374,25 @@ test("changelog copy ships in all three languages", async () => {
   assert.match(releaseData, /Longbridge 行情切换/);
   assert.match(releaseData, /ja: \[/);
   assert.match(releaseData, /正式な Pulse macOS アプリアイコンを導入しました。/);
+  assert.match(changelogPage, /모든 릴리스를,/);
+  assert.match(releaseData, /ko: \[/);
+  assert.match(releaseData, /정식 Pulse macOS 앱 아이콘을 넣었습니다。?/);
+});
+
+/** Every release must carry every locale, or the timeline renders a hole. */
+test("every release has highlights in all four languages", async () => {
+  const { releases } = await import(
+    new URL("../src/data/releases.ts", import.meta.url).href
+  ).catch(() => ({ releases: null }));
+  if (!releases) return; // TS source is not importable here; covered by tsc.
+  for (const release of releases) {
+    for (const language of ["zh", "en", "ja", "ko"]) {
+      assert.ok(
+        release.highlights[language]?.length > 0,
+        `${release.version} is missing ${language} highlights`,
+      );
+    }
+  }
 });
 
 test("redirects the stable download URL to a versioned request", async () => {
@@ -395,7 +455,7 @@ test("serves a stored DMG from the R2 binding", async () => {
   assert.equal(new TextDecoder().decode(await response.arrayBuffer()), "dmg");
 });
 
-test("serves a valid sitemap.xml with all six public URLs", async () => {
+test("serves a valid sitemap.xml with all eight public URLs", async () => {
   const response = await render("/sitemap.xml");
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /application\/xml/);
@@ -410,6 +470,8 @@ test("serves a valid sitemap.xml with all six public URLs", async () => {
     "<loc>https://www.pulseticker.app/zh/changelog</loc>",
     "<loc>https://www.pulseticker.app/ja</loc>",
     "<loc>https://www.pulseticker.app/ja/changelog</loc>",
+    "<loc>https://www.pulseticker.app/ko</loc>",
+    "<loc>https://www.pulseticker.app/ko/changelog</loc>",
   ]);
 });
 

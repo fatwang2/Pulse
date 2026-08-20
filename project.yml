@@ -33,6 +33,8 @@ targets:
         buildPhase: resources
       - path: PulseMac/Resources/zh-Hans.lproj
         buildPhase: resources
+      - path: PulseMac/Resources/ko.lproj
+        buildPhase: resources
       # The Icon Composer document renders the Liquid Glass app icon on iOS 26.
       - path: PulseMac/Resources/AppIcon.icon
         buildPhase: resources

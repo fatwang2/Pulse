@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import type { Language } from "../i18n";
 
-type Language = "zh" | "en" | "ja";
 type MetricMode = "change" | "today" | "total";
 
 type MarketItem = {
@@ -187,6 +187,18 @@ const marketItemsJa: MarketItem[] = marketItemsEn.map((item) => {
   return { ...item, name: japaneseNames[item.symbol] ?? item.name };
 });
 
+const marketItemsKo: MarketItem[] = marketItemsEn.map((item) => {
+  const koreanNames: Record<string, string> = {
+    NVDA: "엔비디아",
+    AAPL: "애플",
+    TSLA: "테슬라",
+    MSFT: "마이크로소프트",
+    "BTC-USD": "비트코인",
+    "ETH-USD": "이더리움",
+  };
+  return { ...item, name: koreanNames[item.symbol] ?? item.name };
+});
+
 const copy = {
   zh: {
     tagline: "你的市场，一眼掌握。",
@@ -215,6 +227,15 @@ const copy = {
     listsLabel: "ウォッチリストを切り替え",
     lists: { all: "すべて", positions: "保有", watching: "ウォッチ中" },
   },
+  ko: {
+    tagline: "내 시장을, 한눈에.",
+    modes: { change: "등락률", today: "당일 손익", total: "보유 손익" },
+    modeAction: "목록 지표 변경, 현재",
+    updated: "방금 업데이트됨",
+    reference: "예시용 고정 데이터",
+    listsLabel: "관심목록 전환",
+    lists: { all: "전체", positions: "보유", watching: "관심" },
+  },
 } as const;
 
 const modeOrder: MetricMode[] = ["change", "today", "total"];
@@ -230,12 +251,12 @@ const listMembers: Record<Exclude<ListId, "all">, ReadonlySet<string>> = {
 
 const marketBadgeLabels: Record<
   MarketItem["market"],
-  { zh: string; en: string; ja: string }
+  Record<Language, string>
 > = {
-  US: { zh: "美股", en: "US", ja: "米国株" },
-  SH: { zh: "沪", en: "SH", ja: "上海" },
-  HK: { zh: "港股", en: "HK", ja: "香港" },
-  Crypto: { zh: "加密", en: "Crypto", ja: "暗号資産" },
+  US: { zh: "美股", en: "US", ja: "米国株", ko: "미국" },
+  SH: { zh: "沪", en: "SH", ja: "上海", ko: "상하이" },
+  HK: { zh: "港股", en: "HK", ja: "香港", ko: "홍콩" },
+  Crypto: { zh: "加密", en: "Crypto", ja: "暗号資産", ko: "암호화폐" },
 };
 
 function lineColor(positive: boolean) {
@@ -389,7 +410,9 @@ export function InteractivePreview({
       ? marketItemsZh
       : language === "ja"
         ? marketItemsJa
-        : marketItemsEn;
+        : language === "ko"
+          ? marketItemsKo
+          : marketItemsEn;
   const visibleItems =
     activeList === "all"
       ? marketItems

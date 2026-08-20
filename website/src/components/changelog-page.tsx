@@ -44,12 +44,26 @@ const translations = {
     download: "最新版をダウンロード",
     changelog: "更新履歴",
   },
+  ko: {
+    title: "모든 릴리스를,\n한눈에.",
+    intro:
+      "첫 공개부터 오늘까지, Pulse의 새 기능과 개선, 수정 사항을 한곳에서 시간순으로 볼 수 있습니다.",
+    latest: "최신",
+    release: "새 릴리스",
+    improvement: "개선",
+    fix: "수정",
+    releaseAnchor: "이 릴리스로 이동",
+    allReleases: "GitHub Releases 전체 보기",
+    download: "최신 버전 다운로드",
+    changelog: "업데이트 내역",
+  },
 } as const;
 
 const dateLocales: Record<Language, string> = {
   zh: "zh-CN",
   en: "en-US",
   ja: "ja-JP",
+  ko: "ko-KR",
 };
 
 function formatDate(date: string, language: Language) {

@@ -1,6 +1,5 @@
 import { type PointerEvent, useEffect, useRef, useState } from "react";
-
-type Language = "zh" | "en" | "ja";
+import type { Language } from "../i18n";
 
 const riseColor = "#ff414b";
 const fallColor = "#00a962";
@@ -112,6 +111,41 @@ const copy = {
       tabsLabel: "デモのリストを切り替え",
     },
   },
+  ko: {
+    title: "전문가용 시세를, 메뉴 막대에.",
+    subtitle:
+      "캔들차트, 시간외 거래, 보유 손익, 여러 관심목록 — 빠르게 읽히도록 다듬은 디테일.",
+    candles: {
+      title: "진짜 캔들차트",
+      description:
+        "거래량과 정확히 맞춘 표준 캔들. 휠 확대와 가로 스크롤을 지원하고 5분·15분·30분·60분 봉도 고를 수 있습니다.",
+      hint: "클릭해 주기 전환",
+      chartLabel: "캔들차트 데모",
+    },
+    extended: {
+      title: "시간외 거래까지",
+      description:
+        "미국주식 분시 차트는 미 동부시간 04:00–20:00을 담습니다. 장전·장후는 회색 구간으로 그려지고 9:30 / 16:00 경계가 뚜렷합니다. 설정에서 끌 수 있습니다.",
+      hint: "마우스를 올리면 시각과 가격 표시",
+      chartLabel:
+        "시간외 거래를 포함한 분시 차트 데모. 회색 구간이 시간외 세션이며, 마우스를 올리면 십자선과 함께 시각과 가격이 나타납니다",
+    },
+    positions: {
+      title: "보유 손익을 한눈에",
+      description:
+        "매입 단가와 수량을 넣어 두면 금액을 클릭할 때마다 등락률 → 당일 손익 → 보유 손익으로 목록 전체가 바뀝니다. 고른 지표는 앱을 다시 켜도 그대로입니다.",
+      modeLabel: "현재 지표",
+      hint: "금액을 클릭해 지표 전환",
+      modes: { change: "등락률", today: "당일 손익", total: "보유 손익" },
+    },
+    lists: {
+      title: "여러 관심목록으로 정리",
+      description:
+        "종목을 이름 붙인 목록으로 나누고 위쪽 탭에서 한 번에 전환합니다. 끌어서 순서를 바꾸고 ⌘1–9로 이동하며, 메뉴 막대 순환도 특정 목록만 따르게 할 수 있습니다.",
+      hint: "탭을 눌러 목록 전환",
+      tabsLabel: "데모 목록 전환",
+    },
+  },
 } as const;
 
 function mulberry32(seed: number) {
@@ -172,13 +206,13 @@ function makeCandles(
 }
 
 const candleResolutions = [
-  { id: "5m", label: { zh: "5分", en: "5m", ja: "5分" }, seed: 11, count: 46, volatility: 0.006, drift: 0.0011 },
-  { id: "15m", label: { zh: "15分", en: "15m", ja: "15分" }, seed: 23, count: 42, volatility: 0.009, drift: -0.0008 },
-  { id: "30m", label: { zh: "30分", en: "30m", ja: "30分" }, seed: 37, count: 40, volatility: 0.011, drift: 0.0015 },
-  { id: "1h", label: { zh: "1时", en: "1h", ja: "1時間" }, seed: 53, count: 38, volatility: 0.014, drift: 0.0019 },
-  { id: "1d", label: { zh: "日K", en: "1D", ja: "日足" }, seed: 71, count: 34, volatility: 0.024, drift: 0.0028 },
-  { id: "1w", label: { zh: "周K", en: "1W", ja: "週足" }, seed: 89, count: 32, volatility: 0.032, drift: 0.0042 },
-  { id: "1mo", label: { zh: "月K", en: "1M", ja: "月足" }, seed: 103, count: 30, volatility: 0.042, drift: 0.007 },
+  { id: "5m", label: { zh: "5分", en: "5m", ja: "5分", ko: "5분" }, seed: 11, count: 46, volatility: 0.006, drift: 0.0011 },
+  { id: "15m", label: { zh: "15分", en: "15m", ja: "15分", ko: "15분" }, seed: 23, count: 42, volatility: 0.009, drift: -0.0008 },
+  { id: "30m", label: { zh: "30分", en: "30m", ja: "30分", ko: "30분" }, seed: 37, count: 40, volatility: 0.011, drift: 0.0015 },
+  { id: "1h", label: { zh: "1时", en: "1h", ja: "1時間", ko: "60분" }, seed: 53, count: 38, volatility: 0.014, drift: 0.0019 },
+  { id: "1d", label: { zh: "日K", en: "1D", ja: "日足", ko: "일봉" }, seed: 71, count: 34, volatility: 0.024, drift: 0.0028 },
+  { id: "1w", label: { zh: "周K", en: "1W", ja: "週足", ko: "주봉" }, seed: 89, count: 32, volatility: 0.032, drift: 0.0042 },
+  { id: "1mo", label: { zh: "月K", en: "1M", ja: "月足", ko: "월봉" }, seed: 103, count: 30, volatility: 0.042, drift: 0.007 },
 ] as const;
 
 const candleData = new Map(
@@ -618,6 +652,11 @@ const positionRowsByLanguage: Record<Language, readonly PositionRow[]> = {
     { symbol: "TSLA", name: "テスラ", market: "us", marketLabel: "米国株", price: "412.66", change: "-1.85%", today: "-$318.40", total: "+$2,905" },
     { symbol: "BTC-USD", name: "ビットコイン", market: "crypto", marketLabel: "暗号資産", price: "63797.28", change: "+0.97%", today: "+$187.20", total: "+$3,482" },
   ],
+  ko: [
+    { symbol: "NVDA", name: "엔비디아", market: "us", marketLabel: "미국", price: "183.24", change: "+2.41%", today: "+$412.80", total: "+$5,214" },
+    { symbol: "TSLA", name: "테슬라", market: "us", marketLabel: "미국", price: "412.66", change: "-1.85%", today: "-$318.40", total: "+$2,905" },
+    { symbol: "BTC-USD", name: "비트코인", market: "crypto", marketLabel: "암호화폐", price: "63797.28", change: "+0.97%", today: "+$187.20", total: "+$3,482" },
+  ],
 };
 
 function PositionsDemo({ language }: { language: Language }) {
@@ -683,9 +722,9 @@ function PositionsDemo({ language }: { language: Language }) {
 type DemoListId = "core" | "us" | "crypto";
 
 const demoLists = [
-  { id: "core", label: { zh: "核心", en: "Core", ja: "コア" } },
-  { id: "us", label: { zh: "美股", en: "US", ja: "米国株" } },
-  { id: "crypto", label: { zh: "加密", en: "Crypto", ja: "暗号資産" } },
+  { id: "core", label: { zh: "核心", en: "Core", ja: "コア", ko: "핵심" } },
+  { id: "us", label: { zh: "美股", en: "US", ja: "米国株", ko: "미국주식" } },
+  { id: "crypto", label: { zh: "加密", en: "Crypto", ja: "暗号資産", ko: "암호화폐" } },
 ] as const;
 
 type ListRow = {
@@ -747,6 +786,23 @@ const listRowsByLanguage: Record<Language, Record<DemoListId, readonly ListRow[]
       { symbol: "BTC-USD", name: "ビットコイン", market: "crypto", marketLabel: "暗号資産", price: "63797.28", change: "+0.97%" },
       { symbol: "ETH-USD", name: "イーサリアム", market: "crypto", marketLabel: "暗号資産", price: "3290.12", change: "+1.85%" },
       { symbol: "SOL-USD", name: "ソラナ", market: "crypto", marketLabel: "暗号資産", price: "186.42", change: "-1.24%" },
+    ],
+  },
+  ko: {
+    core: [
+      { symbol: "NVDA", name: "엔비디아", market: "us", marketLabel: "미국", price: "183.24", change: "+2.41%" },
+      { symbol: "TSLA", name: "테슬라", market: "us", marketLabel: "미국", price: "412.66", change: "-1.85%" },
+      { symbol: "BTC-USD", name: "비트코인", market: "crypto", marketLabel: "암호화폐", price: "63797.28", change: "+0.97%" },
+    ],
+    us: [
+      { symbol: "NVDA", name: "엔비디아", market: "us", marketLabel: "미국", price: "183.24", change: "+2.41%" },
+      { symbol: "AAPL", name: "애플", market: "us", marketLabel: "미국", price: "229.35", change: "+0.58%" },
+      { symbol: "ONDS", name: "Ondas Inc.", market: "us", marketLabel: "미국", price: "7.67", change: "+0.26%" },
+    ],
+    crypto: [
+      { symbol: "BTC-USD", name: "비트코인", market: "crypto", marketLabel: "암호화폐", price: "63797.28", change: "+0.97%" },
+      { symbol: "ETH-USD", name: "이더리움", market: "crypto", marketLabel: "암호화폐", price: "3290.12", change: "+1.85%" },
+      { symbol: "SOL-USD", name: "솔라나", market: "crypto", marketLabel: "암호화폐", price: "186.42", change: "-1.24%" },
     ],
   },
 };

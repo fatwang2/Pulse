@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   changelogPath,
@@ -33,12 +34,20 @@ const headerCopy: Record<
     changelog: "更新履歴",
     languageLabel: "サイトの言語を切り替え",
   },
+  ko: {
+    homeLabel: "Pulse 홈",
+    navigationLabel: "Pulse 홈",
+    home: "홈",
+    changelog: "업데이트 내역",
+    languageLabel: "사이트 언어 변경",
+  },
 };
 
 const languageLabels: Record<Language, string> = {
   zh: "中文",
   en: "EN",
   ja: "日本語",
+  ko: "한국어",
 };
 
 export function SiteHeader({
@@ -75,20 +84,76 @@ export function SiteHeader({
             {copy.changelog}
           </Link>
         </nav>
-        <div className="language-switcher" aria-label={copy.languageLabel}>
-          {languages.map((candidate) => (
-            <Link
-              key={candidate}
-              to={page === "home" ? homePath(candidate) : changelogPath(candidate)}
-              className={candidate === language ? "active" : undefined}
-              aria-current={candidate === language ? "true" : undefined}
-              onClick={() => rememberLanguage(candidate)}
-            >
-              {languageLabels[candidate]}
-            </Link>
-          ))}
-        </div>
+        <LanguageSwitcher language={language} page={page} label={copy.languageLabel} />
       </div>
     </header>
+  );
+}
+
+function LanguageSwitcher({
+  language,
+  page,
+  label,
+}: {
+  language: Language;
+  page: PageKind;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent) {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <details
+      ref={root}
+      className="language-switcher"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary aria-label={label} aria-haspopup="menu">
+        {languageLabels[language]}
+        <svg viewBox="0 0 10 6" aria-hidden="true" focusable="false">
+          <path
+            d="M1 1.4 5 5 9 1.4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </summary>
+      <div className="language-menu" role="menu">
+        {languages.map((candidate) => (
+          <Link
+            key={candidate}
+            role="menuitem"
+            to={page === "home" ? homePath(candidate) : changelogPath(candidate)}
+            aria-current={candidate === language ? "true" : undefined}
+            onClick={() => {
+              rememberLanguage(candidate);
+              setOpen(false);
+            }}
+          >
+            {languageLabels[candidate]}
+          </Link>
+        ))}
+      </div>
+    </details>
   );
 }

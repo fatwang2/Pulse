@@ -37,6 +37,34 @@ const dataSources = [
     width: 1284,
     height: 181,
   },
+  {
+    id: "naver",
+    name: "Naver",
+    src: "/providers/naver.svg",
+    width: 22,
+    height: 22,
+  },
+  {
+    id: "sge",
+    name: "Shanghai Gold Exchange",
+    src: "/providers/sge.png",
+    width: 198,
+    height: 46,
+  },
+  {
+    id: "eastmoney",
+    name: "Eastmoney",
+    src: "/providers/eastmoney.png",
+    width: 104,
+    height: 26,
+  },
+  {
+    id: "sina",
+    name: "Sina Finance",
+    src: "/providers/sina.png",
+    width: 128,
+    height: 128,
+  },
 ] as const;
 
 const translations = {
@@ -53,7 +81,7 @@ const translations = {
     whatsNew: "{date}发布 · 查看更新日志",
     screenshotAlt:
       "Pulse 自选列表截图，展示美股、A 股、港股与加密货币的价格和走势图",
-    markets: "支持美股、港股、A 股、加密货币、指数与 ETF",
+    markets: "支持美股、港股、A 股、日股、韩股、加密货币、贵金属、指数与 ETF",
     dataSourcesLabel: "行情数据来源",
     dataSourcesNote:
       "仅用于说明数据来源，覆盖范围因市场而异；行情数据仅供参考，不构成投资建议。",
@@ -76,7 +104,7 @@ const translations = {
     whatsNew: "Released {date} · View changelog",
     screenshotAlt:
       "Pulse watchlist showing prices and sparklines for US stocks and crypto",
-    markets: "US, Hong Kong and China stocks, crypto, indices, and ETFs",
+    markets: "US, Hong Kong, China, Japan and Korea stocks, crypto, precious metals, indices, and ETFs",
     dataSourcesLabel: "Market data sources",
     dataSourcesNote:
       "Shown for source identification only; coverage varies by market. Market data is not investment advice.",
@@ -99,10 +127,33 @@ const translations = {
     whatsNew: "{date}リリース · 更新履歴を見る",
     screenshotAlt:
       "米国株や暗号資産の価格とスパークラインを表示する Pulse のウォッチリスト",
-    markets: "米国株・香港株・中国A株・暗号資産・指数・ETF に対応",
+    markets: "米国株・香港株・中国A株・日本株・韓国株・暗号資産・貴金属・指数・ETF に対応",
     dataSourcesLabel: "マーケットデータの提供元",
     dataSourcesNote:
       "データ提供元の表示のみを目的としています。対応範囲は市場により異なります。マーケットデータは投資助言ではありません。",
+  },
+  ko: {
+    overline: "macOS 메뉴 막대 시세 앱",
+    headlineFirst: "Mac 메뉴 막대에서",
+    headlineSecond: "주식과 시장을 바로 확인",
+    intro:
+      "Pulse는 신경 쓰는 종목의 가격과 흐름, 보유 손익을 메뉴 막대에 올려 둡니다. 장전부터 장후까지, 하던 일을 멈추지 않고도 시장이 어떻게 움직이는지 알 수 있습니다.",
+    featuresLabel: "주요 기능",
+    features: [
+      "여러 개의 관심목록",
+      "보유 손익",
+      "캔들차트와 시간외 거래",
+      "메뉴 막대 시세 표시",
+    ],
+    downloadLabel: "macOS용 다운로드",
+    githubLabel: "GitHub에서 보기",
+    whatsNew: "{date} 릴리스 · 업데이트 내역 보기",
+    screenshotAlt:
+      "미국 주식과 암호화폐의 가격과 추세선을 보여 주는 Pulse 관심목록",
+    markets: "미국·홍콩·중국 A주·일본·한국 주식, 암호화폐, 귀금속, 지수, ETF 지원",
+    dataSourcesLabel: "시세 데이터 제공처",
+    dataSourcesNote:
+      "데이터 출처를 밝히기 위한 표시이며, 지원 범위는 시장마다 다릅니다. 시세 데이터는 투자 자문이 아닙니다.",
   },
 } as const;
 
@@ -110,6 +161,7 @@ const dateLocales: Record<Language, string> = {
   zh: "zh-CN",
   en: "en-US",
   ja: "ja-JP",
+  ko: "ko-KR",
 };
 
 function formatReleaseDate(date: string, language: Language) {
@@ -169,6 +221,8 @@ export function HomePage({ language }: { language: Language }) {
               </span>
             ))}
           </div>
+
+          <p className="market-coverage">{copy.markets}</p>
 
           <div className="actions">
             <a className="cta-button cta-primary" href={latestReleaseUrl}>

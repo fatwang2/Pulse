@@ -5,6 +5,7 @@ public enum PulseLanguagePreference: String, Codable, CaseIterable, Sendable {
     case english
     case simplifiedChinese
     case japanese
+    case korean
 
     public var localeIdentifier: String {
         switch self {
@@ -16,6 +17,8 @@ public enum PulseLanguagePreference: String, Codable, CaseIterable, Sendable {
             "zh-Hans"
         case .japanese:
             "ja"
+        case .korean:
+            "ko"
         }
     }
 
@@ -29,6 +32,8 @@ public enum PulseLanguagePreference: String, Codable, CaseIterable, Sendable {
             "简体中文"
         case .japanese:
             "日本語"
+        case .korean:
+            "한국어"
         }
     }
 }
@@ -55,6 +60,7 @@ public enum PulseLocalization {
         guard let preferred = preferredLanguages.first else { return "en" }
         if preferred.hasPrefix("zh") { return "zh-Hans" }
         if preferred.hasPrefix("ja") { return "ja" }
+        if preferred.hasPrefix("ko") { return "ko" }
         return "en"
     }
 

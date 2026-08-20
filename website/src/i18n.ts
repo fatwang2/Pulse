@@ -1,17 +1,18 @@
 /**
  * Language routing for the Pulse website.
  *
- * The site is served at three locales, one of which lives at the root:
+ * The site is served at four locales, one of which lives at the root:
  *   en -> /, /changelog
  *   zh -> /zh, /zh/changelog
  *   ja -> /ja, /ja/changelog
+ *   ko -> /ko, /ko/changelog
  *
  * The bare paths `/` and `/changelog` redirect to the visitor's preferred
  * locale (cookie first, then Accept-Language) when it is not English; English
  * is the canonical default and stays at the root.
  */
 
-export const languages = ["en", "zh", "ja"] as const;
+export const languages = ["en", "zh", "ja", "ko"] as const;
 export type Language = (typeof languages)[number];
 
 export const defaultLanguage: Language = "en";
@@ -21,7 +22,7 @@ export const siteUrl = "https://www.pulseticker.app";
 export type PageKind = "home" | "changelog";
 
 export function isLanguage(value: unknown): value is Language {
-  return value === "en" || value === "zh" || value === "ja";
+  return value === "en" || value === "zh" || value === "ja" || value === "ko";
 }
 
 export function homePath(language: Language): string {
@@ -37,16 +38,20 @@ export function pagePath(kind: PageKind, language: Language): string {
 }
 
 export function htmlLang(language: Language): string {
-  return language === "zh" ? "zh-CN" : language === "ja" ? "ja" : "en";
+  if (language === "zh") return "zh-CN";
+  if (language === "ja") return "ja";
+  if (language === "ko") return "ko";
+  return "en";
 }
 
-const pathLanguagePattern = /^\/(zh|ja)(\/|$)/;
+const pathLanguagePattern = /^\/(zh|ja|ko)(\/|$)/;
 
 /** Language implied by a path; English when there is no language prefix. */
 export function languageFromPath(pathname: string): Language {
   const match = pathname.match(pathLanguagePattern);
   if (match?.[1] === "zh") return "zh";
   if (match?.[1] === "ja") return "ja";
+  if (match?.[1] === "ko") return "ko";
   return "en";
 }
 
@@ -71,7 +76,12 @@ export function detectLanguageFromAcceptLanguage(
   for (const part of header.split(",")) {
     const [tag] = part.split(";");
     const primary = tag?.trim().toLowerCase().split("-")[0];
-    if (primary === "zh" || primary === "ja" || primary === "en") {
+    if (
+      primary === "zh" ||
+      primary === "ja" ||
+      primary === "ko" ||
+      primary === "en"
+    ) {
       return primary;
     }
   }
@@ -128,6 +138,13 @@ const pageCopyByLanguage: Record<PageKind, Record<Language, PageCopy>> = {
       socialDescription: "価格・トレンド・評価損益——macOS メニューバーで。",
       imageAlt: "Pulse macOS メニューバー株価トラッカー",
     },
+    ko: {
+      title: "Pulse — macOS 메뉴 막대 주식 시세 앱",
+      description:
+        "Pulse는 관심 종목의 가격과 흐름, 보유 손익을 macOS 메뉴 막대에서 바로 확인하는 가벼운 시세 앱입니다. 한국·미국·일본·홍콩·중국 증시와 암호화폐, 귀금속을 지원합니다.",
+      socialDescription: "가격, 흐름, 보유 손익 — macOS 메뉴 막대에서 바로.",
+      imageAlt: "Pulse macOS 메뉴 막대 시세 앱",
+    },
   },
   changelog: {
     en: {
@@ -150,6 +167,13 @@ const pageCopyByLanguage: Record<PageKind, Record<Language, PageCopy>> = {
         "初回公開から最新バージョンまで、Pulse の新機能・改善・修正を時系列でたどれます。",
       socialDescription: "Pulse の毎回のリリースにおける新機能・改善・修正。",
       imageAlt: "Pulse macOS メニューバー株価トラッカー",
+    },
+    ko: {
+      title: "Pulse 업데이트 내역 — 모든 릴리스를 한눈에",
+      description:
+        "첫 공개부터 최신 버전까지, Pulse의 새 기능과 개선, 수정 사항을 시간순으로 볼 수 있습니다.",
+      socialDescription: "Pulse의 매 릴리스에 담긴 새 기능과 개선, 수정 사항.",
+      imageAlt: "Pulse macOS 메뉴 막대 시세 앱",
     },
   },
 };

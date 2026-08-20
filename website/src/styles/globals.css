@@ -81,6 +81,10 @@ a {
   align-items: center;
   justify-content: space-between;
   height: 82px;
+  /* The header shares `.shell`'s z-index with every section below it, and the
+     hero comes later in the document — which put the product shot on top of the
+     language menu. The header outranks the page it sits above. */
+  z-index: 40;
   opacity: 0;
   transform: translateY(-8px);
   animation: reveal-header 720ms 80ms var(--ease-out-expo) forwards;
@@ -157,12 +161,7 @@ a {
 }
 
 .language-switcher {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px;
-  border: 1px solid rgba(40, 48, 58, 0.12);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.62);
+  position: relative;
 }
 
 .changelog-page {
@@ -417,33 +416,111 @@ a {
   font-weight: 580;
 }
 
-.language-switcher a {
+.language-switcher > summary {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 36px;
-  height: 25px;
-  padding: 0 7px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #868c94;
+  gap: 7px;
+  height: 31px;
+  padding: 0 9px 0 11px;
+  border: 1px solid rgba(40, 48, 58, 0.12);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.62);
+  color: #575d65;
   font: inherit;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 580;
-  text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
+  list-style: none;
+  user-select: none;
 }
 
-.language-switcher a.active {
-  background: white;
-  color: #30343a;
-  box-shadow: 0 2px 7px rgba(35, 44, 56, 0.09);
+/* Safari and Firefox each draw their own disclosure triangle. */
+.language-switcher > summary::-webkit-details-marker {
+  display: none;
 }
 
-.language-switcher a:focus-visible {
+.language-switcher > summary::marker {
+  content: "";
+}
+
+.language-switcher > summary:hover {
+  border-color: rgba(40, 48, 58, 0.2);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.language-switcher > summary:focus-visible {
   outline: 2px solid rgba(10, 132, 255, 0.3);
   outline-offset: 1px;
+}
+
+.language-switcher > summary svg {
+  width: 9px;
+  height: 6px;
+  color: #9aa0a8;
+  transition: transform 160ms var(--ease-out-expo);
+}
+
+.language-switcher[open] > summary svg {
+  transform: rotate(180deg);
+}
+
+.language-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 7px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 138px;
+  padding: 5px;
+  border: 1px solid rgba(40, 48, 58, 0.1);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 14px 34px rgba(28, 36, 48, 0.16);
+  backdrop-filter: blur(14px);
+}
+
+.language-menu a {
+  display: flex;
+  align-items: center;
+  height: 29px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: #575d65;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 540;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.language-menu a:hover {
+  background: rgba(40, 48, 58, 0.055);
+  color: #22262b;
+}
+
+/* The current locale is marked rather than merely highlighted: the menu is
+   closed most of the time, so the check has to survive a glance. */
+.language-menu a[aria-current="true"] {
+  color: #22262b;
+  font-weight: 620;
+}
+
+.language-menu a[aria-current="true"]::after {
+  content: "";
+  width: 10px;
+  height: 6px;
+  margin-left: auto;
+  border-left: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  border-radius: 1px;
+  transform: translateY(-2px) rotate(-45deg);
+}
+
+.language-menu a:focus-visible {
+  outline: 2px solid rgba(10, 132, 255, 0.3);
+  outline-offset: -1px;
 }
 
 .hero {
@@ -540,6 +617,14 @@ a {
   gap: 12px;
 }
 
+.market-coverage {
+  max-width: 535px;
+  margin: 12px 0 0;
+  color: #7b818a;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .actions {
   display: flex;
   align-items: center;
@@ -611,7 +696,9 @@ a {
   grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.5fr);
   align-items: center;
   gap: clamp(36px, 6vw, 96px);
-  min-height: 86px;
+  /* Two rows of marks now sit here, so the strip is padded rather than sized
+     by a min-height the second row would spill straight out of. */
+  padding-block: clamp(26px, 3.4vw, 40px) clamp(40px, 5.5vw, 68px);
   border-top: 1px solid rgba(60, 68, 78, 0.1);
   opacity: 0;
   transform: translateY(8px);
@@ -650,7 +737,8 @@ a {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
-  gap: clamp(24px, 4vw, 54px);
+  /* Rows sit closer than columns so the eight read as one block. */
+  gap: clamp(16px, 2.2vw, 26px) clamp(22px, 3.4vw, 46px);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -661,8 +749,8 @@ a {
   align-items: center;
   justify-content: center;
   min-width: 0;
-  height: 30px;
-  opacity: 0.68;
+  height: 24px;
+  opacity: 0.62;
 }
 
 .provider-logo img {
@@ -670,24 +758,44 @@ a {
   width: auto;
   max-width: 100%;
   height: auto;
-  max-height: 24px;
+  max-height: 19px;
   object-fit: contain;
 }
 
 .provider-logo--longbridge img {
-  max-width: 112px;
+  max-width: 94px;
 }
 
 .provider-logo--binance img {
-  max-width: 102px;
+  max-width: 86px;
 }
 
 .provider-logo--tencent img {
-  max-width: 102px;
+  max-width: 86px;
 }
 
 .provider-logo--yahoo-finance img {
-  max-width: 118px;
+  max-width: 99px;
+}
+
+/* Naver publishes a mark rather than a wordmark, so it is sized by height
+   against the lettering beside it instead of by width. */
+.provider-logo--naver img {
+  max-height: 18px;
+}
+
+.provider-logo--sge img {
+  max-width: 91px;
+}
+
+.provider-logo--eastmoney img {
+  max-width: 84px;
+}
+
+/* Sina publishes no standalone wordmark, so the strip carries its app mark;
+   like Naver's, it is sized by height rather than width. */
+.provider-logo--sina img {
+  max-height: 18px;
 }
 
 .product-shot {
@@ -1318,7 +1426,7 @@ a {
 
   .data-sources {
     gap: 18px;
-    padding-block: 22px 26px;
+    padding-block: 22px 44px;
   }
 
   .data-sources-heading {
@@ -1332,7 +1440,7 @@ a {
   }
 
   .provider-logo {
-    height: 32px;
+    height: 26px;
   }
 
 }

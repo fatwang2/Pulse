@@ -12,6 +12,45 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.12.0",
+    date: "2026-08-20",
+    kind: "release",
+    highlights: {
+      zh: [
+        "新增贵金属品类，共九个标的：伦敦金、伦敦银现货，COMEX 黄金与白银，NYMEX 铂金与钯金，上海黄金交易所的 Au99.99 现货，以及上期所的沪金、沪银期货。上海的标的以人民币计价、按克报价，跟随带夜盘的国内时段；其余以美元计价、按盎司报价。现货一律排在前面——问“黄金多少钱”的人指的就是它。搜“黄金”“现货黄金”“XAU”“GC”乃至“贵金属”都能找到，尽管没有任何数据源的搜索索引覆盖这个品类。",
+        "新增日本与韩国股票：东京证券交易所（Prime / Standard / Growth）以及韩国交易所的 KOSPI 与 KOSDAQ 两个板块，并支持日经 225 与韩国综合指数。东京 11:30–12:30 的午休会像港股、A 股一样在分时图上折叠掉；首尔则全天连续交易。韩国的板块归属跟随标的保存，而不是从代码猜——035720 属于 KOSPI，按 KOSDAQ 取到的是完全另一个标的。",
+        "新增韩语界面，可在设置 → 通用 → 语言中选择，也会跟随系统语言。用词沿用韩国券商 App 的习惯：등락률、보유 손익、평균 단가、전일 종가、일봉/주봉/월봉。",
+        "接入四个新数据源。Naver 提供韩股实时行情与韩文搜索，并且是板块归属的权威来源；新浪财经提供伦敦现货与上期所金属；上海黄金交易所提供 Au99.99 的官方日线；东方财富补上该合约的分时。",
+        "标的详情页现在会写明实时数据源的实际请求频率，“实时”和“每 15 秒一次”不再混为一谈。",
+        "设置页重新编排：通用移到最上面；匿名使用数据开关移入「数据」分组，与导入导出放在一起——关于数据流出 App 的问题现在都在同一处。",
+      ],
+      en: [
+        "Precious metals: nine instruments across both sides of the market — London spot gold and silver, the COMEX / NYMEX contracts (gold, silver, platinum, palladium), the Shanghai Gold Exchange's Au99.99 spot contract, and the SHFE gold and silver futures. The Shanghai instruments price in CNY per gram on a Chinese session with its own night leg; the rest quote in USD per ounce. Spot leads everywhere, because that is what \"gold\" means to someone asking the price.",
+        "Japanese and Korean stocks: Tokyo (Prime, Standard and Growth) plus both Korea Exchange boards, KOSPI and KOSDAQ, with the Nikkei 225 and the KOSPI Composite alongside them. Tokyo's 11:30–12:30 lunch break folds out of the intraday axis the way Hong Kong's and Shanghai's do; Seoul trades straight through. The Korean board is stored with the symbol rather than guessed from the code.",
+        "Korean is now a full app language, selectable in Settings → General → Language or inherited from your Mac, using the terms Korean brokerage apps use: 등락률, 보유 손익, 평균 단가, 전일 종가, 일봉/주봉/월봉.",
+        "Four new data sources. Naver serves Korean quotes in real time, answers Korean-language search, and is authoritative about which board a code belongs to. Sina carries London spot and SHFE metals, the Shanghai Gold Exchange publishes its own Au99.99 history, and Eastmoney fills that contract's intraday chart.",
+        "The symbol detail page now states how often a real-time source is actually polled, so \"real-time\" and \"every 15 seconds\" are no longer the same claim.",
+        "Settings reorganized: General moves to the top, and the anonymous usage-data switch joins Import & Export under Data, where the rest of the questions about data leaving the app already live.",
+      ],
+      ja: [
+        "貴金属に対応しました。ロンドン金・銀の現物、COMEX の金・銀、NYMEX のプラチナ・パラジウム、上海黄金交易所の Au99.99 現物、上海期貨交易所の金・銀先物の 9 銘柄です。上海の銘柄は人民元建て・グラム単位で、夜間立会を含む中国のセッションに従います。その他は米ドル建て・オンス単位です。現物を先頭に置いています——「金はいくらか」と尋ねる人が指しているのは現物だからです。",
+        "日本株と韓国株に対応しました。東京証券取引所（プライム・スタンダード・グロース）と、韓国取引所の KOSPI・KOSDAQ の両市場、そして日経平均株価と韓国総合株価指数です。東京の 11:30–12:30 の昼休みは、香港や中国A株と同じように日中チャートの軸から畳まれます。ソウルは昼休みなく連続で取引されます。韓国の市場区分はコードから推測せず銘柄と一緒に保存します——035720 は KOSPI であり、KOSDAQ のシンボルはまったく別の銘柄を指します。",
+        "韓国語が正式なアプリ言語になりました。設定 → 一般 → 言語で選択するか、Mac の設定を引き継ぎます。韓国の証券アプリで使われる用語（등락률・보유 손익・평균 단가・전일 종가・일봉/주봉/월봉）を採用しています。",
+        "データ提供元を 4 つ追加しました。Naver は韓国株をリアルタイムで配信し、韓国語検索に応答し、コードがどちらの市場に属するかについての権威ある情報源です。新浪財経はロンドン現物と上海期貨の金属を、上海黄金交易所は Au99.99 の公式日足を、東方財富はその銘柄の日中チャートを担います。",
+        "銘柄詳細画面に、リアルタイム提供元を実際にどの間隔で取得しているかを表示するようになりました。「リアルタイム」と「15 秒ごと」はもう同じ主張ではありません。",
+        "設定画面を整理しました。一般を最上部に移し、匿名利用データのスイッチをデータ項目へ移動して、読み込み・書き出しと並べました。アプリからデータが出ていく話が一箇所にまとまります。",
+      ],
+      ko: [
+        "귀금속을 지원합니다. 런던 금·은 현물, COMEX 금·은, NYMEX 백금·팔라듐, 상하이 금거래소의 Au99.99 현물, 상하이선물거래소의 금·은 선물까지 아홉 종목입니다. 상하이 종목은 위안화 기준 그램당 가격으로 야간장이 있는 중국 시간대를 따르고, 나머지는 달러 기준 온스당 가격입니다. 어디서나 현물이 앞에 옵니다. \"금값이 얼마냐\"고 묻는 사람이 가리키는 것이 현물이기 때문입니다.",
+        "일본과 한국 주식을 지원합니다. 도쿄증권거래소(프라임·스탠다드·그로스)와 한국거래소의 코스피·코스닥 두 시장, 그리고 닛케이 225와 코스피 지수까지 함께 담았습니다. 도쿄의 11:30–12:30 점심 휴장은 홍콩이나 중국 A주와 마찬가지로 분시 차트 축에서 접힙니다. 서울은 쉬지 않고 이어서 거래됩니다. 한국의 시장 구분은 코드에서 추측하지 않고 종목과 함께 저장합니다. 035720은 코스피이고, 코스닥 심볼로 받으면 전혀 다른 종목이 나옵니다.",
+        "한국어가 정식 앱 언어가 되었습니다. 설정 → 일반 → 언어에서 고르거나 Mac 설정을 따릅니다. 등락률, 보유 손익, 평균 단가, 전일 종가, 일봉/주봉/월봉처럼 한국 증권 앱이 쓰는 용어를 씁니다.",
+        "데이터 제공처를 네 곳 추가했습니다. 네이버는 한국 주식 시세를 실시간으로 주고 한국어 검색에 답하며, 어떤 코드가 어느 시장에 속하는지에 대한 권위 있는 출처입니다. 시나 파이낸스는 런던 현물과 상하이선물 금속을, 상하이 금거래소는 Au99.99의 공식 일봉을, 동방재부는 그 종목의 분시 차트를 맡습니다.",
+        "종목 상세 화면에 실시간 제공처를 실제로 얼마나 자주 조회하는지 표시합니다. 이제 \"실시간\"과 \"15초마다\"는 같은 말이 아닙니다.",
+        "설정 화면을 다시 정리했습니다. 일반이 맨 위로 올라가고, 익명 사용 데이터 스위치는 가져오기·내보내기와 함께 데이터 항목으로 옮겼습니다. 앱에서 데이터가 나가는 문제를 한곳에서 봅니다.",
+      ],
+    },
+  },
+  {
     version: "0.11.8",
     date: "2026-08-19",
     kind: "improvement",

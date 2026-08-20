@@ -38,6 +38,12 @@ xcuserdata/
 /coverage/
 /vendor/Sparkle/
 
+# Local iOS app work (not published from this repository)
+/PulseiOS/
+/project.ios.yml
+/scripts/build-longbridge-ios.sh
+*.ipa
+
 # Logs and editor temporary files
 *.log
 *.tmp

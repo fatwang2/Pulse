@@ -369,11 +369,3 @@
 "data.format.title" = "格式";
 "data.format.help" = "market 取 us、hk、sh、sz 或 crypto；code 填 NVDA、700 这类代码，或 BTC/USDT 这样的交易对。name、pinned、transactions 可省略。";
 "data.import.status.missingCode" = "代码为空";
-
-/* iOS app */
-"action.close" = "关闭";
-"action.addSymbol" = "添加自选";
-"action.addToWatchlist" = "加入自选";
-"action.removeFromWatchlist" = "移出自选";
-"watchlist.empty.title" = "自选列表还是空的";
-"stat.turnover" = "成交额";

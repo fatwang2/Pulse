@@ -369,11 +369,3 @@
 "data.format.title" = "형식";
 "data.format.help" = "market은 us, hk, sh, sz, crypto 중 하나입니다. code는 NVDA나 700 같은 코드, 또는 BTC/USDT 같은 페어입니다. name, pinned, transactions는 생략할 수 있습니다.";
 "data.import.status.missingCode" = "코드 없음";
-
-/* iOS app */
-"action.close" = "닫기";
-"action.addSymbol" = "종목 추가";
-"action.addToWatchlist" = "관심목록에 추가";
-"action.removeFromWatchlist" = "관심목록에서 제거";
-"watchlist.empty.title" = "관심목록이 비어 있습니다";
-"stat.turnover" = "거래대금";

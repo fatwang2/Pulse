@@ -47,11 +47,10 @@ command -v gh >/dev/null || { echo "error: GitHub CLI (gh) is required" >&2; exi
 
 VERSION="${PULSE_VERSION:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' PulseMac/Info.plist 2>/dev/null || echo 0.1.0)}"
 if [[ "$VERSION" == "\$(MARKETING_VERSION)" ]]; then
-  # project.yml carries one MARKETING_VERSION per target and PulseiOS is
-  # declared first, so an unscoped search returns the iOS version. Read the
-  # macOS target's own block, and fail instead of guessing: the fallback here
-  # used to be "0.1.0" — a tag that already exists, whose assets the upload
-  # step would have clobbered with a build of something else entirely.
+  # The generated Info.plist stores the build-setting placeholder. Read the
+  # macOS target's own block, and fail instead of guessing: the old fallback
+  # was "0.1.0" — a tag that already exists, whose assets the upload step
+  # would have clobbered with a build of something else entirely.
   VERSION="$(python3 - <<'PYVERSION'
 import re
 import sys

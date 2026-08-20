@@ -12,6 +12,37 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.13.0",
+    date: "2026-08-21",
+    kind: "release",
+    highlights: {
+      zh: [
+        "全新的首次启动体验：第一次打开 Pulse 会直接展示浮窗，不再只是菜单栏里多出一个图标；App 运行中再次从「应用程序」打开，也会唤出这个窗口。",
+        "为新用户准备了一段简短的引导：三步气泡依次带你搜索添加第一只自选、进入详情页、切换日K查看更长周期的走势——每一步都可以自己动手完成，也可以点「下一步」代劳，随时可以跳过。回到列表后还有一条一次性提示，告诉你如何用图钉把窗口收回菜单栏。老用户升级不会看到任何引导。",
+        "自选列表为空时的提示语现在是一个真正的按钮，点击直接展开搜索。",
+        "安装镜像（DMG）打开后是一个正式的安装界面：品牌背景图，左边是 Pulse，右边是「应用程序」，中间一个箭头。",
+      ],
+      en: [
+        "A first-run welcome: on its very first launch Pulse now presents its floating window instead of only adding an icon to the menu bar, and launching the already-running app from Applications brings that window back.",
+        "A short guided tour for new users: three bubbles walk through adding the first symbol via search, opening its detail page, and switching the chart to daily candles — every step can be done by hand or by clicking Next, and the whole tour is skippable. Back on the list, a one-time tip shows how the pin tucks Pulse into the menu bar. Existing installs never see any of it.",
+        "The empty watchlist's hint is now an actual button that opens search in place.",
+        "The installer disk image opens onto a proper install window: branded background, Pulse on the left, Applications on the right, an arrow in between.",
+      ],
+      ja: [
+        "初回起動の体験を一新しました。初めて Pulse を開くとフローティングウィンドウが表示され、メニューバーにアイコンが増えるだけでは終わりません。起動中に「アプリケーション」からもう一度開いた場合も、このウィンドウが呼び出されます。",
+        "新規ユーザー向けの短いガイドツアーを追加しました。3 つの吹き出しが、検索で最初の銘柄を追加し、詳細ページを開き、チャートを日足に切り替えるところまで順に案内します。各ステップは自分で操作しても「次へ」で進めてもよく、いつでもスキップできます。リストに戻ると、ピンでウィンドウをメニューバーへ戻す方法を伝える一度きりのヒントが表示されます。既存ユーザーには一切表示されません。",
+        "ウォッチリストが空のときのヒントがボタンになり、クリックするとその場で検索が開きます。",
+        "インストーラー（DMG）を開くと、ブランド背景の上で Pulse を Applications へドラッグする正式なインストール画面が表示されます。",
+      ],
+      ko: [
+        "첫 실행 경험을 새로 만들었습니다. Pulse를 처음 열면 플로팅 창이 바로 나타나, 메뉴 막대에 아이콘만 하나 늘어난 채 끝나지 않습니다. 실행 중에 '응용 프로그램'에서 다시 열어도 이 창이 나타납니다.",
+        "새 사용자를 위한 짧은 가이드 투어를 추가했습니다. 세 개의 말풍선이 검색으로 첫 종목 추가, 상세 페이지 열기, 차트를 일봉으로 전환하기까지 차례로 안내합니다. 각 단계는 직접 해도 되고 '다음'을 눌러도 되며 언제든 건너뛸 수 있습니다. 목록으로 돌아오면 핀으로 창을 메뉴 막대에 되돌리는 방법을 알려주는 일회성 팁이 나타납니다. 기존 사용자에게는 표시되지 않습니다.",
+        "관심 목록이 비어 있을 때의 안내 문구가 실제 버튼이 되어, 클릭하면 바로 검색이 열립니다.",
+        "설치 이미지(DMG)를 열면 브랜드 배경 위에서 Pulse를 Applications로 끌어다 놓는 정식 설치 화면이 나타납니다.",
+      ],
+    },
+  },
+  {
     version: "0.12.0",
     date: "2026-08-20",
     kind: "release",

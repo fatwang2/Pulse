@@ -128,8 +128,8 @@ test("server-renders the full bilingual release timeline", async () => {
   assert.doesNotMatch(html, /class="release-link"/);
 
   const releaseEntries = html.match(/class="release-entry"/g) ?? [];
-  assert.equal(releaseEntries.length, 34);
-  assert.ok(html.indexOf("0.12.0") < html.indexOf("0.11.8"));
+  assert.equal(releaseEntries.length, 35);
+  assert.ok(html.indexOf("0.13.0") < html.indexOf("0.12.0"));
 });
 
 test("serves the Chinese homepage at /zh", async () => {

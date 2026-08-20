@@ -47,18 +47,45 @@ command -v gh >/dev/null || { echo "error: GitHub CLI (gh) is required" >&2; exi
 
 VERSION="${PULSE_VERSION:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' PulseMac/Info.plist 2>/dev/null || echo 0.1.0)}"
 if [[ "$VERSION" == "\$(MARKETING_VERSION)" ]]; then
-  VERSION="$(python3 - <<'PY'
+  # project.yml carries one MARKETING_VERSION per target and PulseiOS is
+  # declared first, so an unscoped search returns the iOS version. Read the
+  # macOS target's own block, and fail instead of guessing: the fallback here
+  # used to be "0.1.0" — a tag that already exists, whose assets the upload
+  # step would have clobbered with a build of something else entirely.
+  VERSION="$(python3 - <<'PYVERSION'
 import re
+import sys
 from pathlib import Path
+
 text = Path("project.yml").read_text()
-match = re.search(r'MARKETING_VERSION:\s*"([^"]+)"', text)
-print(match.group(1) if match else "0.1.0")
-PY
-)"
+target = re.split(r"^  PulseMac:\s*$", text, flags=re.M)
+if len(target) < 2:
+    sys.exit("no PulseMac target in project.yml")
+match = re.search(r'MARKETING_VERSION:\s*"([^"]+)"', target[1])
+if not match:
+    sys.exit("PulseMac declares no MARKETING_VERSION")
+print(match.group(1))
+PYVERSION
+)" || { echo "error: could not resolve the macOS marketing version" >&2; exit 1; }
+fi
+
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "error: resolved version is not a release version: $VERSION" >&2
+  exit 1
 fi
 BUILD_NUMBER="${PULSE_BUILD_NUMBER:-$(date +%s)}"
 TAG="${PULSE_TAG:-v$VERSION}"
 RELEASE_NOTES_FILE="${PULSE_RELEASE_NOTES_FILE:-$ROOT/.github/release-notes/$VERSION.md}"
+
+# Missing notes usually mean the version resolved to something nobody wrote
+# notes for, which is worth catching before an hour of notarization.
+if [[ ! -f "$RELEASE_NOTES_FILE" && "${ALLOW_MISSING_RELEASE_NOTES:-0}" != "1" ]]; then
+  echo "error: no release notes at $RELEASE_NOTES_FILE" >&2
+  echo "Write them, or set ALLOW_MISSING_RELEASE_NOTES=1 to publish without them." >&2
+  exit 1
+fi
+
+echo "==> Releasing Pulse $VERSION as $TAG"
 
 if [[ ! "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
   echo "error: build number must be a positive integer, found: $BUILD_NUMBER" >&2

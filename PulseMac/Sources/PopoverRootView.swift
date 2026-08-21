@@ -16,9 +16,19 @@ enum PopoverRoute: Hashable {
     /// Full business summary, pushed from the detail page's excerpt.
     case profile(SymbolID)
     case settings
+    /// Second-level list for one class of data sources; the split keeps the
+    /// settings root short as sources accumulate.
+    case providerList(ProviderListKind)
     case providerDetail(String)
     /// Import and export, kept off the settings list so it stays a short page.
     case dataSettings
+}
+
+/// The two provider classes in settings: sources the user connects with their
+/// own account, and built-ins that just work.
+enum ProviderListKind: Hashable {
+    case accounts
+    case builtin
 }
 
 enum TradeSide: Hashable {
@@ -165,10 +175,16 @@ struct PopoverRootView: View {
                 DataSettingsView(route: $route)
                     .frame(height: height(for: displayRoute))
                     .transition(pushTransition)
+            case .providerList(let kind):
+                ProviderListView(kind: kind, route: $route)
+                    .frame(height: height(for: displayRoute))
+                    .transition(pushTransition)
             case .providerDetail(let id):
                 Group {
                     if id == LongbridgeProvider.providerID {
                         LongbridgeSetupView(route: $route)
+                    } else if id == FuyaoProvider.providerID {
+                        FuyaoSetupView(route: $route)
                     } else if let descriptor = appState.providerDescriptors.first(where: { $0.id == id }) {
                         ProviderDetailView(descriptor: descriptor, route: $route)
                     }
@@ -278,8 +294,10 @@ struct PopoverRootView: View {
             .detail(symbol)
         case .settings:
             .list
-        case .providerDetail, .dataSettings:
+        case .providerList, .dataSettings:
             .settings
+        case .providerDetail(let id):
+            .providerList(appState.providerListKind(for: id))
         }
     }
 
@@ -312,7 +330,7 @@ struct PopoverRootView: View {
             return 370
         case .settings:
             return 540
-        case .providerDetail, .dataSettings:
+        case .providerList, .providerDetail, .dataSettings:
             // Same height as the settings page it navigates from, so the popover
             // doesn't shrink on push and the taller pages don't need scrolling.
             return 540

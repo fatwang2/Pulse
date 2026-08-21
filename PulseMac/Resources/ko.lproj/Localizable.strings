@@ -206,6 +206,16 @@
 "longbridge.credentials.clear" = "인증 정보 삭제";
 "longbridge.credentials.error" = "확인에 실패했습니다. 입력한 값과 액세스 토큰 만료 여부를 확인하세요";
 "longbridge.credentials.help" = "App Key, App Secret, Access Token은 open.longbridge.com 사용자 센터에서 발급받습니다. 인증 정보는 이 기기의 키체인에만 저장됩니다.";
+"provider.fuyao" = "Hithink Fuyao";
+"fuyao.account" = "계정";
+"fuyao.status.configured" = "설정됨 (API 키)";
+"fuyao.setup.intro" = "Hithink(퉁화순) 공식 중국 A주 데이터 서비스입니다. fuyao.aicubes.cn에서 퉁화순 계정으로 API 키를 발급받으세요. 키는 이 기기의 키체인에만 저장됩니다.";
+"fuyao.setup.getKey" = "API 키 발급";
+"fuyao.credentials.replace" = "API 키 변경";
+"fuyao.credentials.save" = "저장 후 확인";
+"fuyao.credentials.validating" = "확인 중…";
+"fuyao.credentials.error" = "확인에 실패했습니다. API 키가 유효한지 확인하세요";
+"fuyao.disconnect" = "연결 해제";
 "provider.tencent" = "텐센트 증권";
 "provider.sina" = "시나 파이낸스";
 "provider.naver" = "네이버 증권";
@@ -269,6 +279,9 @@
 "settings.section.market" = "시세";
 "settings.section.menuBar" = "메뉴 막대";
 "settings.section.providers" = "데이터 소스";
+"settings.section.providers.accounts" = "계정 데이터 소스";
+"settings.providers.accounts.help" = "자신의 계정을 연결하면 더 안정적인 실시간 시세를 이용할 수 있습니다. 키는 이 기기의 키체인에만 저장됩니다.";
+"settings.section.providers.builtin" = "기본 제공 데이터 소스";
 "settings.section.updates" = "소프트웨어 업데이트";
 "settings.title" = "설정";
 "settings.updates.check" = "업데이트 확인";

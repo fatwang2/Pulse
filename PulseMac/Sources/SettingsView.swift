@@ -46,7 +46,7 @@ struct ProviderRow: View {
             case .failed: "provider.status.fallback"
             }
         }
-        if isConnectable && !appState.longbridgeConfigured { return "provider.status.notConnected" }
+        if isConnectable && !appState.isProviderConfigured(descriptor.id) { return "provider.status.notConnected" }
         guard appState.isProviderEnabled(descriptor.id) else { return "provider.status.off" }
         return "provider.status.on"
     }
@@ -159,20 +159,17 @@ struct SettingsView: View {
                     Text(PulseLocalization.localizedString("settings.market.prioritizeOpenMarketsHelp"))
                 }
 
+                // The sources themselves live one level down, one page per class,
+                // so the settings root stays short as sources accumulate.
                 Section {
-                    ForEach(appState.providerDescriptors, id: \.id) { descriptor in
-                        ProviderRow(descriptor: descriptor) {
-                            route = .providerDetail(descriptor.id)
-                        }
-                    }
+                    providerGroupRow(titleKey: "settings.section.providers.accounts", kind: .accounts)
+                    providerGroupRow(titleKey: "settings.section.providers.builtin", kind: .builtin)
                 } header: {
                     Text(PulseLocalization.localizedString("settings.section.providers"))
                 } footer: {
                     if appState.providerDescriptors.allSatisfy({ !appState.isProviderEnabled($0.id) }) {
                         Text(PulseLocalization.localizedString("settings.providers.allDisabled"))
                             .foregroundStyle(.orange)
-                    } else {
-                        Text(PulseLocalization.localizedString("settings.providers.help"))
                     }
                 }
 
@@ -232,6 +229,24 @@ struct SettingsView: View {
             .scrollEdgeEffectStyle(.soft, for: .all)
         }
         .onAppear { PulseTelemetry.signal(.settingsOpened) }
+    }
+
+    /// Navigation row into one class of data sources, in the same shape as the
+    /// data-and-privacy row below.
+    private func providerGroupRow(titleKey: String, kind: ProviderListKind) -> some View {
+        Button {
+            route = .providerList(kind)
+        } label: {
+            HStack(spacing: 6) {
+                Text(PulseLocalization.localizedString(titleKey))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.pressable)
     }
 
     private var header: some View {

@@ -206,6 +206,16 @@
 "longbridge.credentials.clear" = "清除凭证";
 "longbridge.credentials.error" = "校验失败:请检查凭证是否正确、Access Token 是否过期";
 "longbridge.credentials.help" = "在 open.longbridge.com 用户中心获取 App Key、App Secret 与 Access Token。凭证仅保存在本机钥匙串。";
+"provider.fuyao" = "同花顺扶摇";
+"fuyao.account" = "账户";
+"fuyao.status.configured" = "已配置(API Key)";
+"fuyao.setup.intro" = "同花顺官方 A 股数据服务。用同花顺账号在 fuyao.aicubes.cn 签发 API Key,密钥仅保存在本机钥匙串。";
+"fuyao.setup.getKey" = "获取 API Key";
+"fuyao.credentials.replace" = "更换 API Key";
+"fuyao.credentials.save" = "保存并校验";
+"fuyao.credentials.validating" = "正在校验…";
+"fuyao.credentials.error" = "校验失败:请检查 API Key 是否有效";
+"fuyao.disconnect" = "断开连接";
 "provider.tencent" = "腾讯行情";
 "provider.sina" = "新浪财经";
 "provider.naver" = "Naver 财经";
@@ -269,6 +279,9 @@
 "settings.section.market" = "行情";
 "settings.section.menuBar" = "菜单栏";
 "settings.section.providers" = "数据源";
+"settings.section.providers.accounts" = "账户数据源";
+"settings.providers.accounts.help" = "连接你自己的账户，行情更稳定、更实时。密钥仅保存在本机钥匙串。";
+"settings.section.providers.builtin" = "内置数据源";
 "settings.section.updates" = "版本与更新";
 "settings.title" = "设置";
 "settings.updates.check" = "检查更新";

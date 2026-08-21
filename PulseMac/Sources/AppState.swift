@@ -22,6 +22,7 @@ final class AppState {
     @ObservationIgnored let provider: CompositeProvider
     @ObservationIgnored let binance: BinanceProvider
     @ObservationIgnored let longbridge: LongbridgeProvider
+    @ObservationIgnored let fuyao: FuyaoProvider
     @ObservationIgnored let longbridgeOAuth: LongbridgeOAuthAuthenticator
 
     enum LongbridgeAuthState {
@@ -34,6 +35,9 @@ final class AppState {
     /// regardless of the user's enable toggle.
     private(set) var longbridgeAuthState: LongbridgeAuthState
     var longbridgeConfigured: Bool { longbridgeAuthState != .none }
+    /// Whether a Fuyao API key is saved; `.none` keeps the provider out of routing
+    /// regardless of the user's enable toggle.
+    private(set) var fuyaoConfigured: Bool
     private(set) var longbridgeConnectionStatus: LongbridgeConnectionStatus = .disconnected
     private(set) var longbridgeQuoteAccess: [Market: LongbridgeQuoteAccess] = [:]
     private(set) var longbridgeDelayedMarkets: Set<Market> = []
@@ -82,10 +86,15 @@ final class AppState {
             : Self.loadLongbridgeAuth()
         let (auth, authState) = authContext
         let longbridge = LongbridgeProvider(auth: auth)
+        let fuyaoKey = CommandLine.arguments.contains("--share-selftest")
+            ? nil
+            : ProviderCredentialStore.load(providerID: FuyaoProvider.providerID)?["apiKey"]
+        let fuyao = FuyaoProvider(apiKey: fuyaoKey)
         let binance = BinanceProvider()
         var disabledIDs = settings.disabledProviderIDs
         if authState == .none { disabledIDs.insert(LongbridgeProvider.providerID) }
-        let provider = CompositeProvider(providers: [longbridge, binance, TencentProvider(), NaverProvider(), YahooProvider(), SinaProvider(),
+        if fuyaoKey == nil { disabledIDs.insert(FuyaoProvider.providerID) }
+        let provider = CompositeProvider(providers: [longbridge, fuyao, binance, TencentProvider(), NaverProvider(), YahooProvider(), SinaProvider(),
                                                      ShanghaiGoldExchangeProvider(), EastmoneyProvider()],
                                          disabledIDs: disabledIDs)
         self.settings = settings
@@ -95,6 +104,8 @@ final class AppState {
         self.provider = provider
         self.binance = binance
         self.longbridge = longbridge
+        self.fuyao = fuyao
+        self.fuyaoConfigured = fuyaoKey != nil
         self.longbridgeAuthState = authState
         self.longbridgeOAuthClientID = authState == .oauth
             ? LongbridgeCredentialStore.loadOAuthTokens()?.clientID
@@ -172,11 +183,28 @@ final class AppState {
     }
 
     /// User intent (enable toggles) combined with configuration state: an unconfigured
-    /// Longbridge never participates in routing.
+    /// BYOK source never participates in routing.
     private func effectiveDisabledIDs() -> Set<String> {
         var ids = settings.disabledProviderIDs
         if !longbridgeConfigured { ids.insert(LongbridgeProvider.providerID) }
+        if !fuyaoConfigured { ids.insert(FuyaoProvider.providerID) }
         return ids
+    }
+
+    /// Which settings list a provider belongs to, derived from its declared
+    /// credential fields: BYOK sources are accounts, the rest are built-ins.
+    func providerListKind(for id: String) -> ProviderListKind {
+        let descriptor = providerDescriptors.first { $0.id == id }
+        return (descriptor?.credentials.isEmpty ?? true) ? .builtin : .accounts
+    }
+
+    /// Whether a BYOK source has the credentials it needs; always true for keyless sources.
+    func isProviderConfigured(_ id: String) -> Bool {
+        switch id {
+        case LongbridgeProvider.providerID: longbridgeConfigured
+        case FuyaoProvider.providerID: fuyaoConfigured
+        default: true
+        }
     }
 
     private func applyProviderAvailability() {
@@ -239,6 +267,32 @@ final class AppState {
             await longbridge.updateAuth(Self.loadLongbridgeAuth().0)
             throw error
         }
+    }
+
+    // MARK: - Fuyao auth
+
+    /// Validates the key against the live service before persisting; an invalid key is
+    /// rolled back so a previously working configuration is never destroyed by a failed edit.
+    func saveFuyaoAPIKey(_ key: String) async throws {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        await fuyao.updateAPIKey(trimmed)
+        do {
+            try await fuyao.validateConnection()
+        } catch {
+            await fuyao.updateAPIKey(ProviderCredentialStore.load(providerID: FuyaoProvider.providerID)?["apiKey"])
+            throw error
+        }
+        try ProviderCredentialStore.save(["apiKey": trimmed], providerID: FuyaoProvider.providerID)
+        fuyaoConfigured = true
+        // Connecting is the strongest possible "turn this on" signal.
+        setProvider(FuyaoProvider.providerID, enabled: true)
+    }
+
+    func clearFuyaoAPIKey() {
+        ProviderCredentialStore.clear(providerID: FuyaoProvider.providerID)
+        fuyaoConfigured = false
+        Task { await fuyao.updateAPIKey(nil) }
+        applyProviderAvailability()
     }
 
     func clearLongbridgeCredentials() {

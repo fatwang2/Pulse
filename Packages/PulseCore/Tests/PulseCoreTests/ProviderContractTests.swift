@@ -561,6 +561,37 @@ struct ProviderContractTests {
 
         #expect(results.contains { $0.symbol == SymbolID(market: .us, code: "AAPL") })
     }
+
+    // MARK: - Fuyao (BYOK; additionally needs FUYAO_API_KEY)
+
+    static var fuyaoKey: String? {
+        ProcessInfo.processInfo.environment["FUYAO_API_KEY"]
+    }
+
+    @Test("Fuyao: batch quotes", .enabled(if: fuyaoKey != nil))
+    func fuyaoQuotes() async throws {
+        let symbols = [SymbolID(market: .sh, code: "600519"), SymbolID(market: .sz, code: "000001")]
+        let quotes = try await FuyaoProvider(apiKey: Self.fuyaoKey).quotes(for: symbols)
+        #expect(quotes.count == symbols.count)
+        for quote in quotes {
+            Self.assertQuoteContract(quote)
+            #expect(quote.currencyCode == "CNY")
+        }
+    }
+
+    @Test("Fuyao: daily candles", .enabled(if: fuyaoKey != nil))
+    func fuyaoCandles() async throws {
+        let candles = try await FuyaoProvider(apiKey: Self.fuyaoKey).candles(
+            for: SymbolID(market: .sh, code: "600519"), period: .day, count: 60)
+        Self.assertCandleContract(candles)
+        #expect(candles.count <= 60)
+    }
+
+    @Test("Fuyao: search resolves Chinese names", .enabled(if: fuyaoKey != nil))
+    func fuyaoSearch() async throws {
+        let results = try await FuyaoProvider(apiKey: Self.fuyaoKey).search("平安银行")
+        #expect(results.contains { $0.symbol == SymbolID(market: .sz, code: "000001") })
+    }
 }
 
 /// Source delay and refresh cadence are different promises, and conflating them
@@ -595,7 +626,7 @@ struct QuoteCadenceTests {
         for descriptor in [
             TencentProvider().descriptor, YahooProvider().descriptor,
             SinaProvider().descriptor, ShanghaiGoldExchangeProvider().descriptor,
-            EastmoneyProvider().descriptor,
+            EastmoneyProvider().descriptor, FuyaoProvider().descriptor,
         ] {
             #expect(descriptor.pollingCadenceSeconds(interval: 15) == 15,
                     "\(descriptor.id) should report a cadence")

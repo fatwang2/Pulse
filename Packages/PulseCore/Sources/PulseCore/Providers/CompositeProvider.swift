@@ -140,6 +140,9 @@ public actor CompositeProvider: QuoteProvider {
             // Spelled out: LongbridgeProvider only compiles on macOS, but routing
             // rank must stay identical on every platform the composite runs on.
             if market != .crypto, id == "longbridge" { return 0 }
+            // Official BYOK A-share source: when the user configured a key it
+            // outranks the free endpoints, but never the streaming Longbridge.
+            if market.isChinaA, id == FuyaoProvider.providerID { return 1 }
             if market == .us, id == "yahoo" { return 1 }
             return 100 + (registrationOrder[id] ?? 10_000)
         }
@@ -774,6 +777,7 @@ public actor CompositeProvider: QuoteProvider {
     private nonisolated static func nameLocaleIdentifier(for providerID: String) -> String {
         switch providerID {
         case "tencent": "zh-Hans"
+        case FuyaoProvider.providerID: "zh-Hans"
         case "yahoo": "en"
         case NaverProvider.providerID: "ko"
         default: PulseLocalization.currentLanguageIdentifier

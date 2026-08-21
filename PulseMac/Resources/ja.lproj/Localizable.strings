@@ -206,6 +206,16 @@
 "longbridge.credentials.clear" = "認証情報を消去";
 "longbridge.credentials.error" = "検証に失敗しました。認証情報と Access Token の有効期限を確認してください";
 "longbridge.credentials.help" = "App Key・App Secret・Access Token は open.longbridge.com のユーザーセンターで取得できます。認証情報はこの Mac のキーチェーンにのみ保存されます。";
+"provider.fuyao" = "Hithink Fuyao";
+"fuyao.account" = "アカウント";
+"fuyao.status.configured" = "設定済み（API キー）";
+"fuyao.setup.intro" = "Hithink（同花順）公式の中国A株データサービスです。fuyao.aicubes.cn で同花順アカウントを使って API キーを発行してください。キーはこの Mac のキーチェーンにのみ保存されます。";
+"fuyao.setup.getKey" = "API キーを取得";
+"fuyao.credentials.replace" = "API キーを変更";
+"fuyao.credentials.save" = "保存して検証";
+"fuyao.credentials.validating" = "検証中…";
+"fuyao.credentials.error" = "検証に失敗しました。API キーが有効か確認してください";
+"fuyao.disconnect" = "接続を解除";
 "provider.tencent" = "Tencent Finance";
 "provider.sina" = "新浪財経";
 "provider.naver" = "Naver ファイナンス";
@@ -269,6 +279,9 @@
 "settings.section.market" = "マーケット";
 "settings.section.menuBar" = "メニューバー";
 "settings.section.providers" = "データソース";
+"settings.section.providers.accounts" = "アカウントデータソース";
+"settings.providers.accounts.help" = "自分のアカウントを接続すると、より安定したリアルタイム価格を利用できます。キーはこの Mac のキーチェーンにのみ保存されます。";
+"settings.section.providers.builtin" = "内蔵データソース";
 "settings.section.updates" = "ソフトウェアアップデート";
 "settings.title" = "設定";
 "settings.updates.check" = "アップデートを確認";

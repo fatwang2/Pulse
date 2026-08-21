@@ -206,6 +206,16 @@
 "longbridge.credentials.clear" = "Clear Credentials";
 "longbridge.credentials.error" = "Verification failed: check the credentials and whether the access token has expired";
 "longbridge.credentials.help" = "Get the App Key, App Secret and Access Token from the open.longbridge.com user center. Credentials are stored only in the local Keychain.";
+"provider.fuyao" = "Hithink Fuyao";
+"fuyao.account" = "Account";
+"fuyao.status.configured" = "Configured (API key)";
+"fuyao.setup.intro" = "Hithink/Tonghuashun's official A-share data service. Sign an API key with your Tonghuashun account at fuyao.aicubes.cn; the key is stored only in the local Keychain.";
+"fuyao.setup.getKey" = "Get an API Key";
+"fuyao.credentials.replace" = "Replace API Key";
+"fuyao.credentials.save" = "Save & Verify";
+"fuyao.credentials.validating" = "Verifying…";
+"fuyao.credentials.error" = "Verification failed: check that the API key is valid";
+"fuyao.disconnect" = "Disconnect";
 "provider.tencent" = "Tencent Finance";
 "provider.sina" = "Sina Finance";
 "provider.naver" = "Naver Finance";
@@ -269,6 +279,9 @@
 "settings.section.market" = "Market";
 "settings.section.menuBar" = "Menu Bar";
 "settings.section.providers" = "Data Sources";
+"settings.section.providers.accounts" = "Account Sources";
+"settings.providers.accounts.help" = "Connect your own accounts for steadier, real-time quotes. Keys are stored only in the local Keychain.";
+"settings.section.providers.builtin" = "Built-in Sources";
 "settings.section.updates" = "Software Update";
 "settings.title" = "Settings";
 "settings.updates.check" = "Check for Updates";

@@ -9,15 +9,18 @@ import {
   rememberLanguage,
 } from "../i18n";
 
+const repositoryUrl = "https://github.com/fatwang2/Pulse";
+
 const headerCopy: Record<
   Language,
-  { homeLabel: string; navigationLabel: string; home: string; changelog: string; languageLabel: string }
+  { homeLabel: string; navigationLabel: string; home: string; changelog: string; githubLabel: string; languageLabel: string }
 > = {
   zh: {
     homeLabel: "Pulse 首页",
     navigationLabel: "Pulse 首页",
     home: "首页",
     changelog: "更新日志",
+    githubLabel: "在 GitHub 查看 Pulse 源码",
     languageLabel: "切换网站语言",
   },
   en: {
@@ -25,6 +28,7 @@ const headerCopy: Record<
     navigationLabel: "Pulse home",
     home: "Home",
     changelog: "Changelog",
+    githubLabel: "View Pulse source on GitHub",
     languageLabel: "Change website language",
   },
   ja: {
@@ -32,6 +36,7 @@ const headerCopy: Record<
     navigationLabel: "Pulse ホーム",
     home: "ホーム",
     changelog: "更新履歴",
+    githubLabel: "GitHub で Pulse のソースを見る",
     languageLabel: "サイトの言語を切り替え",
   },
   ko: {
@@ -39,6 +44,7 @@ const headerCopy: Record<
     navigationLabel: "Pulse 홈",
     home: "홈",
     changelog: "업데이트 내역",
+    githubLabel: "GitHub에서 Pulse 소스 보기",
     languageLabel: "사이트 언어 변경",
   },
 };
@@ -84,6 +90,20 @@ export function SiteHeader({
             {copy.changelog}
           </Link>
         </nav>
+        <a
+          className="header-github"
+          href={repositoryUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={copy.githubLabel}
+          title="GitHub"
+          data-testid="header-github"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2.6a9.6 9.6 0 0 0-3 18.7c.5.1.7-.2.7-.5v-1.9c-2.8.6-3.4-1.2-3.4-1.2-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 0 1.6 1.1 1.6 1.1.9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.7-1.4-2.3-.3-4.6-1.1-4.6-4.8 0-1.1.4-1.9 1-2.6-.1-.3-.4-1.3.1-2.6 0 0 .8-.3 2.7 1a9.2 9.2 0 0 1 4.9 0c1.9-1.3 2.7-1 2.7-1 .5 1.3.2 2.3.1 2.6.6.7 1 1.5 1 2.6 0 3.7-2.3 4.5-4.6 4.8.4.3.7.9.7 1.8v2.8c0 .4.2.6.7.5A9.6 9.6 0 0 0 12 2.6Z" />
+          </svg>
+          <span>GitHub</span>
+        </a>
         <LanguageSwitcher language={language} page={page} label={copy.languageLabel} />
       </div>
     </header>

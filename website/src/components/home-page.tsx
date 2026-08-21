@@ -1,12 +1,16 @@
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { FeatureShowcase } from "./feature-showcase";
 import { InteractivePreview } from "./interactive-preview";
+import { OmarchyPreview } from "./omarchy-preview";
 import { SiteHeader } from "./site-header";
 import { releases } from "../data/releases";
 import { changelogPath, type Language } from "../i18n";
 
 const latestReleaseUrl = "/download";
-const repositoryUrl = "https://github.com/fatwang2/Pulse";
+const omarchyUrl = "https://github.com/fatwang2/omarchy-pulse";
+const omarchyInstallCommand =
+  "omarchy plugin add https://github.com/fatwang2/omarchy-pulse.git --enable";
 
 const dataSources = [
   {
@@ -70,18 +74,33 @@ const dataSources = [
 const translations = {
   zh: {
     overline: "macOS 菜单栏行情工具",
-    headlineFirst: "从 Mac 菜单栏快速查看",
+    headlineFirst: "从 Mac 菜单栏看",
     headlineSecond: "股票与市场行情",
     intro:
       "Pulse 把你关心的价格、走势和持仓盈亏放进菜单栏。从盘前到盘后，不打断工作，也能随时知道市场发生了什么。",
     featuresLabel: "主要功能",
     features: ["多分组自选", "持仓盈亏", "蜡烛图与盘前盘后", "菜单栏行情轮播"],
     downloadLabel: "下载最新版",
-    githubLabel: "GitHub 开源",
+    omarchyLabel: "Omarchy 插件",
     whatsNew: "{date}发布 · 查看更新日志",
     screenshotAlt:
-      "Pulse 自选列表截图，展示美股、A 股、港股与加密货币的价格和走势图",
+      "Pulse 菜单栏浮层演示，展示美股、A 股、港股与加密货币的价格和走势图",
     markets: "支持美股、港股、A 股、日股、韩股、加密货币、贵金属、指数与 ETF",
+    platforms: {
+      omarchy: {
+        title: "Pulse，也来到 Omarchy Quattro",
+        description:
+          "为 Omarchy Quattro 原生打造的 Quickshell 行情面板。无需离开桌面，就能查看命名分组、搜索标的，并打开分时走势与蜡烛图。",
+        installLabel: "安装 Omarchy Quattro 插件",
+        copy: "复制命令",
+        copying: "正在复制",
+        copied: "已复制",
+        copyError: "无法复制，请手动选择命令。",
+        link: "在 GitHub 查看源码",
+        imageCaption: "Pulse for Omarchy Quattro · Quickshell",
+        imageAlt: "Omarchy Quattro 状态栏中的 Pulse 面板，展示带走势线的自选列表",
+      },
+    },
     dataSourcesLabel: "行情数据来源",
     dataSourcesNote:
       "仅用于说明数据来源，覆盖范围因市场而异；行情数据仅供参考，不构成投资建议。",
@@ -100,11 +119,27 @@ const translations = {
       "Menu bar ticker",
     ],
     downloadLabel: "Download for macOS",
-    githubLabel: "View on GitHub",
+    omarchyLabel: "Explore Omarchy Quattro",
     whatsNew: "Released {date} · View changelog",
     screenshotAlt:
-      "Pulse watchlist showing prices and sparklines for US stocks and crypto",
+      "Pulse menu bar popover showing prices and sparklines for US stocks and crypto",
     markets: "US, Hong Kong, China, Japan and Korea stocks, crypto, precious metals, indices, and ETFs",
+    platforms: {
+      omarchy: {
+        title: "Pulse, now on Omarchy Quattro",
+        description:
+          "A native Quickshell market panel for Omarchy Quattro. Check named watchlists, search symbols, and open session lines or candlesticks without leaving your desktop.",
+        installLabel: "Install the Omarchy Quattro plugin",
+        copy: "Copy command",
+        copying: "Copying",
+        copied: "Copied",
+        copyError: "Couldn’t copy. Select the command and copy it manually.",
+        link: "View source on GitHub",
+        imageCaption: "Pulse for Omarchy Quattro · Quickshell",
+        imageAlt:
+          "Pulse panel in the Omarchy Quattro bar showing a watchlist with sparklines",
+      },
+    },
     dataSourcesLabel: "Market data sources",
     dataSourcesNote:
       "Shown for source identification only; coverage varies by market. Market data is not investment advice.",
@@ -123,11 +158,27 @@ const translations = {
       "メニューバーティッカー",
     ],
     downloadLabel: "macOS 版をダウンロード",
-    githubLabel: "GitHub で見る",
+    omarchyLabel: "Omarchy Quattro 版を見る",
     whatsNew: "{date}リリース · 更新履歴を見る",
     screenshotAlt:
-      "米国株や暗号資産の価格とスパークラインを表示する Pulse のウォッチリスト",
+      "米国株や暗号資産の価格とスパークラインを表示する Pulse のメニューバーポップオーバー",
     markets: "米国株・香港株・中国A株・日本株・韓国株・暗号資産・貴金属・指数・ETF に対応",
+    platforms: {
+      omarchy: {
+        title: "Pulse が Omarchy Quattro にも",
+        description:
+          "Omarchy Quattro 向けにネイティブで作られた Quickshell マーケットパネル。デスクトップを離れずに、名前付きリスト、銘柄検索、分足ライン、ローソク足を利用できます。",
+        installLabel: "Omarchy Quattro プラグインをインストール",
+        copy: "コマンドをコピー",
+        copying: "コピー中",
+        copied: "コピーしました",
+        copyError: "コピーできませんでした。コマンドを選択して手動でコピーしてください。",
+        link: "GitHub でソースを見る",
+        imageCaption: "Pulse for Omarchy Quattro · Quickshell",
+        imageAlt:
+          "Omarchy Quattro のバーに表示された Pulse パネル。スパークライン付きのウォッチリスト",
+      },
+    },
     dataSourcesLabel: "マーケットデータの提供元",
     dataSourcesNote:
       "データ提供元の表示のみを目的としています。対応範囲は市場により異なります。マーケットデータは投資助言ではありません。",
@@ -146,11 +197,27 @@ const translations = {
       "메뉴 막대 시세 표시",
     ],
     downloadLabel: "macOS용 다운로드",
-    githubLabel: "GitHub에서 보기",
+    omarchyLabel: "Omarchy Quattro 버전 보기",
     whatsNew: "{date} 릴리스 · 업데이트 내역 보기",
     screenshotAlt:
-      "미국 주식과 암호화폐의 가격과 추세선을 보여 주는 Pulse 관심목록",
+      "미국 주식과 암호화폐의 가격과 추세선을 보여 주는 Pulse 메뉴 막대 팝오버",
     markets: "미국·홍콩·중국 A주·일본·한국 주식, 암호화폐, 귀금속, 지수, ETF 지원",
+    platforms: {
+      omarchy: {
+        title: "이제 Omarchy Quattro에서도 Pulse를",
+        description:
+          "Omarchy Quattro를 위해 네이티브로 만든 Quickshell 시세 패널입니다. 데스크톱을 벗어나지 않고 이름 붙인 관심목록, 종목 검색, 장중 라인과 캔들차트를 확인할 수 있습니다.",
+        installLabel: "Omarchy Quattro 플러그인 설치",
+        copy: "명령어 복사",
+        copying: "복사 중",
+        copied: "복사됨",
+        copyError: "복사하지 못했습니다. 명령어를 선택해 직접 복사해 주세요.",
+        link: "GitHub에서 소스 보기",
+        imageCaption: "Pulse for Omarchy Quattro · Quickshell",
+        imageAlt:
+          "Omarchy Quattro 막대에 표시된 Pulse 패널. 추세선이 있는 관심목록",
+      },
+    },
     dataSourcesLabel: "시세 데이터 제공처",
     dataSourcesNote:
       "데이터 출처를 밝히기 위한 표시이며, 지원 범위는 시장마다 다릅니다. 시세 데이터는 투자 자문이 아닙니다.",
@@ -172,6 +239,139 @@ function formatReleaseDate(date: string, language: Language) {
     day: "numeric",
     timeZone: "UTC",
   }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+function OmarchyInstall({
+  label,
+  copyLabel,
+  copyingLabel,
+  copiedLabel,
+  copyErrorLabel,
+}: {
+  label: string;
+  copyLabel: string;
+  copyingLabel: string;
+  copiedLabel: string;
+  copyErrorLabel: string;
+}) {
+  const [state, setState] = useState<"idle" | "copying" | "copied" | "error">(
+    "idle",
+  );
+  const timeoutRef = useRef<number | undefined>(undefined);
+
+  useEffect(
+    () => () => window.clearTimeout(timeoutRef.current),
+    [],
+  );
+
+  async function copyCommand() {
+    setState("copying");
+    window.clearTimeout(timeoutRef.current);
+
+    try {
+      await navigator.clipboard.writeText(omarchyInstallCommand);
+      setState("copied");
+      timeoutRef.current = window.setTimeout(() => setState("idle"), 1800);
+    } catch {
+      setState("error");
+    }
+  }
+
+  const buttonLabel =
+    state === "copying"
+      ? copyingLabel
+      : state === "copied"
+        ? copiedLabel
+        : copyLabel;
+
+  return (
+    <div className="omarchy-install">
+      <span className="omarchy-install-label" id="omarchy-install-label">
+        {label}
+      </span>
+      <div className="omarchy-command" data-state={state}>
+        <span className="omarchy-command-prompt" aria-hidden="true">
+          $
+        </span>
+        <code
+          aria-labelledby="omarchy-install-label"
+          title={omarchyInstallCommand}
+          tabIndex={0}
+        >
+          {omarchyInstallCommand}
+        </code>
+        <button
+          className="omarchy-copy-button"
+          type="button"
+          onClick={copyCommand}
+          aria-label={buttonLabel}
+          title={buttonLabel}
+          disabled={state === "copying"}
+          data-state={state}
+          data-testid="omarchy-copy"
+        >
+          {state === "copied" ? (
+            <svg aria-hidden="true" viewBox="0 0 16 16">
+              <path d="m3.5 8.5 2.7 2.7 6.3-6.4" />
+            </svg>
+          ) : (
+            <svg aria-hidden="true" viewBox="0 0 16 16">
+              <rect x="5.5" y="5.5" width="7" height="7" rx="1.5" />
+              <path d="M10.5 5.5v-1A1.5 1.5 0 0 0 9 3H4.5A1.5 1.5 0 0 0 3 4.5V9a1.5 1.5 0 0 0 1.5 1.5h1" />
+            </svg>
+          )}
+        </button>
+      </div>
+      <p className="omarchy-copy-error" role="status">
+        {state === "error" ? copyErrorLabel : ""}
+      </p>
+    </div>
+  );
+}
+
+function OmarchySection({ language }: { language: Language }) {
+  const text = translations[language].platforms.omarchy;
+
+  return (
+    <section
+      className="omarchy-section shell"
+      id="omarchy"
+      aria-labelledby="omarchy-title"
+      data-testid="omarchy-section"
+    >
+      <div className="omarchy-layout">
+        <div className="omarchy-copy">
+          <h2 id="omarchy-title">{text.title}</h2>
+          <p className="platform-description">{text.description}</p>
+          <OmarchyInstall
+            label={text.installLabel}
+            copyLabel={text.copy}
+            copyingLabel={text.copying}
+            copiedLabel={text.copied}
+            copyErrorLabel={text.copyError}
+          />
+          <a
+            className="omarchy-link"
+            href={omarchyUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {text.link}
+            <svg aria-hidden="true" viewBox="0 0 16 16">
+              <path d="M5 11 11 5M6 5h5v5" />
+            </svg>
+          </a>
+        </div>
+
+        <figure className="omarchy-shot">
+          <div className="omarchy-shot-frame">
+            <OmarchyPreview ariaLabel={text.imageAlt} />
+          </div>
+          <figcaption>{text.imageCaption}</figcaption>
+        </figure>
+      </div>
+    </section>
+  );
 }
 
 export function HomePage({ language }: { language: Language }) {
@@ -231,11 +431,11 @@ export function HomePage({ language }: { language: Language }) {
             </a>
             <a
               className="cta-button cta-secondary"
-              href={repositoryUrl}
-              target="_blank"
-              rel="noreferrer"
+              href="#omarchy"
+              data-testid="hero-omarchy-cta"
             >
-              {copy.githubLabel}
+              <span className="cta-platform-dot" aria-hidden="true" />
+              {copy.omarchyLabel}
             </a>
           </div>
 
@@ -251,14 +451,7 @@ export function HomePage({ language }: { language: Language }) {
         </div>
 
         <div className="product-shot">
-          <div className="screenshot-card">
-            <div className="screenshot-topbar">
-              <span>
-                <i />
-                <i />
-                <i />
-              </span>
-            </div>
+          <div className="macos-popover" data-testid="macos-popover">
             <div className="screenshot-viewport">
               <InteractivePreview language={language} ariaLabel={copy.screenshotAlt} />
             </div>
@@ -267,6 +460,8 @@ export function HomePage({ language }: { language: Language }) {
       </section>
 
       <FeatureShowcase language={language} />
+
+      <OmarchySection language={language} />
 
       <section
         className="data-sources shell"

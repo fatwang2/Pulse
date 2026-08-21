@@ -8,7 +8,7 @@ const gridLine = "rgba(120, 128, 138, 0.2)";
 
 const copy = {
   zh: {
-    title: "把专业行情装进菜单栏。",
+    title: "把专业行情装进菜单栏",
     subtitle:
       "蜡烛图、盘前盘后、持仓盈亏与标签分组——每个细节都为快速看盘设计。",
     candles: {

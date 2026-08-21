@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Language } from "../i18n";
+import { PulseWordmark } from "./pulse-wordmark";
 
 type MetricMode = "change" | "today" | "total";
 
@@ -201,7 +202,6 @@ const marketItemsKo: MarketItem[] = marketItemsEn.map((item) => {
 
 const copy = {
   zh: {
-    tagline: "你的市场，一眼掌握。",
     modes: { change: "涨跌幅", today: "今日盈亏", total: "持仓盈亏" },
     modeAction: "切换列表指标，当前为",
     updated: "刚刚更新",
@@ -210,7 +210,6 @@ const copy = {
     lists: { all: "全部", positions: "持仓", watching: "关注" },
   },
   en: {
-    tagline: "Your market, at a glance.",
     modes: { change: "Change", today: "Today P&L", total: "Position P&L" },
     modeAction: "Change list metric, currently",
     updated: "Updated just now",
@@ -219,7 +218,6 @@ const copy = {
     lists: { all: "All", positions: "Positions", watching: "Watching" },
   },
   ja: {
-    tagline: "あなたのマーケットを、ひと目で。",
     modes: { change: "騰落率", today: "当日損益", total: "評価損益" },
     modeAction: "リストの指標を切り替え。現在は",
     updated: "たった今更新",
@@ -228,7 +226,6 @@ const copy = {
     lists: { all: "すべて", positions: "保有", watching: "ウォッチ中" },
   },
   ko: {
-    tagline: "내 시장을, 한눈에.",
     modes: { change: "등락률", today: "당일 손익", total: "보유 손익" },
     modeAction: "목록 지표 변경, 현재",
     updated: "방금 업데이트됨",
@@ -260,7 +257,7 @@ const marketBadgeLabels: Record<
 };
 
 function lineColor(positive: boolean) {
-  return positive ? "#ff414b" : "#00a962";
+  return positive ? "#ff453a" : "#30d158";
 }
 
 function canvasSize(canvas: HTMLCanvasElement) {
@@ -393,6 +390,46 @@ function MarketBadge({
   );
 }
 
+type PreviewHeaderIconName = "pin" | "search" | "share" | "more";
+
+function PreviewHeaderIcon({ name }: { name: PreviewHeaderIconName }) {
+  if (name === "pin") {
+    return (
+      <svg viewBox="0 0 20 20">
+        <path d="m7.2 3.5 5.6.1-1.2 4 2.6 2.7-8.5.9 2.7-3.1-1.2-3.6Z" />
+        <path d="m10.4 10.8-.6 5.7" />
+      </svg>
+    );
+  }
+
+  if (name === "search") {
+    return (
+      <svg viewBox="0 0 20 20">
+        <circle cx="8.4" cy="8.4" r="4.4" />
+        <path d="m11.7 11.7 4.1 4.1" />
+      </svg>
+    );
+  }
+
+  if (name === "share") {
+    return (
+      <svg viewBox="0 0 20 20">
+        <path d="M6 8.3H4.8A1.8 1.8 0 0 0 3 10.1v5.1A1.8 1.8 0 0 0 4.8 17h10.4a1.8 1.8 0 0 0 1.8-1.8v-5.1a1.8 1.8 0 0 0-1.8-1.8H14" />
+        <path d="M10 13V3m0 0L6.8 6.2M10 3l3.2 3.2" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="6.4" />
+      <circle className="is-filled" cx="7" cy="10" r=".8" />
+      <circle className="is-filled" cx="10" cy="10" r=".8" />
+      <circle className="is-filled" cx="13" cy="10" r=".8" />
+    </svg>
+  );
+}
+
 export function InteractivePreview({
   language,
   ariaLabel,
@@ -413,7 +450,7 @@ export function InteractivePreview({
         : language === "ko"
           ? marketItemsKo
           : marketItemsEn;
-  const visibleItems =
+  const filteredItems =
     activeList === "all"
       ? marketItems
       : marketItems.filter((item) => listMembers[activeList].has(item.symbol));
@@ -430,9 +467,13 @@ export function InteractivePreview({
     >
       <section className="preview-watchlist preview-panel-enter" aria-label={ariaLabel}>
           <header className="preview-app-header">
-            <div className="preview-app-identity">
-              <img src="/pulse-icon.png" alt="" width={44} height={44} />
-              <div><strong>Pulse</strong><span>{text.tagline}</span></div>
+            <PulseWordmark className="preview-app-identity" />
+            <div className="preview-app-actions" aria-hidden="true">
+              {(["pin", "search", "share", "more"] as const).map((name) => (
+                <span key={name}>
+                  <PreviewHeaderIcon name={name} />
+                </span>
+              ))}
             </div>
           </header>
 
@@ -457,7 +498,7 @@ export function InteractivePreview({
           </div>
 
           <ul className="preview-list preview-panel-enter" key={activeList}>
-            {visibleItems.map((item) => {
+            {filteredItems.map((item) => {
               const active = hoveredSymbol === item.symbol;
               const metric = mode === "change" ? item.change : mode === "today" ? item.today : item.total;
               return (

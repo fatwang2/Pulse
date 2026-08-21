@@ -140,7 +140,7 @@ test("serves the Chinese homepage at /zh", async () => {
   assert.match(html, /<html lang="zh-CN">/);
   assert.match(html, /<title>Pulse — macOS 菜单栏股票行情工具<\/title>/i);
   assert.match(html, /轻量的 macOS 菜单栏股票行情工具/);
-  assert.match(html, /从 Mac 菜单栏快速查看/);
+  assert.match(html, /从 Mac 菜单栏看/);
   assert.match(html, /股票与市场行情/);
   assert.doesNotMatch(html, /股票与市场行情。/);
   assert.match(html, /腾讯控股/);
@@ -271,6 +271,42 @@ test("marks only the changelog tab active on localized changelog routes", async 
   }
 });
 
+test("presents a reconstructed macOS popover and dedicated Omarchy section", async () => {
+  for (const path of ["/", "/zh", "/ja", "/ko"]) {
+    const response = await render(path);
+    assert.equal(response.status, 200);
+
+    const html = await response.text();
+    assert.match(html, /data-testid="macos-popover"/);
+    assert.match(html, /data-testid="omarchy-section"/);
+    assert.match(html, /id="omarchy"/);
+    assert.match(html, /data-testid="hero-omarchy-cta"/);
+    assert.match(html, /data-testid="header-github"/);
+    assert.match(html, /github\.com\/fatwang2\/Pulse/);
+    assert.match(html, /href="#omarchy"/);
+    assert.match(html, /omarchy plugin add/);
+    assert.match(html, /omarchy-pulse\.git/);
+    assert.match(html, /--enable/);
+    assert.match(html, /github\.com\/fatwang2\/omarchy-pulse/);
+    assert.match(html, /class="omarchy-preview"/);
+    assert.doesNotMatch(html, /\/omarchy\/preview\.png/);
+  }
+
+  const english = await (await render("/")).text();
+  assert.match(english, /Pulse, now on Omarchy Quattro</);
+  assert.match(english, /Explore Omarchy Quattro/);
+
+  const chinese = await (await render("/zh")).text();
+  assert.match(chinese, /Pulse，也来到 Omarchy Quattro</);
+  assert.match(chinese, /Omarchy 插件/);
+
+  const japanese = await (await render("/ja")).text();
+  assert.match(japanese, /Pulse が Omarchy Quattro にも</);
+
+  const korean = await (await render("/ko")).text();
+  assert.match(korean, /이제 Omarchy Quattro에서도 Pulse를</);
+});
+
 test("redirects zh browsers from / to the Chinese homepage", async () => {
   const response = await render("/", {
     "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -319,7 +355,7 @@ test("English copy lives at the root and language is a URL path", async () => {
   assert.match(homePage, /Track stocks and markets/);
   assert.match(homePage, /macOS menu bar market tracker/);
   assert.match(homePage, /Download for macOS/);
-  assert.match(homePage, /View on GitHub/);
+  assert.match(homePage, /Explore Omarchy Quattro/);
   assert.doesNotMatch(homePage, /viewRelease/);
   // Language is a URL path now, not per-browser state.
   assert.doesNotMatch(homePage, /localStorage/);

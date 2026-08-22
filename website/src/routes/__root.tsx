@@ -30,7 +30,7 @@ const softwareApplicationJsonLd = JSON.stringify({
   downloadUrl: `${siteUrl}/download`,
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   sameAs: ["https://github.com/fatwang2/Pulse"],
-  inLanguage: ["en", "zh", "ja"],
+  inLanguage: ["en", "zh", "ja", "ko"],
 });
 
 export const Route = createRootRoute({
@@ -38,11 +38,21 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      {
+        name: "naver-site-verification",
+        content: "ea46d10027817e5163a8cf23a8343610bba79921",
+      },
     ],
     links: [
       { rel: "stylesheet", href: globalsCss },
       { rel: "icon", href: "/icon.png", type: "image/png" },
       { rel: "apple-touch-icon", href: "/apple-icon.png" },
+      {
+        rel: "alternate",
+        type: "application/atom+xml",
+        href: "/feed.xml",
+        title: "Pulse Changelog",
+      },
     ],
     scripts: [
       {

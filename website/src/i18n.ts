@@ -183,10 +183,18 @@ export function pageMeta(kind: PageKind, language: Language) {
   const canonicalPath = pagePath(kind, language);
   const englishPath = kind === "home" ? "/" : "/changelog";
 
+  // Naver does not support hreflang; the meta content-language tag is the
+  // documented workaround for telling its crawler (Yeti) that a page is Korean.
+  const naverMeta =
+    language === "ko"
+      ? [{ httpEquiv: "content-language", content: "ko" }]
+      : [];
+
   return {
     meta: [
       { title: copy.title },
       { name: "description", content: copy.description },
+      ...naverMeta,
       { property: "og:title", content: copy.title },
       { property: "og:description", content: copy.socialDescription },
       { property: "og:type", content: "website" },

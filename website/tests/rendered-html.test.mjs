@@ -497,7 +497,8 @@ test("serves a valid sitemap.xml with all eight public URLs", async () => {
   assert.match(response.headers.get("content-type") ?? "", /application\/xml/);
 
   const xml = await response.text();
-  assert.match(xml, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
+  assert.match(xml, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9"/);
+  assert.match(xml, /xmlns:xhtml="http:\/\/www\.w3\.org\/1999\/xhtml"/);
   const urls = xml.match(/<loc>https:\/\/www\.pulseticker\.app[^<]*<\/loc>/g) ?? [];
   assert.deepEqual(urls, [
     "<loc>https://www.pulseticker.app/</loc>",
@@ -509,6 +510,13 @@ test("serves a valid sitemap.xml with all eight public URLs", async () => {
     "<loc>https://www.pulseticker.app/ko</loc>",
     "<loc>https://www.pulseticker.app/ko/changelog</loc>",
   ]);
+  // Each URL entry must carry hreflang alternates for all four locales
+  // plus x-default, so Google can consolidate the locale variants.
+  assert.match(xml, /hreflang="en" href="https:\/\/www\.pulseticker\.app\/"/);
+  assert.match(xml, /hreflang="zh" href="https:\/\/www\.pulseticker\.app\/zh"/);
+  assert.match(xml, /hreflang="ja" href="https:\/\/www\.pulseticker\.app\/ja"/);
+  assert.match(xml, /hreflang="ko" href="https:\/\/www\.pulseticker\.app\/ko"/);
+  assert.match(xml, /hreflang="x-default"/);
 });
 
 test("serves a self-hosted robots.txt pointing at the sitemap", async () => {
@@ -519,11 +527,75 @@ test("serves a self-hosted robots.txt pointing at the sitemap", async () => {
   const robots = await response.text();
   assert.match(robots, /User-agent: \*/);
   assert.match(robots, /Sitemap: https:\/\/www\.pulseticker\.app\/sitemap\.xml/);
+  assert.match(robots, /Sitemap: https:\/\/www\.pulseticker\.app\/sitemap-ko\.xml/);
+  // Naver's crawler must be explicitly allowed.
+  assert.match(robots, /User-agent: Yeti\nAllow: \//);
   // AI crawlers must be allowed (indexing/reference), not disallowed.
   for (const crawler of ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended"]) {
     assert.match(robots, new RegExp(`User-agent: ${crawler}\\nAllow: /`));
   }
   assert.doesNotMatch(robots, /Disallow: \//);
+});
+
+test("serves an Atom feed at /feed.xml with recent releases", async () => {
+  const response = await render("/feed.xml");
+  assert.equal(response.status, 200);
+  assert.match(
+    response.headers.get("content-type") ?? "",
+    /application\/atom\+xml/,
+  );
+
+  const xml = await response.text();
+  assert.match(xml, /<feed xmlns="http:\/\/www\.w3\.org\/2005\/Atom">/);
+  assert.match(xml, /<title>Pulse Changelog<\/title>/);
+  assert.match(
+    xml,
+    /<link rel="self" href="https:\/\/www\.pulseticker\.app\/feed\.xml"\/>/,
+  );
+  // Each release should produce an entry.
+  const entries = xml.match(/<entry>/g) ?? [];
+  assert.ok(entries.length > 0, "feed should contain at least one entry");
+  assert.match(xml, /<title>Pulse 0\.13\.0<\/title>/);
+});
+
+test("serves a Korean-only sitemap at /sitemap-ko.xml", async () => {
+  const response = await render("/sitemap-ko.xml");
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /application\/xml/);
+
+  const xml = await response.text();
+  assert.match(xml, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
+  const urls = xml.match(/<loc>[^<]*<\/loc>/g) ?? [];
+  assert.deepEqual(urls, [
+    "<loc>https://www.pulseticker.app/ko</loc>",
+    "<loc>https://www.pulseticker.app/ko/changelog</loc>",
+  ]);
+});
+
+test("Korean pages carry the meta content-language tag for Naver", async () => {
+  const response = await render("/ko");
+  const html = await response.text();
+  assert.match(
+    html,
+    /<meta http-equiv="content-language" content="ko"\/>/,
+  );
+});
+
+test("non-Korean pages do not carry the content-language meta tag", async () => {
+  for (const path of ["/", "/zh", "/ja"]) {
+    const response = await render(path);
+    const html = await response.text();
+    assert.doesNotMatch(html, /http-equiv="content-language"/);
+  }
+});
+
+test("HTML head links to the Atom feed", async () => {
+  const response = await render();
+  const html = await response.text();
+  assert.match(
+    html,
+    /rel="alternate" type="application\/atom\+xml" href="\/feed\.xml"/,
+  );
 });
 
 test("embeds SoftwareApplication JSON-LD on the homepage", async () => {
@@ -535,4 +607,5 @@ test("embeds SoftwareApplication JSON-LD on the homepage", async () => {
   assert.match(html, /"operatingSystem":"macOS"/);
   assert.match(html, /"downloadUrl":"https:\/\/www\.pulseticker\.app\/download"/);
   assert.match(html, /"sameAs":\["https:\/\/github\.com\/fatwang2\/Pulse"\]/);
+  assert.match(html, /"inLanguage":\["en","zh","ja","ko"\]/);
 });

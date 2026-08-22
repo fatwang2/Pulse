@@ -16,21 +16,75 @@ import { releases } from "./data/releases";
 const SITEMAP_CACHE = "public, max-age=3600";
 const ROBOTS_CACHE = "public, max-age=3600";
 
+/** Escape text for safe inclusion in XML node bodies or attributes. */
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 /**
  * XML sitemap covering every public URL, mirroring the canonical/hreflang
- * set in i18n.ts. Served by the Worker so it never falls through to the
- * SPA catch-all (which would 302 to the homepage).
+ * set in i18n.ts. Each entry carries xhtml:link alternates so Google can
+ * consolidate the locale variants. Served by the Worker so it never falls
+ * through to the SPA catch-all (which would 302 to the homepage).
  */
 function sitemapXml(): string {
   const lastmod = releases[0]?.date ?? new Date().toISOString().slice(0, 10);
   const urls = languages
     .flatMap((language: (typeof languages)[number]) =>
-      (["home", "changelog"] as const).map((kind: PageKind) =>
-        `  <url>\n    <loc>${siteUrl}${pagePath(kind, language)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${kind === "home" ? "1.0" : "0.5"}</priority>\n  </url>`,
-      ),
+      (["home", "changelog"] as const).map((kind: PageKind) => {
+        const loc = `${siteUrl}${pagePath(kind, language)}`;
+        const alternates = languages
+          .map((candidate) => {
+            const href = `${siteUrl}${pagePath(kind, candidate)}`;
+            return `    <xhtml:link rel="alternate" hreflang="${candidate}" href="${href}"/>`;
+          })
+          .join("\n");
+        const xDefault = `    <xhtml:link rel="alternate" hreflang="x-default" href="${siteUrl}${kind === "home" ? "/" : "/changelog"}"/>`;
+        return `  <url>\n    <loc>${loc}</loc>\n${alternates}\n${xDefault}\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${kind === "home" ? "1.0" : "0.5"}</priority>\n  </url>`;
+      }),
+    )
+    .join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${urls}\n</urlset>\n`;
+}
+
+/**
+ * Korean-only sitemap for Naver Search Advisor. Naver does not support
+ * hreflang and recommends submitting a locale-specific sitemap so its
+ * crawler (Yeti) can focus on the Korean pages.
+ */
+function sitemapKoXml(): string {
+  const lastmod = releases[0]?.date ?? new Date().toISOString().slice(0, 10);
+  const urls = (["home", "changelog"] as const)
+    .map(
+      (kind: PageKind) =>
+        `  <url>\n    <loc>${siteUrl}${pagePath(kind, "ko")}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${kind === "home" ? "1.0" : "0.5"}</priority>\n  </url>`,
     )
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
+}
+
+/**
+ * Atom feed of recent releases, primarily for Naver Search Advisor which
+ * requires both an XML sitemap and an RSS/Atom feed. Also useful for
+ * general feed readers.
+ */
+function atomFeedXml(): string {
+  const updated =
+    releases[0]?.date ?? new Date().toISOString().slice(0, 10);
+  const entries = releases
+    .slice(0, 10)
+    .map((release) => {
+      const highlights = release.highlights.en.join(" ");
+      const anchor = `${siteUrl}/changelog#${release.version}`;
+      return `  <entry>\n    <title>Pulse ${release.version}</title>\n    <link href="${anchor}"/>\n    <id>${anchor}</id>\n    <updated>${release.date}T00:00:00Z</updated>\n    <summary>${escapeXml(highlights)}</summary>\n  </entry>`;
+    })
+    .join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<feed xmlns="http://www.w3.org/2005/Atom">\n  <title>Pulse Changelog</title>\n  <link href="${siteUrl}/changelog"/>\n  <link rel="self" href="${siteUrl}/feed.xml"/>\n  <id>${siteUrl}/changelog</id>\n  <updated>${updated}T00:00:00Z</updated>\n  <author><name>Pulse</name></author>\n${entries}\n</feed>\n`;
 }
 
 /**
@@ -56,6 +110,11 @@ function robotsTxt(): string {
     "Allow: /",
     "Content-Signal: search=yes, ai-train=no, use=reference",
     "",
+    "# Naver's crawler. Explicitly allowed so Yeti never falls through to a",
+    "# restrictive default on a site that only names Googlebot / Bingbot.",
+    "User-agent: Yeti",
+    "Allow: /",
+    "",
     "# AI crawlers: allowed to index and reference content for AI search",
     "# answers, but not to train on it.",
     ...aiCrawlers.flatMap((crawler) => [
@@ -64,6 +123,7 @@ function robotsTxt(): string {
       "",
     ]),
     `Sitemap: ${siteUrl}/sitemap.xml`,
+    `Sitemap: ${siteUrl}/sitemap-ko.xml`,
     "",
   ].join("\n");
 }
@@ -86,6 +146,28 @@ function handleRobotsRequest(request: Request): Response | undefined {
     headers: {
       "content-type": "text/plain; charset=utf-8",
       "cache-control": ROBOTS_CACHE,
+    },
+  });
+}
+
+function handleFeedRequest(request: Request): Response | undefined {
+  const url = new URL(request.url);
+  if (url.pathname !== "/feed.xml") return undefined;
+  return new Response(atomFeedXml(), {
+    headers: {
+      "content-type": "application/atom+xml; charset=utf-8",
+      "cache-control": SITEMAP_CACHE,
+    },
+  });
+}
+
+function handleSitemapKoRequest(request: Request): Response | undefined {
+  const url = new URL(request.url);
+  if (url.pathname !== "/sitemap-ko.xml") return undefined;
+  return new Response(sitemapKoXml(), {
+    headers: {
+      "content-type": "application/xml; charset=utf-8",
+      "cache-control": SITEMAP_CACHE,
     },
   });
 }
@@ -153,6 +235,16 @@ export default {
     const robots = handleRobotsRequest(request);
     if (robots) {
       return robots;
+    }
+
+    const feed = handleFeedRequest(request);
+    if (feed) {
+      return feed;
+    }
+
+    const sitemapKo = handleSitemapKoRequest(request);
+    if (sitemapKo) {
+      return sitemapKo;
     }
 
     const download = await handleDownloadRequest(request, env);

@@ -158,6 +158,7 @@
 "provider.status.off" = "無効";
 "provider.status.connected" = "接続済み";
 "provider.status.notConnected" = "未接続";
+"provider.status.notVerified" = "未検証";
 "provider.status.authorized" = "認証済み";
 "provider.status.connecting" = "接続中…";
 "provider.status.reconnecting" = "再接続中…";
@@ -183,8 +184,8 @@
 "longbridge.access.downgraded" = "Longbridge が返した権限は、このアプリが以前取得したリアルタイム権限より低くなっています。認証を更新してください。Pulse が自動でログアウトすることはありません。";
 "longbridge.account" = "アカウント";
 "longbridge.credentials.manual" = "API キーを手動で入力";
-"longbridge.status.oauth" = "接続済み（ブラウザ認証）";
-"longbridge.status.apiKey" = "設定済み（API キー）";
+"longbridge.status.oauth" = "検証済み（ブラウザ認証）";
+"longbridge.status.apiKey" = "検証済み（API キー）";
 "longbridge.connection.title" = "市場データ";
 "longbridge.connection.waiting" = "準備完了";
 "longbridge.connection.connecting" = "接続中…";
@@ -208,7 +209,7 @@
 "longbridge.credentials.help" = "App Key・App Secret・Access Token は open.longbridge.com のユーザーセンターで取得できます。認証情報はこの Mac のキーチェーンにのみ保存されます。";
 "provider.fuyao" = "Hithink Fuyao";
 "fuyao.account" = "アカウント";
-"fuyao.status.configured" = "設定済み（API キー）";
+"fuyao.status.configured" = "検証済み（API キー）";
 "fuyao.setup.intro" = "Hithink（同花順）公式の中国A株データサービスです。fuyao.aicubes.cn で同花順アカウントを使って API キーを発行してください。キーはこの Mac のキーチェーンにのみ保存されます。";
 "fuyao.setup.getKey" = "API キーを取得";
 "fuyao.credentials.replace" = "API キーを変更";

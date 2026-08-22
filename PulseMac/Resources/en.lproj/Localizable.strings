@@ -158,6 +158,7 @@
 "provider.status.off" = "Off";
 "provider.status.connected" = "Connected";
 "provider.status.notConnected" = "Not connected";
+"provider.status.notVerified" = "Not verified";
 "provider.status.authorized" = "Authorized";
 "provider.status.connecting" = "Connecting…";
 "provider.status.reconnecting" = "Reconnecting…";
@@ -183,8 +184,8 @@
 "longbridge.access.downgraded" = "Longbridge returned lower access than the real-time package this app previously negotiated. Refresh authorization; Pulse will never sign you out automatically.";
 "longbridge.account" = "Account";
 "longbridge.credentials.manual" = "Enter API keys manually";
-"longbridge.status.oauth" = "Connected (browser auth)";
-"longbridge.status.apiKey" = "Configured (API keys)";
+"longbridge.status.oauth" = "Verified (browser auth)";
+"longbridge.status.apiKey" = "Verified (API keys)";
 "longbridge.connection.title" = "Market data";
 "longbridge.connection.waiting" = "Ready";
 "longbridge.connection.connecting" = "Connecting…";
@@ -208,7 +209,7 @@
 "longbridge.credentials.help" = "Get the App Key, App Secret and Access Token from the open.longbridge.com user center. Credentials are stored only in the local Keychain.";
 "provider.fuyao" = "Hithink Fuyao";
 "fuyao.account" = "Account";
-"fuyao.status.configured" = "Configured (API key)";
+"fuyao.status.configured" = "Verified (API key)";
 "fuyao.setup.intro" = "Hithink/Tonghuashun's official A-share data service. Sign an API key with your Tonghuashun account at fuyao.aicubes.cn; the key is stored only in the local Keychain.";
 "fuyao.setup.getKey" = "Get an API Key";
 "fuyao.credentials.replace" = "Replace API Key";

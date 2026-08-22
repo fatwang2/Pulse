@@ -155,9 +155,10 @@
 "provider.refresh.title" = "刷新方式";
 "provider.refresh.push" = "实时推送";
 "provider.status.on" = "已启用";
-"provider.status.off" = "已停用";
+"provider.status.off" = "未启用";
 "provider.status.connected" = "已连接";
 "provider.status.notConnected" = "未连接";
+"provider.status.notVerified" = "未验证";
 "provider.status.authorized" = "已授权";
 "provider.status.connecting" = "连接中…";
 "provider.status.reconnecting" = "重连中…";
@@ -183,8 +184,8 @@
 "longbridge.access.downgraded" = "Longbridge 当前返回的行情权限低于本应用此前成功协商的实时权限。请刷新授权；Pulse 不会自动退出登录。";
 "longbridge.account" = "账户";
 "longbridge.credentials.manual" = "手动填入 API 密钥";
-"longbridge.status.oauth" = "已连接(浏览器授权)";
-"longbridge.status.apiKey" = "已配置(API 密钥)";
+"longbridge.status.oauth" = "已验证(浏览器授权)";
+"longbridge.status.apiKey" = "已验证(API 密钥)";
 "longbridge.connection.title" = "行情连接";
 "longbridge.connection.waiting" = "已就绪";
 "longbridge.connection.connecting" = "连接中…";
@@ -208,7 +209,7 @@
 "longbridge.credentials.help" = "在 open.longbridge.com 用户中心获取 App Key、App Secret 与 Access Token。凭证仅保存在本机钥匙串。";
 "provider.fuyao" = "同花顺扶摇";
 "fuyao.account" = "账户";
-"fuyao.status.configured" = "已配置(API Key)";
+"fuyao.status.configured" = "已验证(API Key)";
 "fuyao.setup.intro" = "同花顺官方 A 股数据服务。用同花顺账号在 fuyao.aicubes.cn 签发 API Key,密钥仅保存在本机钥匙串。";
 "fuyao.setup.getKey" = "获取 API Key";
 "fuyao.credentials.replace" = "更换 API Key";

@@ -102,7 +102,8 @@ struct LongbridgeSetupView: View {
 
             VStack(spacing: 10) {
                 if configured {
-                    connectionStatusRow
+                    // No steady-state transport row: a healthy connection is invisible,
+                    // and trouble surfaces below as an actionable banner instead.
 
                     // Longbridge's authorization-management list identifies grants by
                     // client id; surfacing ours lets the user tell this install apart
@@ -254,40 +255,7 @@ struct LongbridgeSetupView: View {
         switch appState.longbridgeAuthState {
         case .oauth: "longbridge.status.oauth"
         case .apiKey: "longbridge.status.apiKey"
-        case .none: "provider.status.notConnected"
-        }
-    }
-
-    private var connectionStatusRow: some View {
-        HStack(spacing: 6) {
-            Text(PulseLocalization.localizedString("longbridge.connection.title"))
-                .font(.caption)
-            Spacer()
-            Circle()
-                .fill(connectionStatusColor)
-                .frame(width: 6, height: 6)
-            Text(PulseLocalization.localizedString(connectionStatusKey))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var connectionStatusColor: Color {
-        switch appState.longbridgeConnectionStatus {
-        case .connected: .green.opacity(0.85)
-        case .connecting, .reconnecting: .accentColor
-        case .failed: .orange
-        case .disconnected: .secondary.opacity(0.35)
-        }
-    }
-
-    private var connectionStatusKey: String {
-        switch appState.longbridgeConnectionStatus {
-        case .disconnected: "longbridge.connection.waiting"
-        case .connecting: "longbridge.connection.connecting"
-        case .reconnecting: "longbridge.connection.reconnecting"
-        case .connected: "longbridge.connection.connected"
-        case .failed: "longbridge.connection.fallback"
+        case .none: "provider.status.notVerified"
         }
     }
 

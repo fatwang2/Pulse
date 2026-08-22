@@ -158,6 +158,7 @@
 "provider.status.off" = "끔";
 "provider.status.connected" = "연결됨";
 "provider.status.notConnected" = "연결 안 됨";
+"provider.status.notVerified" = "미검증";
 "provider.status.authorized" = "인증됨";
 "provider.status.connecting" = "연결 중…";
 "provider.status.reconnecting" = "다시 연결 중…";
@@ -183,8 +184,8 @@
 "longbridge.access.downgraded" = "Longbridge가 이 앱이 이전에 확보한 실시간 패키지보다 낮은 권한을 반환했습니다. 인증을 갱신하세요. Pulse가 임의로 로그아웃시키는 일은 없습니다.";
 "longbridge.account" = "계정";
 "longbridge.credentials.manual" = "API 키 직접 입력";
-"longbridge.status.oauth" = "연결됨 (브라우저 인증)";
-"longbridge.status.apiKey" = "설정됨 (API 키)";
+"longbridge.status.oauth" = "검증됨 (브라우저 인증)";
+"longbridge.status.apiKey" = "검증됨 (API 키)";
 "longbridge.connection.title" = "시세 연결";
 "longbridge.connection.waiting" = "준비됨";
 "longbridge.connection.connecting" = "연결 중…";
@@ -208,7 +209,7 @@
 "longbridge.credentials.help" = "App Key, App Secret, Access Token은 open.longbridge.com 사용자 센터에서 발급받습니다. 인증 정보는 이 기기의 키체인에만 저장됩니다.";
 "provider.fuyao" = "Hithink Fuyao";
 "fuyao.account" = "계정";
-"fuyao.status.configured" = "설정됨 (API 키)";
+"fuyao.status.configured" = "검증됨 (API 키)";
 "fuyao.setup.intro" = "Hithink(퉁화순) 공식 중국 A주 데이터 서비스입니다. fuyao.aicubes.cn에서 퉁화순 계정으로 API 키를 발급받으세요. 키는 이 기기의 키체인에만 저장됩니다.";
 "fuyao.setup.getKey" = "API 키 발급";
 "fuyao.credentials.replace" = "API 키 변경";

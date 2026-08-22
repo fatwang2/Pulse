@@ -74,7 +74,7 @@ struct FuyaoSetupView: View {
                     .fill(configured ? Color.green.opacity(0.85) : Color.secondary.opacity(0.35))
                     .frame(width: 6, height: 6)
                 Text(PulseLocalization.localizedString(
-                    configured ? "fuyao.status.configured" : "provider.status.notConnected"
+                    configured ? "fuyao.status.configured" : "provider.status.notVerified"
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)

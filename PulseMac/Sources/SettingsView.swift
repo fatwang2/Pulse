@@ -32,23 +32,13 @@ struct ProviderRow: View {
         .buttonStyle(.pressable)
     }
 
-    private var isConnectable: Bool { !descriptor.credentials.isEmpty }
-
     private var statusKey: String {
-        if descriptor.id == LongbridgeProvider.providerID {
-            guard appState.longbridgeConfigured else { return "provider.status.notConnected" }
-            guard appState.isProviderEnabled(descriptor.id) else { return "provider.status.off" }
-            return switch appState.longbridgeConnectionStatus {
-            case .disconnected: "provider.status.authorized"
-            case .connecting: "provider.status.connecting"
-            case .reconnecting: "provider.status.reconnecting"
-            case .connected: "provider.status.connected"
-            case .failed: "provider.status.fallback"
-            }
-        }
-        if isConnectable && !appState.isProviderConfigured(descriptor.id) { return "provider.status.notConnected" }
-        guard appState.isProviderEnabled(descriptor.id) else { return "provider.status.off" }
-        return "provider.status.on"
+        // One question per row: does this source participate in quotes? The
+        // credential story lives on the detail page, where an unverified account
+        // source keeps its enable switch locked — so "not enabled" covers it.
+        appState.isProviderConfigured(descriptor.id) && appState.isProviderEnabled(descriptor.id)
+            ? "provider.status.on"
+            : "provider.status.off"
     }
 
     private var summary: String {

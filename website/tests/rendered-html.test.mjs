@@ -621,7 +621,7 @@ test("embeds SoftwareApplication JSON-LD on the homepage", async () => {
   assert.match(html, /"@type":"SoftwareApplication"/);
   assert.match(html, /"operatingSystem":"macOS"/);
   assert.match(html, /"downloadUrl":"https:\/\/www\.pulseticker\.app\/download"/);
-  assert.match(html, /"sameAs":\["https:\/\/github\.com\/fatwang2\/Pulse"\]/);
+  assert.match(html, /"sameAs":\["https:\/\/github\.com\/fatwang2\/Pulse","https:\/\/github\.com\/superagents-lab"\]/);
   assert.match(html, /"inLanguage":\["en","zh","ja","ko"\]/);
 });
 

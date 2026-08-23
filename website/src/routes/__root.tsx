@@ -29,7 +29,7 @@ const softwareApplicationJsonLd = JSON.stringify({
   url: siteUrl,
   downloadUrl: `${siteUrl}/download`,
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-  sameAs: ["https://github.com/fatwang2/Pulse"],
+  sameAs: ["https://github.com/fatwang2/Pulse", "https://github.com/superagents-lab"],
   inLanguage: ["en", "zh", "ja", "ko"],
 });
 
@@ -58,7 +58,7 @@ const organizationJsonLd = JSON.stringify({
     postalCode: organizationInfo.address.postalCode,
     addressCountry: organizationInfo.address.addressCountry,
   },
-  sameAs: ["https://github.com/fatwang2/Pulse"],
+  sameAs: ["https://github.com/fatwang2/Pulse", "https://github.com/superagents-lab"],
 });
 
 export const Route = createRootRoute({

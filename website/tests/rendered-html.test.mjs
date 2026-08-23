@@ -491,7 +491,7 @@ test("serves a stored DMG from the R2 binding", async () => {
   assert.equal(new TextDecoder().decode(await response.arrayBuffer()), "dmg");
 });
 
-test("serves a valid sitemap.xml with all eight public URLs", async () => {
+test("serves a valid sitemap.xml with all twenty public URLs", async () => {
   const response = await render("/sitemap.xml");
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /application\/xml/);
@@ -503,12 +503,24 @@ test("serves a valid sitemap.xml with all eight public URLs", async () => {
   assert.deepEqual(urls, [
     "<loc>https://www.pulseticker.app/</loc>",
     "<loc>https://www.pulseticker.app/changelog</loc>",
+    "<loc>https://www.pulseticker.app/about</loc>",
+    "<loc>https://www.pulseticker.app/contact</loc>",
+    "<loc>https://www.pulseticker.app/privacy</loc>",
     "<loc>https://www.pulseticker.app/zh</loc>",
     "<loc>https://www.pulseticker.app/zh/changelog</loc>",
+    "<loc>https://www.pulseticker.app/zh/about</loc>",
+    "<loc>https://www.pulseticker.app/zh/contact</loc>",
+    "<loc>https://www.pulseticker.app/zh/privacy</loc>",
     "<loc>https://www.pulseticker.app/ja</loc>",
     "<loc>https://www.pulseticker.app/ja/changelog</loc>",
+    "<loc>https://www.pulseticker.app/ja/about</loc>",
+    "<loc>https://www.pulseticker.app/ja/contact</loc>",
+    "<loc>https://www.pulseticker.app/ja/privacy</loc>",
     "<loc>https://www.pulseticker.app/ko</loc>",
     "<loc>https://www.pulseticker.app/ko/changelog</loc>",
+    "<loc>https://www.pulseticker.app/ko/about</loc>",
+    "<loc>https://www.pulseticker.app/ko/contact</loc>",
+    "<loc>https://www.pulseticker.app/ko/privacy</loc>",
   ]);
   // Each URL entry must carry hreflang alternates for all four locales
   // plus x-default, so Google can consolidate the locale variants.
@@ -569,6 +581,9 @@ test("serves a Korean-only sitemap at /sitemap-ko.xml", async () => {
   assert.deepEqual(urls, [
     "<loc>https://www.pulseticker.app/ko</loc>",
     "<loc>https://www.pulseticker.app/ko/changelog</loc>",
+    "<loc>https://www.pulseticker.app/ko/about</loc>",
+    "<loc>https://www.pulseticker.app/ko/contact</loc>",
+    "<loc>https://www.pulseticker.app/ko/privacy</loc>",
   ]);
 });
 
@@ -608,4 +623,134 @@ test("embeds SoftwareApplication JSON-LD on the homepage", async () => {
   assert.match(html, /"downloadUrl":"https:\/\/www\.pulseticker\.app\/download"/);
   assert.match(html, /"sameAs":\["https:\/\/github\.com\/fatwang2\/Pulse"\]/);
   assert.match(html, /"inLanguage":\["en","zh","ja","ko"\]/);
+});
+
+test("embeds Organization JSON-LD with contactPoint and address", async () => {
+  const response = await render();
+  const html = await response.text();
+
+  assert.match(html, /"@type":"Organization"/);
+  assert.match(html, /"name":"SuperAgents, LLC"/);
+  assert.match(html, /"alternateName":"Pulse"/);
+  assert.match(html, /"@type":"ContactPoint"/);
+  assert.match(html, /"email":"hello@pulseticker\.app"/);
+  assert.match(html, /"contactType":"customer support"/);
+  assert.match(html, /"@type":"PostalAddress"/);
+  assert.match(html, /"streetAddress":"131 Continental Dr, Suite 305"/);
+  assert.match(html, /"addressLocality":"Newark"/);
+  assert.match(html, /"addressRegion":"DE"/);
+  assert.match(html, /"postalCode":"19713"/);
+  assert.match(html, /"addressCountry":"US"/);
+});
+
+test("SoftwareApplication lists PulseTicker as an alternateName", async () => {
+  const response = await render();
+  const html = await response.text();
+  assert.match(html, /"alternateName":\["PulseTicker"/);
+});
+
+test("server-renders the about page at /about", async () => {
+  const response = await render("/about");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /<title>About Pulse/);
+  assert.match(html, /Pulse solves one problem/);
+  assert.match(html, /Why we built Pulse/);
+  assert.match(html, /SuperAgents, LLC/);
+  assert.match(html, /131 Continental Dr/);
+  assert.match(html, /class="info-page"/);
+  assert.match(html, /rel="canonical" href="https:\/\/www\.pulseticker\.app\/about"/);
+  // At least 500 characters of meaningful content.
+  assert.ok(html.length > 2500, "about page should have substantial content");
+});
+
+test("server-renders the contact page at /contact", async () => {
+  const response = await render("/contact");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /<title>Contact Pulse/);
+  assert.match(html, /Get in touch/);
+  assert.match(html, /hello@pulseticker\.app/);
+  assert.match(html, /sys@pulseticker\.app/);
+  assert.match(html, /github\.com\/fatwang2\/Pulse\/issues/);
+  assert.match(html, /rel="canonical" href="https:\/\/www\.pulseticker\.app\/contact"/);
+});
+
+test("server-renders the privacy page at /privacy", async () => {
+  const response = await render("/privacy");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /<title>Privacy/);
+  assert.match(html, /Anonymous usage analytics/);
+  assert.match(html, /TelemetryDeck/);
+  assert.match(html, /SuperAgents, LLC/);
+  assert.match(html, /131 Continental Dr/);
+  assert.match(html, /rel="canonical" href="https:\/\/www\.pulseticker\.app\/privacy"/);
+});
+
+test("serves localized about page at /zh/about", async () => {
+  const response = await render("/zh/about");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /<html lang="zh-CN">/);
+  assert.match(html, /<title>关于 Pulse/);
+  assert.match(html, /Pulse 只解决一个问题/);
+  assert.match(html, /rel="canonical" href="https:\/\/www\.pulseticker\.app\/zh\/about"/);
+});
+
+test("redirects /en/about to /about", async () => {
+  const response = await render("/en/about");
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), "/about");
+});
+
+test("serves llms.txt with when-to-use guidance", async () => {
+  const response = await render("/llms.txt");
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /text\/markdown/);
+
+  const text = await response.text();
+  assert.match(text, /^# Pulse$/m);
+  assert.match(text, /## When to use this/);
+  assert.match(text, /NOT a trading terminal/);
+  assert.match(text, /Free and open source/);
+  assert.match(text, /https:\/\/www\.pulseticker\.app\/download/);
+  assert.match(text, /https:\/\/github\.com\/fatwang2\/Pulse/);
+  assert.match(text, /SuperAgents, LLC/);
+});
+
+test("serves markdown via Accept content negotiation", async () => {
+  const response = await render("/", { accept: "text/markdown" });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /text\/markdown/);
+  assert.match(response.headers.get("vary") ?? "", /Accept/);
+
+  const text = await response.text();
+  assert.match(text, /^# Pulse$/m);
+  assert.match(text, /## When to use this/);
+});
+
+test("returns a real 404 for unknown HTML paths", async () => {
+  const response = await render("/this-page-does-not-exist");
+  assert.equal(response.status, 404);
+  assert.match(response.headers.get("content-type") ?? "", /text\/markdown/);
+
+  const body = await response.text();
+  assert.match(body, /404 — Not Found/);
+  assert.match(body, /sitemap\.xml/);
+  assert.match(body, /llms\.txt/);
+});
+
+test("HTML responses carry a Vary header for content negotiation", async () => {
+  const response = await render("/");
+  assert.equal(response.status, 200);
+  const vary = response.headers.get("vary") ?? "";
+  assert.match(vary, /Accept/);
 });

@@ -1833,6 +1833,122 @@ a {
   }
 }
 
+/* --- Info pages (about, contact, privacy) --- */
+
+.info-page {
+  min-height: 100svh;
+  overflow: hidden;
+  background: var(--canvas);
+}
+
+.info-hero {
+  max-width: 1000px;
+  padding-block: clamp(68px, 10vw, 126px) clamp(48px, 6vw, 80px);
+}
+
+.info-hero h1 {
+  max-width: 760px;
+  margin: 0;
+  font-size: clamp(42px, 5.5vw, 72px);
+  font-weight: 720;
+  letter-spacing: -0.055em;
+  line-height: 1.02;
+}
+
+.info-hero > p {
+  max-width: 610px;
+  margin: 26px 0 0;
+  color: var(--muted);
+  font-size: clamp(16px, 1.7vw, 20px);
+  line-height: 1.65;
+}
+
+.info-last-updated {
+  margin: 14px 0 0 !important;
+  font-size: 13px !important;
+  font-weight: 580;
+  color: var(--muted);
+}
+
+.info-content {
+  width: min(760px, calc(100% - 40px));
+  padding: 0 0 82px;
+}
+
+.info-section {
+  margin-bottom: 48px;
+}
+
+.info-section:last-of-type {
+  margin-bottom: 60px;
+}
+
+.info-section h2 {
+  margin: 0 0 18px;
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 680;
+  letter-spacing: -0.028em;
+  color: var(--ink);
+}
+
+.info-section p {
+  margin: 0 0 16px;
+  color: #3c4043;
+  font-size: 16px;
+  line-height: 1.72;
+}
+
+.info-section p:last-child {
+  margin-bottom: 0;
+}
+
+.info-contact-emails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 48px;
+}
+
+.info-contact-emails a {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid rgba(40, 48, 58, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 580;
+  text-decoration: none;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.info-contact-emails a:hover {
+  border-color: var(--blue);
+  background: rgba(10, 132, 255, 0.06);
+}
+
+.info-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(40, 48, 58, 0.08);
+}
+
+.info-links a {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 560;
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+
+.info-links a:hover {
+  color: var(--blue);
+}
+
 @media (max-width: 940px) {
   .landing {
     overflow: visible;

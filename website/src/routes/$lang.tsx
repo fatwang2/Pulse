@@ -9,9 +9,16 @@ import { isLanguage } from "../i18n";
 export const Route = createFileRoute("/$lang")({
   beforeLoad: ({ params, location }) => {
     if (params.lang === "en" || !isLanguage(params.lang)) {
-      const fallback = location.pathname.includes("/changelog")
+      const path = location.pathname;
+      const fallback = path.includes("/changelog")
         ? "/changelog"
-        : "/";
+        : path.includes("/about")
+          ? "/about"
+          : path.includes("/contact")
+            ? "/contact"
+            : path.includes("/privacy")
+              ? "/privacy"
+              : "/";
       throw redirect({ href: fallback, statusCode: 302 });
     }
   },

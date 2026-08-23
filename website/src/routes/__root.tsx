@@ -9,7 +9,7 @@ import { AnalyticsEvents } from "../components/analytics-events";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
 import globalsCss from "../styles/globals.css?url";
-import { htmlLang, languageFromPath, siteUrl } from "../i18n";
+import { htmlLang, languageFromPath, organizationInfo, siteUrl } from "../i18n";
 
 const googleAnalyticsMeasurementId = "G-J9GLF06LPP";
 
@@ -21,7 +21,7 @@ const softwareApplicationJsonLd = JSON.stringify({
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   name: "Pulse",
-  alternateName: "Pulse — macOS menu bar market tracker",
+  alternateName: ["PulseTicker", "Pulse — macOS menu bar market tracker"],
   applicationCategory: "UtilitiesApplication",
   operatingSystem: "macOS",
   description:
@@ -31,6 +31,34 @@ const softwareApplicationJsonLd = JSON.stringify({
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   sameAs: ["https://github.com/fatwang2/Pulse"],
   inLanguage: ["en", "zh", "ja", "ko"],
+});
+
+/**
+ * Structured data: Organization so AI agents can verify business legitimacy
+ * and answer contact queries. Includes contactPoint and PostalAddress.
+ */
+const organizationJsonLd = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: organizationInfo.legalName,
+  alternateName: organizationInfo.alternateName,
+  url: siteUrl,
+  logo: `${siteUrl}/icon.png`,
+  contactPoint: {
+    "@type": "ContactPoint",
+    email: organizationInfo.supportEmail,
+    contactType: "customer support",
+    availableLanguage: ["en", "zh", "ja", "ko"],
+  },
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: organizationInfo.address.streetAddress,
+    addressLocality: organizationInfo.address.addressLocality,
+    addressRegion: organizationInfo.address.addressRegion,
+    postalCode: organizationInfo.address.postalCode,
+    addressCountry: organizationInfo.address.addressCountry,
+  },
+  sameAs: ["https://github.com/fatwang2/Pulse"],
 });
 
 export const Route = createRootRoute({
@@ -78,6 +106,10 @@ export const Route = createRootRoute({
       {
         type: "application/ld+json",
         children: softwareApplicationJsonLd,
+      },
+      {
+        type: "application/ld+json",
+        children: organizationJsonLd,
       },
     ],
   }),

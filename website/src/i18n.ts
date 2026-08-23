@@ -2,14 +2,15 @@
  * Language routing for the Pulse website.
  *
  * The site is served at four locales, one of which lives at the root:
- *   en -> /, /changelog
- *   zh -> /zh, /zh/changelog
- *   ja -> /ja, /ja/changelog
- *   ko -> /ko, /ko/changelog
+ *   en -> /, /changelog, /about, /contact, /privacy
+ *   zh -> /zh, /zh/changelog, /zh/about, /zh/contact, /zh/privacy
+ *   ja -> /ja, /ja/changelog, /ja/about, /ja/contact, /ja/privacy
+ *   ko -> /ko, /ko/changelog, /ko/about, /ko/contact, /ko/privacy
  *
- * The bare paths `/` and `/changelog` redirect to the visitor's preferred
- * locale (cookie first, then Accept-Language) when it is not English; English
- * is the canonical default and stays at the root.
+ * The bare paths (`/`, `/changelog`, `/about`, `/contact`, `/privacy`)
+ * redirect to the visitor's preferred locale (cookie first, then
+ * Accept-Language) when it is not English; English is the canonical default
+ * and stays at the root.
  */
 
 export const languages = ["en", "zh", "ja", "ko"] as const;
@@ -19,7 +20,23 @@ export const defaultLanguage: Language = "en";
 export const languageCookieName = "pulse-lang";
 export const siteUrl = "https://www.pulseticker.app";
 
-export type PageKind = "home" | "changelog";
+export type PageKind = "home" | "changelog" | "about" | "contact" | "privacy";
+
+/** Organization identity for structured data, llms.txt, and the contact page. */
+export const organizationInfo = {
+  legalName: "SuperAgents, LLC",
+  brandName: "PulseTicker",
+  alternateName: "Pulse",
+  supportEmail: "hello@pulseticker.app",
+  technicalEmail: "sys@pulseticker.app",
+  address: {
+    streetAddress: "131 Continental Dr, Suite 305",
+    addressLocality: "Newark",
+    addressRegion: "DE",
+    postalCode: "19713",
+    addressCountry: "US",
+  },
+} as const;
 
 export function isLanguage(value: unknown): value is Language {
   return value === "en" || value === "zh" || value === "ja" || value === "ko";
@@ -33,8 +50,31 @@ export function changelogPath(language: Language): string {
   return language === "en" ? "/changelog" : `/${language}/changelog`;
 }
 
+export function aboutPath(language: Language): string {
+  return language === "en" ? "/about" : `/${language}/about`;
+}
+
+export function contactPath(language: Language): string {
+  return language === "en" ? "/contact" : `/${language}/contact`;
+}
+
+export function privacyPath(language: Language): string {
+  return language === "en" ? "/privacy" : `/${language}/privacy`;
+}
+
 export function pagePath(kind: PageKind, language: Language): string {
-  return kind === "home" ? homePath(language) : changelogPath(language);
+  switch (kind) {
+    case "home":
+      return homePath(language);
+    case "changelog":
+      return changelogPath(language);
+    case "about":
+      return aboutPath(language);
+    case "contact":
+      return contactPath(language);
+    case "privacy":
+      return privacyPath(language);
+  }
 }
 
 export function htmlLang(language: Language): string {
@@ -176,12 +216,103 @@ const pageCopyByLanguage: Record<PageKind, Record<Language, PageCopy>> = {
       imageAlt: "Pulse macOS 메뉴 막대 시세 앱",
     },
   },
+  about: {
+    en: {
+      title: "About Pulse — Glanceable market data from the menu bar",
+      description:
+        "Pulse is a free, open-source macOS menu bar market tracker built by SuperAgents, LLC. Learn the philosophy behind glanceable market data.",
+      socialDescription:
+        "Pulse solves one problem: seeing your markets in the shortest possible time.",
+      imageAlt: "Pulse macOS menu bar market tracker",
+    },
+    zh: {
+      title: "关于 Pulse — 菜单栏里的 glanceable 行情",
+      description:
+        "Pulse 是由 SuperAgents, LLC 开发的免费开源 macOS 菜单栏行情工具。了解 glanceable 行情背后的设计理念。",
+      socialDescription: "Pulse 只解决一个问题：用最短时间看到你关心的市场。",
+      imageAlt: "Pulse macOS 菜单栏行情工具",
+    },
+    ja: {
+      title: "Pulse について — メニューバーから一目で分かるマーケット",
+      description:
+        "Pulse は SuperAgents, LLC が開発する無料・オープンソースの macOS メニューバー株価アプリです。glanceable な行情データの設計思想をご紹介します。",
+      socialDescription: "Pulse が解決するのは一つの問題：最短時間で市場を把握すること。",
+      imageAlt: "Pulse macOS メニューバー株価トラッカー",
+    },
+    ko: {
+      title: "Pulse 소개 — 메뉴 막대에서 한눈에 보는 시세",
+      description:
+        "Pulse는 SuperAgents, LLC가 개발한 무료 오픈소스 macOS 메뉴 막대 시세 앱입니다. 한눈에 보는 시세 데이터 철학을 알아보세요.",
+      socialDescription: "Pulse가 푸는 문제는 하나: 가장 짧은 시간에 시장을 확인하는 것.",
+      imageAlt: "Pulse macOS 메뉴 막대 시세 앱",
+    },
+  },
+  contact: {
+    en: {
+      title: "Contact Pulse — Get in touch with the team",
+      description:
+        "Contact the Pulse team for support, feedback, bug reports, or business inquiries. Reach us by email or GitHub.",
+      socialDescription: "Support, feedback, and bug reports for the Pulse menu bar market tracker.",
+      imageAlt: "Pulse macOS menu bar market tracker",
+    },
+    zh: {
+      title: "联系 Pulse — 与我们取得联系",
+      description:
+        "通过邮件或 GitHub 联系 Pulse 团队，获取支持、反馈、问题报告或商务咨询。",
+      socialDescription: "Pulse 菜单栏行情工具的支持、反馈与问题报告。",
+      imageAlt: "Pulse macOS 菜单栏行情工具",
+    },
+    ja: {
+      title: "Pulse お問い合わせ — チームに連絡する",
+      description:
+        "Pulse チームへのお問い合わせ、フィードバック、バグ報告、ビジネスのご相談はメールまたは GitHub から。",
+      socialDescription: "Pulse メニューバー株価トラッカーのサポート・フィードバック・バグ報告。",
+      imageAlt: "Pulse macOS メニューバー株価トラッカー",
+    },
+    ko: {
+      title: "Pulse 연락처 — 팀에 문의하기",
+      description:
+        "Pulse 팀에 지원, 피드백, 버그 신고 또는 비즈니스 문의를 이메일이나 GitHub로 보내주세요.",
+      socialDescription: "Pulse 메뉴 막대 시세 앱의 지원, 피드백, 버그 신고.",
+      imageAlt: "Pulse macOS 메뉴 막대 시세 앱",
+    },
+  },
+  privacy: {
+    en: {
+      title: "Privacy — How Pulse handles your data",
+      description:
+        "Pulse collects anonymous usage analytics only. No watched symbols, positions, credentials, or personal data are sent. Read the full privacy policy.",
+      socialDescription: "Anonymous analytics only. Your portfolio data never leaves your Mac.",
+      imageAlt: "Pulse macOS menu bar market tracker",
+    },
+    zh: {
+      title: "隐私 — Pulse 如何处理你的数据",
+      description:
+        "Pulse 仅收集匿名的使用分析数据。你的自选、持仓、凭证和个人数据绝不会上传。阅读完整隐私政策。",
+      socialDescription: "仅匿名分析。你的持仓数据绝不离开你的 Mac。",
+      imageAlt: "Pulse macOS 菜单栏行情工具",
+    },
+    ja: {
+      title: "プライバシー — Pulse のデータ取り扱い",
+      description:
+        "Pulse は匿名の利用分析データのみを収集します。ウォッチリスト、評価損益、認証情報、個人データは送信されません。完全なプライバシーポリシーをご確認ください。",
+      socialDescription: "匿名分析のみ。ポートフォリオデータは Mac から外に出ません。",
+      imageAlt: "Pulse macOS メニューバー株価トラッカー",
+    },
+    ko: {
+      title: "개인정보 — Pulse의 데이터 처리 방침",
+      description:
+        "Pulse는 익명 사용 분석 데이터만 수집합니다. 관심 종목, 보유 손익, 인증 정보, 개인 데이터는 전송되지 않습니다. 전체 개인정보 처리방침을 확인하세요.",
+      socialDescription: "익명 분석만 수집. 포트폴리오 데이터는 Mac 밖으로 나가지 않습니다.",
+      imageAlt: "Pulse macOS 메뉴 막대 시세 앱",
+    },
+  },
 };
 
 export function pageMeta(kind: PageKind, language: Language) {
   const copy = pageCopyByLanguage[kind][language];
   const canonicalPath = pagePath(kind, language);
-  const englishPath = kind === "home" ? "/" : "/changelog";
+  const englishPath = pagePath(kind, "en");
 
   // Naver does not support hreflang; the meta content-language tag is the
   // documented workaround for telling its crawler (Yeti) that a page is Korean.
@@ -229,4 +360,16 @@ export function homeMeta(language: Language) {
 
 export function changelogMeta(language: Language) {
   return pageMeta("changelog", language);
+}
+
+export function aboutMeta(language: Language) {
+  return pageMeta("about", language);
+}
+
+export function contactMeta(language: Language) {
+  return pageMeta("contact", language);
+}
+
+export function privacyMeta(language: Language) {
+  return pageMeta("privacy", language);
 }

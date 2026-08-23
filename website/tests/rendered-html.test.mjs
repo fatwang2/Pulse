@@ -748,6 +748,20 @@ test("returns a real 404 for unknown HTML paths", async () => {
   assert.match(body, /llms\.txt/);
 });
 
+test("returns 404 for unknown paths with Accept: text/markdown", async () => {
+  const response = await render("/nonexistent-markdown", { accept: "text/markdown" });
+  assert.equal(response.status, 404);
+  assert.match(response.headers.get("content-type") ?? "", /text\/markdown/);
+
+  const body = await response.text();
+  assert.match(body, /404 — Not Found/);
+});
+
+test("returns 404 for unknown paths with Accept: */*", async () => {
+  const response = await render("/nonexistent-wildcard", { accept: "*/*" });
+  assert.equal(response.status, 404);
+});
+
 test("HTML responses carry a Vary header for content negotiation", async () => {
   const response = await render("/");
   assert.equal(response.status, 200);

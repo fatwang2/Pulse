@@ -280,10 +280,55 @@ function handleLlmsTxtRequest(request: Request): Response | undefined {
   });
 }
 
+/** Markdown body for 404 responses, pointing agents at the sitemap and llms.txt. */
+function notFoundMarkdown(): string {
+  return [
+    `# 404 — Not Found`,
+    ``,
+    `This page does not exist on pulseticker.app.`,
+    ``,
+    `## Try one of these instead`,
+    ``,
+    `- Home: ${siteUrl}/`,
+    `- Changelog: ${siteUrl}/changelog`,
+    `- About: ${siteUrl}/about`,
+    `- Contact: ${siteUrl}/contact`,
+    `- Privacy: ${siteUrl}/privacy`,
+    `- Download: ${siteUrl}/download`,
+    `- Sitemap: ${siteUrl}/sitemap.xml`,
+    `- llms.txt: ${siteUrl}/llms.txt`,
+  ].join("\n");
+}
+
+/** Normalize a pathname: strip trailing slashes (except root). */
+function normalizePath(pathname: string): string {
+  return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+}
+
+/** Redirect /en and /en/* to the bare English paths (English has no prefix). */
+function enRedirect(normalized: string): Response | undefined {
+  if (normalized === "/en") {
+    return new Response(null, {
+      status: 302,
+      headers: { "cache-control": "no-store", location: "/" },
+    });
+  }
+  if (normalized.startsWith("/en/")) {
+    const bare = normalized.slice(3);
+    return new Response(null, {
+      status: 302,
+      headers: { "cache-control": "no-store", location: bare === "" ? "/" : bare },
+    });
+  }
+  return undefined;
+}
+
 /**
  * Markdown content negotiation (acceptmarkdown.com). When an agent sends
- * Accept: text/markdown, serve the site summary as markdown instead of the
- * HTML SPA. The Vary header tells CDNs to cache per Accept value.
+ * Accept: text/markdown, serve the site summary as markdown for valid pages.
+ * Unknown paths get a real 404 with a markdown body — never a 200 that makes
+ * agents believe every path exists. The Vary header tells CDNs to cache per
+ * Accept value.
  */
 function handleMarkdownRequest(request: Request): Response | undefined {
   const accept = request.headers.get("accept") ?? "";
@@ -302,6 +347,25 @@ function handleMarkdownRequest(request: Request): Response | undefined {
   ]);
   if (staticPaths.has(url.pathname)) return undefined;
 
+  const normalized = normalizePath(url.pathname);
+
+  // Redirect /en/* to the bare English paths.
+  const redirect = enRedirect(normalized);
+  if (redirect) return redirect;
+
+  // Unknown path → real 404 with a markdown body.
+  if (!validPagePaths.has(normalized)) {
+    return new Response(request.method === "HEAD" ? null : notFoundMarkdown(), {
+      status: 404,
+      headers: {
+        "content-type": "text/markdown; charset=utf-8",
+        "cache-control": "no-store",
+        vary: "Accept",
+      },
+    });
+  }
+
+  // Valid page path → serve the site summary as markdown.
   return new Response(request.method === "HEAD" ? null : siteMarkdown(), {
     status: 200,
     headers: {
@@ -333,8 +397,7 @@ const startFetch = handler.fetch as (
  */
 function handleLanguageRedirect(request: Request): Response | undefined {
   const url = new URL(request.url);
-  const normalized =
-    url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : url.pathname;
+  const normalized = normalizePath(url.pathname);
 
   const barePaths: Record<string, PageKind> = {
     "/": "home",
@@ -375,49 +438,20 @@ function handleLanguageRedirect(request: Request): Response | undefined {
 function handleNotFound(request: Request): Response | undefined {
   if (request.method !== "GET" && request.method !== "HEAD") return undefined;
   const accept = request.headers.get("accept") ?? "";
-  if (!accept.includes("text/html")) return undefined;
+  if (!accept.includes("text/html") && !accept.includes("*/*")) return undefined;
 
   const url = new URL(request.url);
-  const normalized =
-    url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : url.pathname;
+  const normalized = normalizePath(url.pathname);
 
   // Redirect /en and /en/* to the bare English paths (English has no prefix).
-  if (normalized === "/en") {
-    return new Response(null, {
-      status: 302,
-      headers: { "cache-control": "no-store", location: "/" },
-    });
-  }
-  if (normalized.startsWith("/en/")) {
-    const bare = normalized.slice(3);
-    return new Response(null, {
-      status: 302,
-      headers: { "cache-control": "no-store", location: bare === "" ? "/" : bare },
-    });
-  }
+  const redirect = enRedirect(normalized);
+  if (redirect) return redirect;
 
   // Known localized or English page paths pass through to TanStack Start.
   if (validPagePaths.has(normalized)) return undefined;
 
   // Unknown path → real 404 with a markdown body pointing at the sitemap.
-  const body = [
-    `# 404 — Not Found`,
-    ``,
-    `This page does not exist on pulseticker.app.`,
-    ``,
-    `## Try one of these instead`,
-    ``,
-    `- Home: ${siteUrl}/`,
-    `- Changelog: ${siteUrl}/changelog`,
-    `- About: ${siteUrl}/about`,
-    `- Contact: ${siteUrl}/contact`,
-    `- Privacy: ${siteUrl}/privacy`,
-    `- Download: ${siteUrl}/download`,
-    `- Sitemap: ${siteUrl}/sitemap.xml`,
-    `- llms.txt: ${siteUrl}/llms.txt`,
-  ].join("\n");
-
-  return new Response(request.method === "HEAD" ? null : body, {
+  return new Response(request.method === "HEAD" ? null : notFoundMarkdown(), {
     status: 404,
     headers: {
       "content-type": "text/markdown; charset=utf-8",

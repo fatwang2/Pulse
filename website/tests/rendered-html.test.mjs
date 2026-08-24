@@ -364,7 +364,7 @@ test("English copy lives at the root and language is a URL path", async () => {
   assert.match(i18n, /detectLanguageFromAcceptLanguage/);
 });
 
-test("enables GA4 analytics while keeping advertising consent disabled", async () => {
+test("installs Umami analytics and tracks /download clicks", async () => {
   const rootRoute = await readFile(
     new URL("../src/routes/__root.tsx", import.meta.url),
     "utf8",
@@ -374,22 +374,23 @@ test("enables GA4 analytics while keeping advertising consent disabled", async (
     "utf8",
   );
 
-  assert.match(rootRoute, /G-J9GLF06LPP/);
-  assert.match(rootRoute, /googletagmanager\.com\/gtag\/js/);
-  assert.match(rootRoute, /analytics_storage: "granted"/);
-  assert.match(rootRoute, /ad_storage: "denied"/);
-  assert.match(rootRoute, /ad_user_data: "denied"/);
-  assert.match(rootRoute, /ad_personalization: "denied"/);
-  assert.match(rootRoute, /allow_google_signals", false/);
+  assert.match(rootRoute, /umami\.fatwang2\.com\/script\.js/);
+  assert.match(rootRoute, /umamiWebsiteId = "bf5c4531-e265-4858-afd9-ed014426038d"/);
+  assert.match(rootRoute, /"data-website-id": umamiWebsiteId/);
+  assert.doesNotMatch(rootRoute, /googletagmanager/);
+  assert.doesNotMatch(rootRoute, /G-J9GLF06LPP/);
   assert.match(analyticsEvents, /"file_download"/);
   assert.match(analyticsEvents, /url\.pathname !== "\/download"/);
-  assert.match(analyticsEvents, /transport_type: "beacon"/);
+  assert.match(analyticsEvents, /umami\?\.track/);
+  assert.doesNotMatch(analyticsEvents, /gtag/);
+  assert.doesNotMatch(analyticsEvents, /transport_type/);
 
   const response = await render();
   const html = await response.text();
   const head = html.slice(0, html.indexOf("</head>"));
-  assert.match(head, /dataLayer/);
-  assert.match(head, /googletagmanager\.com\/gtag\/js/);
+  assert.match(head, /umami\.fatwang2\.com\/script\.js/);
+  assert.match(head, /data-website-id="bf5c4531-e265-4858-afd9-ed014426038d"/);
+  assert.doesNotMatch(head, /googletagmanager/);
 });
 
 test("changelog copy ships in every language", async () => {

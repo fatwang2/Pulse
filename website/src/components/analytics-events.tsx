@@ -2,15 +2,13 @@ import { useEffect } from "react";
 
 declare global {
   interface Window {
-    gtag?: (...args: unknown[]) => void;
+    umami?: {
+      track: (name: string, data?: Record<string, unknown>) => void;
+    };
   }
 }
 
-interface AnalyticsEventsProps {
-  measurementId: string;
-}
-
-export function AnalyticsEvents({ measurementId }: AnalyticsEventsProps) {
+export function AnalyticsEvents() {
   useEffect(() => {
     function trackDownload(event: MouseEvent) {
       if (!(event.target instanceof Element)) {
@@ -30,14 +28,12 @@ export function AnalyticsEvents({ measurementId }: AnalyticsEventsProps) {
         return;
       }
 
-      window.gtag?.("event", "file_download", {
-        send_to: measurementId,
+      window.umami?.track("file_download", {
         file_extension: "dmg",
         file_name: "Pulse",
         link_domain: url.hostname,
         link_text: link.textContent?.trim() ?? "",
         link_url: url.href,
-        transport_type: "beacon",
       });
     }
 
@@ -45,7 +41,7 @@ export function AnalyticsEvents({ measurementId }: AnalyticsEventsProps) {
     return () => {
       document.removeEventListener("click", trackDownload, { capture: true });
     };
-  }, [measurementId]);
+  }, []);
 
   return null;
 }

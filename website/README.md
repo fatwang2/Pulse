@@ -6,8 +6,8 @@ Pulse 的多语言单页官网（中文 / English / 日本語），介绍 macOS 
 
 ## 目录结构
 
-- `src/routes/`：页面路由（`__root.tsx` 文档骨架与全站 meta / GA，`index.tsx` 首页，`changelog.tsx` 更新日志）。
-- `src/components/`：交互组件（自选列表演示、GA 下载事件）。
+- `src/routes/`：页面路由（`__root.tsx` 文档骨架与全站 meta / Umami，`index.tsx` 首页，`changelog.tsx` 更新日志）。
+- `src/components/`：交互组件（自选列表演示、Umami 下载事件）。
 - `src/data/releases.ts`：更新日志数据（`zh` / `en` / `ja` 三语，均为必填），发版时在此追加条目。
 - `src/styles/globals.css`：全站样式（Tailwind 仅用于 preflight，版式为手写 CSS）。
 - `src/server.ts`：Worker 入口，先处理 `/download` 再交给 TanStack Start SSR。
@@ -68,11 +68,10 @@ npm test
 
 ## 访问分析
 
-官网使用独立的 GA4 Property `Pulse`（Property ID `546939165`）和 Web 数据流
-`Pulse Website`（Measurement ID `G-J9GLF06LPP`）。
+官网使用自托管的 [Umami](https://umami.is)（实例 `umami.fatwang2.com`）进行隐私优先的
+无 Cookie 访问分析，Website ID 为 `bf5c4531-e265-4858-afd9-ed014426038d`。
 
-- 页面访问、来源、滚动和站外点击由 GA4 与增强型衡量记录。
-- 所有指向 `/download` 的点击额外记录为 `file_download`，并附带 DMG 文件类型、
+- 页面访问、来源等基础指标由 Umami 自动收集，无需 Cookie，不跨站追踪。
+- 所有指向 `/download` 的点击额外记录为 `file_download` 事件，并附带 DMG 文件类型、
   链接文字和落地 URL。
-- 默认拒绝 Analytics 与广告存储，并关闭 Google Signals 和广告个性化信号；
-  GA4 以不写入这些 Cookie 的方式接收聚合测量事件。
+- 跟踪脚本以 `<script defer>` 注入 `<head>`，SPA 内的路由切换由 Umami 自动捕获。

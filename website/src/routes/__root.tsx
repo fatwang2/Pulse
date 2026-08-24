@@ -11,7 +11,8 @@ import "@fontsource-variable/geist-mono";
 import globalsCss from "../styles/globals.css?url";
 import { htmlLang, languageFromPath, organizationInfo, siteUrl } from "../i18n";
 
-const googleAnalyticsMeasurementId = "G-J9GLF06LPP";
+const umamiScriptSrc = "https://umami.fatwang2.com/script.js";
+const umamiWebsiteId = "bf5c4531-e265-4858-afd9-ed014426038d";
 
 /**
  * Structured data: SoftwareApplication so search engines and AI assistants
@@ -84,24 +85,9 @@ export const Route = createRootRoute({
     ],
     scripts: [
       {
-        children: `
-            window.dataLayer = window.dataLayer || [];
-            window.gtag = function gtag(){window.dataLayer.push(arguments);}
-            window.gtag("consent", "default", {
-              analytics_storage: "granted",
-              ad_storage: "denied",
-              ad_user_data: "denied",
-              ad_personalization: "denied"
-            });
-            window.gtag("set", "allow_google_signals", false);
-            window.gtag("set", "allow_ad_personalization_signals", false);
-            window.gtag("js", new Date());
-            window.gtag("config", "${googleAnalyticsMeasurementId}");
-          `,
-      },
-      {
-        src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsMeasurementId}`,
-        async: true,
+        src: umamiScriptSrc,
+        defer: true,
+        "data-website-id": umamiWebsiteId,
       },
       {
         type: "application/ld+json",
@@ -129,7 +115,7 @@ function RootComponent() {
       </head>
       <body>
         <Outlet />
-        <AnalyticsEvents measurementId={googleAnalyticsMeasurementId} />
+        <AnalyticsEvents />
         <Scripts />
       </body>
     </html>

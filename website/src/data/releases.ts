@@ -12,6 +12,29 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.14.0",
+    date: "2026-08-24",
+    kind: "release",
+    highlights: {
+      zh: [
+        "接入同花顺扶摇（Fuyao）A 股实时行情。在「设置 → 数据源 → 同花顺」填入你自己的 API Key，沪深行情即升级为实时——经盘中实测，API 返回的时间戳与当前时间差不到 1 秒。配置了 Key 后，Pulse 自动将 A 股行情和日 K 路由至同花顺；未配置或触发熔断时，自动回退到现有免费数据源。",
+        "统一数据源状态模型。「设置 → 数据源」中 Longbridge 和同花顺现在使用同一套连接状态词汇和重试流程：已连接、连接中、已断开、错误——一键重试会清除熔断状态，但不会动你的凭证。",
+      ],
+      en: [
+        "Fuyao (扶摇), Hithink / Tonghuashun's official A-share data service. Bring your own API key (Settings → Data Sources → 同花顺) to upgrade Shanghai and Shenzhen quotes to real-time — verified live during a trading session, the API returns sub-second-fresh snapshots. Pulse routes A-share quotes and daily candles through Fuyao when a key is present, and falls back to the existing free sources automatically when the key is missing or the circuit breaker trips.",
+        "Unified provider status model in Settings. Longbridge and Fuyao now share the same connection-status vocabulary and the same retry flow: connected, connecting, disconnected, or error — with a one-tap retry that clears the circuit breaker without touching credentials.",
+      ],
+      ja: [
+        "同花順扶摇（Fuyao）の A 株リアルタイム行情を統合しました。「設定 → データソース → 同花順」に API キーを入力すると、上海・深圳の行情がリアルタイムにアップグレードされます。取引時間中に実測したところ、API のタイムスタンプと現在時刻の差は 1 秒未満でした。キーが設定されていれば A 株の行情と日足を同花順へルーティングし、未設定やサーキットブレーカ作動時は既存の無料データソースへ自動フォールバックします。",
+        "データソースのステータスモデルを統一しました。「設定 → データソース」で Longbridge と同花順が同じ接続ステータス語彙と再試行フローを共有します：接続済み、接続中、切断、エラー——ワンタップ再試行でサーキットブレーカを解除しますが、認証情報には触れません。",
+      ],
+      ko: [
+        "同花順扶摇(Fuyao) A주 실시간 시세를 통합했습니다. 「설정 → 데이터 소스 → 同花順」에 API 키를 입력하면 상하이·선전 시세가 실시간으로 업그레이드됩니다. 장중에 실측한 결과 API 타임스탬프와 현재 시각의 차이는 1초 미만이었습니다. 키가 설정되면 A주 시세와 일봉을 同花順로 라우팅하고, 미설정이나 서킷 브레이커 동작 시에는 기존 무료 데이터 소스로 자동 폴백합니다.",
+        "데이터 소스 상태 모델을 통일했습니다. 「설정 → 데이터 소스」에서 Longbridge와 同花順이 동일한 연결 상태 어휘와 재시도 흐름을 공유합니다: 연결됨, 연결 중, 끊김, 오류 — 원탭 재시도로 서킷 브레이커를 해제하지만 인증 정보는 건드리지 않습니다.",
+      ],
+    },
+  },
+  {
     version: "0.13.0",
     date: "2026-08-21",
     kind: "release",

@@ -13,7 +13,7 @@ export type Release = {
 export const releases: readonly Release[] = [
   {
     version: "0.15.0",
-    date: "2026-08-25",
+    date: "2026-08-26",
     kind: "release",
     highlights: {
       zh: [

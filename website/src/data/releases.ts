@@ -12,6 +12,29 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.14.1",
+    date: "2026-08-25",
+    kind: "fix",
+    highlights: {
+      zh: [
+        "报价现在按市场保留应有的小数位：股票与贵金属在需要时显示第三位（例如港股低价股、白银），日股与韩股的整数价不再强行补 `.00`，加密货币大币仍两位、小币保留更高精度。",
+        "独立浮窗标题栏里的图钉改为普通工具栏按钮，不再一直亮着 Liquid Glass 选中态，右上角不再比旁边的搜索、分享更抢眼。",
+      ],
+      en: [
+        "Quotes now keep the fraction digits each market needs. Stocks and precious metals can show a third decimal when the print carries one (for example HK penny stocks or silver), Japan and Korea drop trailing `.00` on whole-yen/won prices, and crypto still pads large coins to two places while preserving finer pairs.",
+        "In the pinned floating window, the pin control is a plain toolbar button again. It no longer stays lit with Liquid Glass selected chrome, so the top-right corner no longer outweighs search and share beside it.",
+      ],
+      ja: [
+        "価格表示が市場ごとの小数桁に対応しました。株式と貴金属は必要なときに 3 桁目を表示し（香港の低位株や銀など）、日本株・韓国株の整数価格に不要な `.00` を付けなくなり、暗号資産は大型ペアを 2 桁・小型ペアはより細かい桁を保ちます。",
+        "ピン留めフローティングウィンドウのタイトルバーのピンを通常のツールバーボタンに戻しました。Liquid Glass の選択状態で常時点灯しなくなり、右上隅が隣の検索・共有より目立たなくなります。",
+      ],
+      ko: [
+        "시세가 시장별로 필요한 소수 자릿수를 유지합니다. 주식과 귀금속은 필요할 때 셋째 자리를 보여 주고(예: 홍콩 저가주, 은), 일본·한국 종목의 정수 가격에는 불필요한 `.00`을 붙이지 않으며, 암호화폐는 큰 쌍은 두 자리·작은 쌍은 더 세밀한 자릿수를 유지합니다.",
+        "고정 플로팅 창 제목 표시줄의 핀을 일반 도구 모음 버튼으로 되돌렸습니다. Liquid Glass 선택 상태로 계속 켜져 있지 않아, 오른쪽 위가 옆의 검색·공유보다 눈에 띄지 않습니다.",
+      ],
+    },
+  },
+  {
     version: "0.14.0",
     date: "2026-08-24",
     kind: "release",

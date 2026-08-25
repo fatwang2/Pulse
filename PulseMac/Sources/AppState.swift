@@ -24,6 +24,8 @@ final class AppState {
     @ObservationIgnored let longbridge: LongbridgeProvider
     @ObservationIgnored let fuyao: FuyaoProvider
     @ObservationIgnored let longbridgeOAuth: LongbridgeOAuthAuthenticator
+    @ObservationIgnored private(set) var agentCommands: AgentWatchlistCommands?
+    private(set) var agentServer: MCPAgentServer?
 
     enum LongbridgeAuthState {
         case none
@@ -124,6 +126,17 @@ final class AppState {
         engine.start()
         startRotation()
         observeMenuTracking()
+        // Image-rendering self-tests must not touch the Keychain (the MCP token
+        // lives there), so they run without the agent endpoint entirely.
+        if !CommandLine.arguments.contains("--share-selftest") {
+            let commands = AgentWatchlistCommands(store: watchlist, market: market, searcher: self)
+            let server = MCPAgentServer(commands: commands) { [weak self] in
+                self?.engine.poke()
+            }
+            agentCommands = commands
+            agentServer = server
+            if settings.mcpEnabled { server.start() }
+        }
         if !disabledIDs.contains(BinanceProvider.providerID),
            !CommandLine.arguments.contains("--share-selftest") {
             Task { try? await binance.refreshSymbolCatalogIfNeeded() }
@@ -500,6 +513,18 @@ final class AppState {
         }
     }
 
+    // MARK: - MCP agent endpoint
+
+    func setMCPEnabled(_ enabled: Bool) {
+        settings.mcpEnabled = enabled
+        guard let agentServer else { return }
+        if enabled {
+            agentServer.start()
+        } else {
+            agentServer.stop()
+        }
+    }
+
     // MARK: - Settings wiring
 
     func pollInterval(for providerID: String) -> TimeInterval {
@@ -757,3 +782,5 @@ final class AppState {
         return results
     }
 }
+
+extension AppState: AgentSymbolSearching {}

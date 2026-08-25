@@ -126,6 +126,9 @@ final class AppSettings {
     /// Provider ids disabled by the user (all enabled by default)
     var disabledProviderIDs: Set<String> = [] { didSet { save() } }
 
+    /// Whether the local MCP agent endpoint should run. Opt-in; binds loopback only.
+    var mcpEnabled: Bool = false { didSet { save() } }
+
     /// Most-recent-first market search queries, capped, user-clearable from the search panel.
     var recentSearchQueries: [String] = [] { didSet { save() } }
 
@@ -202,6 +205,7 @@ final class AppSettings {
                 minuteCandlePeriod = restoredPeriod
             }
             disabledProviderIDs = snapshot.disabledProviderIDs ?? []
+            mcpEnabled = snapshot.mcpEnabled ?? false
             recentSearchQueries = snapshot.recentSearchQueries ?? []
             pinnedWindowVisible = snapshot.pinnedWindowVisible ?? false
             pinnedWindowTopLeft = snapshot.pinnedWindowTopLeft
@@ -231,6 +235,7 @@ final class AppSettings {
         var prioritizeOpenMarkets: Bool?
         var minuteCandlePeriod: CandlePeriod?
         var disabledProviderIDs: Set<String>?
+        var mcpEnabled: Bool?
         var recentSearchQueries: [String]?
         var pinnedWindowVisible: Bool?
         var pinnedWindowTopLeft: CGPoint?
@@ -250,6 +255,7 @@ final class AppSettings {
                                 prioritizeOpenMarkets: prioritizeOpenMarkets,
                                 minuteCandlePeriod: minuteCandlePeriod,
                                 disabledProviderIDs: disabledProviderIDs,
+                                mcpEnabled: mcpEnabled,
                                 recentSearchQueries: recentSearchQueries,
                                 pinnedWindowVisible: pinnedWindowVisible,
                                 pinnedWindowTopLeft: pinnedWindowTopLeft,

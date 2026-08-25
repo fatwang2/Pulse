@@ -79,13 +79,33 @@ const translations = {
     intro:
       "Pulse 把你关心的价格、走势和持仓盈亏放进菜单栏。从盘前到盘后，不打断工作，也能随时知道市场发生了什么。",
     featuresLabel: "主要功能",
-    features: ["多分组自选", "持仓盈亏", "蜡烛图与盘前盘后", "菜单栏行情轮播"],
+    features: ["多分组自选", "持仓盈亏", "蜡烛图与盘前盘后", "MCP 智能体接入"],
     downloadLabel: "下载最新版",
     omarchyLabel: "Omarchy 插件",
     whatsNew: "{date}发布 · 查看更新日志",
     screenshotAlt:
       "Pulse 菜单栏浮层演示，展示美股、A 股、港股与加密货币的价格和走势图",
     markets: "支持美股、港股、A 股、日股、韩股、加密货币、贵金属、指数与 ETF",
+    mcp: {
+      title: "本机 MCP，让智能体直接管自选",
+      description:
+        "在设置中开启后，Pulse 在本机提供 Streamable HTTP 的 MCP 服务。Claude、ChatGPT 以及任何支持 MCP 的客户端，都可以读取并编辑你的自选分组、持仓与交易记录——仅绑定 127.0.0.1，用钥匙串中的 Bearer 令牌鉴权。",
+      path: "设置 → 智能体 → MCP",
+      terminal: {
+        label: "pulse · mcp",
+        ariaLabel: "MCP 工具调用示意：列出分组、添加标的、记录交易、调整顺序",
+        lines: [
+          { role: "call", text: "list_watchlists" },
+          { role: "result", text: "Tech · 港股 · 自选  ·  18 symbols" },
+          { role: "call", text: "add_symbol  us:NVDA → Tech" },
+          { role: "result", text: "ok" },
+          { role: "call", text: "record_trade  buy 10 NVDA @ 120" },
+          { role: "result", text: "qty 10 · avg 120.00" },
+          { role: "call", text: "reorder_groups" },
+          { role: "result", text: "Tech · 港股 · 自选" },
+        ],
+      },
+    },
     platforms: {
       omarchy: {
         title: "Pulse，也来到 Omarchy Quattro",
@@ -116,7 +136,7 @@ const translations = {
       "Multi-list watchlists",
       "Position P&L",
       "Candles & extended hours",
-      "Menu bar ticker",
+      "MCP for agents",
     ],
     downloadLabel: "Download for macOS",
     omarchyLabel: "Explore Omarchy Quattro",
@@ -124,6 +144,27 @@ const translations = {
     screenshotAlt:
       "Pulse menu bar popover showing prices and sparklines for US stocks and crypto",
     markets: "US, Hong Kong, China, Japan and Korea stocks, crypto, precious metals, indices, and ETFs",
+    mcp: {
+      title: "Local MCP for your agents",
+      description:
+        "Turn it on in Settings and Pulse serves Streamable HTTP MCP on your Mac. Claude, ChatGPT, and any MCP-compatible client can read and edit your watchlists, positions, and trades — bound to 127.0.0.1 only, gated by a Keychain Bearer token.",
+      path: "Settings → Agents → MCP",
+      terminal: {
+        label: "pulse · mcp",
+        ariaLabel:
+          "Sample MCP tool session: list groups, add a symbol, record a trade, reorder groups",
+        lines: [
+          { role: "call", text: "list_watchlists" },
+          { role: "result", text: "Tech · HK · Watchlist  ·  18 symbols" },
+          { role: "call", text: "add_symbol  us:NVDA → Tech" },
+          { role: "result", text: "ok" },
+          { role: "call", text: "record_trade  buy 10 NVDA @ 120" },
+          { role: "result", text: "qty 10 · avg 120.00" },
+          { role: "call", text: "reorder_groups" },
+          { role: "result", text: "Tech · HK · Watchlist" },
+        ],
+      },
+    },
     platforms: {
       omarchy: {
         title: "Pulse, now on Omarchy Quattro",
@@ -155,7 +196,7 @@ const translations = {
       "複数のウォッチリスト",
       "評価損益",
       "ローソク足と時間外取引",
-      "メニューバーティッカー",
+      "エージェント向け MCP",
     ],
     downloadLabel: "macOS 版をダウンロード",
     omarchyLabel: "Omarchy Quattro 版を見る",
@@ -163,6 +204,27 @@ const translations = {
     screenshotAlt:
       "米国株や暗号資産の価格とスパークラインを表示する Pulse のメニューバーポップオーバー",
     markets: "米国株・香港株・中国A株・日本株・韓国株・暗号資産・貴金属・指数・ETF に対応",
+    mcp: {
+      title: "ローカル MCP でエージェントにウォッチリストを",
+      description:
+        "設定で有効にすると、Pulse が Mac 上で Streamable HTTP の MCP を提供します。Claude、ChatGPT、その他 MCP 対応クライアントがウォッチリスト、保有、取引を読み書きできます——127.0.0.1 のみにバインドし、Keychain の Bearer トークンで保護します。",
+      path: "設定 → エージェント → MCP",
+      terminal: {
+        label: "pulse · mcp",
+        ariaLabel:
+          "MCP ツール呼び出しの例：グループ一覧、銘柄追加、取引記録、並び替え",
+        lines: [
+          { role: "call", text: "list_watchlists" },
+          { role: "result", text: "Tech · 港股 · 自選  ·  18 symbols" },
+          { role: "call", text: "add_symbol  us:NVDA → Tech" },
+          { role: "result", text: "ok" },
+          { role: "call", text: "record_trade  buy 10 NVDA @ 120" },
+          { role: "result", text: "qty 10 · avg 120.00" },
+          { role: "call", text: "reorder_groups" },
+          { role: "result", text: "Tech · 港股 · 自選" },
+        ],
+      },
+    },
     platforms: {
       omarchy: {
         title: "Pulse が Omarchy Quattro にも",
@@ -194,7 +256,7 @@ const translations = {
       "여러 개의 관심목록",
       "보유 손익",
       "캔들차트와 시간외 거래",
-      "메뉴 막대 시세 표시",
+      "에이전트용 MCP",
     ],
     downloadLabel: "macOS용 다운로드",
     omarchyLabel: "Omarchy Quattro 버전 보기",
@@ -202,6 +264,27 @@ const translations = {
     screenshotAlt:
       "미국 주식과 암호화폐의 가격과 추세선을 보여 주는 Pulse 메뉴 막대 팝오버",
     markets: "미국·홍콩·중국 A주·일본·한국 주식, 암호화폐, 귀금속, 지수, ETF 지원",
+    mcp: {
+      title: "로컬 MCP로 에이전트가 관심목록을",
+      description:
+        "설정에서 켜면 Pulse가 Mac에서 Streamable HTTP MCP를 제공합니다. Claude, ChatGPT 및 MCP를 지원하는 모든 클라이언트가 관심목록, 보유, 거래를 읽고 수정할 수 있습니다 — 127.0.0.1에만 바인딩되며 Keychain Bearer 토큰으로 보호됩니다.",
+      path: "설정 → 에이전트 → MCP",
+      terminal: {
+        label: "pulse · mcp",
+        ariaLabel:
+          "MCP 도구 호출 예시: 그룹 목록, 종목 추가, 거래 기록, 순서 변경",
+        lines: [
+          { role: "call", text: "list_watchlists" },
+          { role: "result", text: "Tech · 港股 · 관심  ·  18 symbols" },
+          { role: "call", text: "add_symbol  us:NVDA → Tech" },
+          { role: "result", text: "ok" },
+          { role: "call", text: "record_trade  buy 10 NVDA @ 120" },
+          { role: "result", text: "qty 10 · avg 120.00" },
+          { role: "call", text: "reorder_groups" },
+          { role: "result", text: "Tech · 港股 · 관심" },
+        ],
+      },
+    },
     platforms: {
       omarchy: {
         title: "이제 Omarchy Quattro에서도 Pulse를",
@@ -374,6 +457,59 @@ function OmarchySection({ language }: { language: Language }) {
   );
 }
 
+function MCPSection({ language }: { language: Language }) {
+  const text = translations[language].mcp;
+
+  return (
+    <section
+      className="mcp-section shell"
+      id="mcp"
+      aria-labelledby="mcp-title"
+      data-testid="mcp-section"
+    >
+      <div className="mcp-layout">
+        <div className="mcp-copy">
+          <h2 id="mcp-title">{text.title}</h2>
+          <p className="platform-description">{text.description}</p>
+          <p className="mcp-path">{text.path}</p>
+        </div>
+
+        <figure
+          className="mcp-terminal"
+          aria-label={text.terminal.ariaLabel}
+          data-testid="mcp-terminal"
+        >
+          <div className="mcp-terminal-chrome" aria-hidden="true">
+            <span className="mcp-terminal-dots">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span className="mcp-terminal-label">{text.terminal.label}</span>
+          </div>
+          <pre className="mcp-terminal-body">
+            {text.terminal.lines.map((line, index) => (
+              <span
+                key={`${line.role}-${index}`}
+                className={`mcp-terminal-line mcp-terminal-line--${line.role}`}
+              >
+                {line.role === "call" ? (
+                  <>
+                    <span className="mcp-terminal-prompt">›</span>
+                    <span className="mcp-terminal-call">{line.text}</span>
+                  </>
+                ) : (
+                  <span className="mcp-terminal-result">{line.text}</span>
+                )}
+              </span>
+            ))}
+          </pre>
+        </figure>
+      </div>
+    </section>
+  );
+}
+
 export function HomePage({ language }: { language: Language }) {
   const copy = translations[language];
   const latestRelease = releases[0];
@@ -460,6 +596,8 @@ export function HomePage({ language }: { language: Language }) {
       </section>
 
       <FeatureShowcase language={language} />
+
+      <MCPSection language={language} />
 
       <OmarchySection language={language} />
 

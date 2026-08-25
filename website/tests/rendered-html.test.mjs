@@ -279,7 +279,9 @@ test("presents a reconstructed macOS popover and dedicated Omarchy section", asy
     const html = await response.text();
     assert.match(html, /data-testid="macos-popover"/);
     assert.match(html, /data-testid="omarchy-section"/);
+    assert.match(html, /data-testid="mcp-section"/);
     assert.match(html, /id="omarchy"/);
+    assert.match(html, /id="mcp"/);
     assert.match(html, /data-testid="hero-omarchy-cta"/);
     assert.match(html, /data-testid="header-github"/);
     assert.match(html, /github\.com\/fatwang2\/Pulse/);
@@ -295,16 +297,30 @@ test("presents a reconstructed macOS popover and dedicated Omarchy section", asy
   const english = await (await render("/")).text();
   assert.match(english, /Pulse, now on Omarchy Quattro</);
   assert.match(english, /Explore Omarchy Quattro/);
+  assert.match(english, /Local MCP for your agents/);
+  assert.match(english, /MCP for agents/);
+  assert.match(english, /Settings → Agents → MCP/);
+  assert.match(english, /Claude, ChatGPT/);
+  assert.match(english, /list_watchlists/);
+  assert.match(english, /data-testid="mcp-terminal"/);
+  assert.doesNotMatch(english, /Cursor/);
 
   const chinese = await (await render("/zh")).text();
   assert.match(chinese, /Pulse，也来到 Omarchy Quattro</);
   assert.match(chinese, /Omarchy 插件/);
+  assert.match(chinese, /本机 MCP，让智能体直接管自选/);
+  assert.match(chinese, /MCP 智能体接入/);
+  assert.match(chinese, /设置 → 智能体 → MCP/);
+  assert.match(chinese, /Claude、ChatGPT/);
+  assert.doesNotMatch(chinese, /Cursor/);
 
   const japanese = await (await render("/ja")).text();
   assert.match(japanese, /Pulse が Omarchy Quattro にも</);
+  assert.match(japanese, /ローカル MCP でエージェントにウォッチリストを/);
 
   const korean = await (await render("/ko")).text();
   assert.match(korean, /이제 Omarchy Quattro에서도 Pulse를</);
+  assert.match(korean, /로컬 MCP로 에이전트가 관심목록을/);
 });
 
 test("redirects zh browsers from / to the Chinese homepage", async () => {

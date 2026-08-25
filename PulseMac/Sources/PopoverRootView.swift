@@ -22,6 +22,10 @@ enum PopoverRoute: Hashable {
     case providerDetail(String)
     /// Import and export, kept off the settings list so it stays a short page.
     case dataSettings
+    /// Menu bar display and market presentation, nested so the settings root stays short.
+    case appearanceSettings
+    /// Local MCP agent endpoint: enable toggle and connection fields.
+    case mcpSettings
 }
 
 /// The two provider classes in settings: sources the user connects with their
@@ -175,6 +179,14 @@ struct PopoverRootView: View {
                 DataSettingsView(route: $route)
                     .frame(height: height(for: displayRoute))
                     .transition(pushTransition)
+            case .appearanceSettings:
+                AppearanceSettingsView(route: $route)
+                    .frame(height: height(for: displayRoute))
+                    .transition(pushTransition)
+            case .mcpSettings:
+                MCPSettingsView(route: $route)
+                    .frame(height: height(for: displayRoute))
+                    .transition(pushTransition)
             case .providerList(let kind):
                 ProviderListView(kind: kind, route: $route)
                     .frame(height: height(for: displayRoute))
@@ -294,7 +306,7 @@ struct PopoverRootView: View {
             .detail(symbol)
         case .settings:
             .list
-        case .providerList, .dataSettings:
+        case .providerList, .dataSettings, .appearanceSettings, .mcpSettings:
             .settings
         case .providerDetail(let id):
             .providerList(appState.providerListKind(for: id))
@@ -329,10 +341,9 @@ struct PopoverRootView: View {
         case .calibrate:
             return 370
         case .settings:
-            return 540
-        case .providerList, .providerDetail, .dataSettings:
-            // Same height as the settings page it navigates from, so the popover
-            // doesn't shrink on push and the taller pages don't need scrolling.
+            // Root is an index of destinations; keep it short so agents and data stay on-screen.
+            return 460
+        case .providerList, .providerDetail, .dataSettings, .appearanceSettings, .mcpSettings:
             return 540
         }
     }

@@ -18,6 +18,7 @@ Pulse is a lightweight market-watching app, not a trading terminal. It solves ex
 - **Quote detail view**: price, change, OHLC, volume, amplitude, realtime / delayed status, quote source, and market-specific timestamp in a dense menu-bar layout
 - **Charts**: intraday lines and daily / weekly / monthly candlesticks with OHLC and volume, sourced from the best available provider per market
 - **Sharing**: copy a branded, mobile-friendly image, or export an English structured market snapshot with source, timestamp, session, and chart data for analysis in an LLM
+- **MCP for agents**: opt-in local [Model Context Protocol](https://modelcontextprotocol.io) server (Streamable HTTP on loopback) so Claude, ChatGPT, and any MCP-compatible client can read and edit watchlists, positions, and trades while Pulse is running — Settings → Agents → MCP
 - **Multi-provider data layer**: providers are routed per market, cached to reduce duplicate requests, and fail over automatically when one is rate-limited or down
 - **Real-time crypto via Binance**: cryptocurrency search, quotes, and charts use Binance Spot public market-data endpoints, with a locally cached 24-hour symbol catalog and 1-second WebSocket ticker updates while the popover is open; Pulse stores crypto as a structured base/quote pair and displays it as `BTC/USDT`
 - **Precious metals**: nine instruments across both sides of the market — London spot gold and silver, the COMEX / NYMEX contracts (gold, silver, platinum, palladium), the Shanghai Gold Exchange's Au99.99 spot contract, and the SHFE gold and silver futures. The Shanghai instruments price in CNY per gram on a Chinese session with its own night leg; the rest quote in USD per ounce. Spot leads everywhere, because that is what "黄金" and "gold" mean to someone asking the price. Quotes come from Tencent's international channel and Sina, history from Yahoo (COMEX), Sina (London spot, SHFE), the exchange's own daily file (Au99.99) and Eastmoney (Au99.99 intraday) — Yahoo has never carried a working spot symbol and covers no Chinese exchange. Pulse owns the metal catalog, so "黄金" offers all three golds, while "现货黄金" / "黄金期货" / "沪金" name one each; searching "gold", "XAU", "GC" or "贵金属" works too, even though no provider's search index covers the channel
@@ -25,6 +26,15 @@ Pulse is a lightweight market-watching app, not a trading terminal. It solves ex
 - **Japan and Korea**: Tokyo (Prime, Standard and Growth) plus both Korea Exchange boards, KOSPI and KOSDAQ, with the Nikkei 225 and the KOSPI Composite alongside them. Tokyo's 11:30–12:30 lunch break folds out of the intraday axis the way Hong Kong's and Shanghai's do; Seoul trades straight through. Korea is real time through Naver, which also answers Korean-language search and is authoritative about which board a code belongs to — that matters, because the board is part of the address and cannot be derived from the code (035720 is KOSPI, not KOSDAQ, and Yahoo's `.KQ` symbol for it prices something else entirely). Japan is delayed about twenty minutes via Yahoo: its exchange licenses even the fifteen-minute feed, so no free real-time source exists. Japanese stocks are found by their four-character exchange code: Yahoo indexes no Japanese names (`任天堂` returns nothing) and an English name competes with every ADR and foreign listing of the same company, so `nintendo` reaches no Tokyo listing at all. Korean stocks are reachable either way — Naver answers `삼성전자`, Yahoo answers `samsung`
 - **Session-aware, per-source refresh**: each provider polls at its own configurable cadence, and only while its markets are open — saving power and avoiding rate limits; push-capable sources stream instead of polling
 - **Language control**: follows the system language when possible, with manual switching between English, Simplified Chinese, and Japanese
+
+## Agent access (MCP)
+
+Pulse can expose an opt-in **MCP** endpoint on your Mac so Claude, ChatGPT, and any MCP-compatible client can work with the same watchlists and trades you see in the menu bar. Nothing is uploaded: the server binds `127.0.0.1` only, and access requires a Bearer token stored in the Keychain.
+
+1. Open **Settings → Agents → MCP** and enable the server.
+2. In your MCP client, add a **Streamable HTTP** server using the endpoint and token shown in Pulse.
+
+Tools cover listing groups and positions, searching symbols, creating/renaming/deleting groups, adding/removing symbols, recording and deleting trades, calibrating positions, and reordering groups or custom symbol order. The token grants the same write surface as those tools — regenerate it anytime from the MCP settings page.
 
 ## Installation
 
@@ -51,7 +61,7 @@ random pseudonymous device identifier and a session identifier. Pulse does not p
 with a name, email address, account identifier, or other custom user identifier.
 
 Pulse never adds watched symbols, watchlists, positions, quantities, cost bases, search text,
-market-data responses, Longbridge credentials, or other user-provided content to analytics events.
+market-data responses, Longbridge credentials, MCP tokens, or other user-provided content to analytics events.
 TelemetryDeck's bundled privacy manifest declares product-interaction data and a device identifier
 for analytics; the data is not linked to the user's identity and is not used for tracking. Pulse has
 no advertising or cross-app tracking. The complete event boundary is intentionally kept in
@@ -104,9 +114,9 @@ Both are tracked so a release can be reproduced from the repository.
 
 ## Architecture
 
-- **`Packages/PulseCore`** — pure Swift, no UI: models, data providers, trading calendars, persistence, and the refresh scheduler. Shared across Mac / iOS / widget targets.
+- **`Packages/PulseCore`** — pure Swift, no UI: models, data providers, trading calendars, persistence, the refresh scheduler, and the agent-facing watchlist command facade. Shared across Mac / iOS / widget targets.
 - **`Packages/PulseUI`** — shared SwiftUI components: candlestick chart, intraday chart, sparkline, gain/loss colors.
-- **`PulseMac`** — the macOS menu bar app (`MenuBarExtra`, `LSUIElement=true`).
+- **`PulseMac`** — the macOS menu bar app (`MenuBarExtra`, `LSUIElement=true`), including the optional loopback MCP HTTP host.
 
 All market data flows through the `QuoteProvider` protocol abstraction. A `CompositeProvider` routes requests per market and candle period, caches recent responses, breaks the circuit on unhealthy providers, and composes data from multiple sources (e.g. realtime crypto from Binance, realtime A-share quotes and intraday lines from Tencent, broad securities coverage from Yahoo (including Tokyo and, as failover, both Korean boards), real-time Korean quotes, Korean-language search and charts from Naver, London spot and SHFE metal data from Sina, official Shanghai Gold Exchange history, and real-time securities streaming from a connected Longbridge account). Index and precious-metal identities are Pulse's own: one semantic identity per instrument, mapped to each source's wire symbol (COMEX gold is `hf_GC` at Tencent and `GC=F` at Yahoo), which keeps quotes on the real-time source while history comes from whichever source has it. Crypto identity is stored provider-independently as separate base and quote assets; Binance renders `BTCUSDT` on the wire while Pulse displays `BTC/USDT`. Binance is the sole source for cryptocurrency search, quotes, and candles: Pulse never silently substitutes Yahoo's different `BTC-USD` instrument for `BTC/USDT`. Binance's current Spot symbol directory is cached on disk for 24 hours and refreshed in the background when stale. Exact crypto base or pair matches remain prominent in cross-market search, while unrelated crypto results follow securities. Binance and Longbridge can stream different markets concurrently. The Longbridge integration is built on the pinned official OpenAPI C SDK, embedded at build time as a bundled plugin, and stores credentials only in the local Keychain.
 

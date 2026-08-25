@@ -1353,6 +1353,123 @@ a {
   scroll-margin-top: 24px;
 }
 
+.mcp-section {
+  padding-block: clamp(48px, 6vw, 80px);
+  scroll-margin-top: 24px;
+}
+
+.mcp-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.05fr) minmax(300px, 0.95fr);
+  align-items: center;
+  gap: clamp(36px, 6vw, 72px);
+  padding-block: clamp(36px, 5vw, 56px);
+  border-top: 1px solid rgba(36, 44, 55, 0.14);
+}
+
+.mcp-copy {
+  min-width: 0;
+  max-width: 560px;
+}
+
+.mcp-copy > h2 {
+  max-width: 640px;
+  margin: 0;
+  color: #252628;
+  font-size: clamp(34px, 4.2vw, 52px);
+  font-weight: 720;
+  letter-spacing: -0.055em;
+  line-height: 1.06;
+}
+
+.mcp-path {
+  margin: 22px 0 0;
+  color: #747b84;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 560;
+  letter-spacing: 0.02em;
+}
+
+.mcp-terminal {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(54, 63, 74, 0.18);
+  border-radius: 14px;
+  background: #20232b;
+  box-shadow: 0 12px 32px rgba(25, 31, 41, 0.12);
+}
+
+.mcp-terminal-chrome {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mcp-terminal-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.mcp-terminal-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.mcp-terminal-label {
+  color: rgba(255, 255, 255, 0.42);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 560;
+  letter-spacing: 0.04em;
+  text-align: center;
+  transform: translateX(-10px);
+}
+
+.mcp-terminal-body {
+  margin: 0;
+  padding: 16px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 12.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mcp-terminal-line {
+  display: block;
+}
+
+.mcp-terminal-line--call {
+  display: flex;
+  gap: 8px;
+  color: #e8eaed;
+}
+
+.mcp-terminal-prompt {
+  flex: none;
+  color: #6ec8ff;
+}
+
+.mcp-terminal-call {
+  color: #e8eaed;
+}
+
+.mcp-terminal-result {
+  display: block;
+  padding-left: 16px;
+  color: rgba(255, 255, 255, 0.46);
+}
+
 .omarchy-copy > h2 {
   max-width: 640px;
   margin: 0;
@@ -1990,6 +2107,11 @@ a {
     gap: 48px;
   }
 
+  .mcp-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
   .omarchy-copy {
     max-width: 680px;
   }
@@ -2154,6 +2276,14 @@ a {
 
   .omarchy-section {
     padding-block: 72px 64px;
+  }
+
+  .mcp-section {
+    padding-block: 40px 36px;
+  }
+
+  .mcp-copy > h2 {
+    font-size: clamp(30px, 9vw, 42px);
   }
 
   .omarchy-copy > h2 {

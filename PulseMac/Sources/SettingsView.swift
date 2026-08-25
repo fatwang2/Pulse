@@ -58,7 +58,6 @@ struct ProviderRow: View {
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.pulseHost) private var host
     @Binding var route: PopoverRoute
     @StateObject private var softwareUpdate = SoftwareUpdateController.shared
@@ -72,85 +71,26 @@ struct SettingsView: View {
 
             Form {
                 Section {
-                    Picker(PulseLocalization.localizedString("settings.general.language"), selection: $settings.languagePreference) {
+                    Picker(
+                        PulseLocalization.localizedString("settings.general.language"),
+                        selection: $settings.languagePreference
+                    ) {
                         ForEach(PulseLanguagePreference.allCases, id: \.self) { preference in
                             Text(preference.localizedDisplayName).tag(preference)
                         }
                     }
-                    Toggle(PulseLocalization.localizedString("settings.general.launchAtLogin"), isOn: $settings.launchAtLogin)
+                    Toggle(
+                        PulseLocalization.localizedString("settings.general.launchAtLogin"),
+                        isOn: $settings.launchAtLogin
+                    )
+                    settingsDestinationRow(
+                        titleKey: "settings.appearance.row",
+                        route: .appearanceSettings
+                    )
                 } header: {
                     Text(PulseLocalization.localizedString("settings.section.general"))
                 }
 
-                Section {
-                    Toggle(PulseLocalization.localizedString("settings.menuBar.showQuote"), isOn: $settings.showPriceInMenuBar)
-                    if settings.showPriceInMenuBar {
-                        Picker(PulseLocalization.localizedString("settings.menuBar.displayMode"), selection: $settings.menuBarMode) {
-                            Text(MenuBarMode.single.displayName).tag(MenuBarMode.single)
-                            Text(MenuBarMode.rotate.displayName).tag(MenuBarMode.rotate)
-                        }
-                        .transition(contextualRowTransition)
-                        if settings.menuBarMode == .single {
-                            Picker(PulseLocalization.localizedString("settings.menuBar.fixedSymbol"), selection: $settings.primarySymbol) {
-                                Text(PulseLocalization.localizedString("settings.menuBar.firstWatchlistItem")).tag(SymbolID?.none)
-                                ForEach(appState.watchlist.allItems) { item in
-                                    Text(item.resolvedDisplayName).tag(SymbolID?.some(item.symbol))
-                                }
-                            }
-                            .transition(contextualRowTransition)
-                        }
-                        if settings.menuBarMode == .rotate {
-                            if appState.watchlist.groups.count > 1 {
-                                Picker(
-                                    PulseLocalization.localizedString("settings.menuBar.rotateGroup"),
-                                    selection: menuBarRotationGroupBinding
-                                ) {
-                                    ForEach(appState.watchlist.groups) { group in
-                                        Text(group.name).tag(Optional(group.id))
-                                    }
-                                }
-                                .transition(contextualRowTransition)
-                            }
-                            Picker(PulseLocalization.localizedString("settings.menuBar.rotateInterval"), selection: $settings.rotateInterval) {
-                                Text(PulseLocalization.localizedString("duration.seconds", 3)).tag(TimeInterval(3))
-                                Text(PulseLocalization.localizedString("duration.seconds", 6)).tag(TimeInterval(6))
-                                Text(PulseLocalization.localizedString("duration.seconds", 10)).tag(TimeInterval(10))
-                            }
-                            .transition(contextualRowTransition)
-                        }
-                    }
-                } header: {
-                    Text(PulseLocalization.localizedString("settings.section.menuBar"))
-                } footer: {
-                    if !settings.showPriceInMenuBar {
-                        Text(PulseLocalization.localizedString("settings.menuBar.iconOnlyHelp"))
-                            .transition(.opacity)
-                    }
-                }
-
-                Section {
-                    // Refresh cadence moved to each data source's detail page — sources have
-                    // very different politeness budgets, so a global interval stopped making sense.
-                    Picker(PulseLocalization.localizedString("settings.market.colorRule"), selection: $settings.redUp) {
-                        Text(PulseLocalization.localizedString("settings.market.redUp")).tag(true)
-                        Text(PulseLocalization.localizedString("settings.market.greenUp")).tag(false)
-                    }
-                    Toggle(
-                        PulseLocalization.localizedString("settings.market.usExtendedHours"),
-                        isOn: $settings.showsUSExtendedHours
-                    )
-                    Toggle(
-                        PulseLocalization.localizedString("settings.market.prioritizeOpenMarkets"),
-                        isOn: $settings.prioritizeOpenMarkets
-                    )
-                } header: {
-                    Text(PulseLocalization.localizedString("settings.section.market"))
-                } footer: {
-                    Text(PulseLocalization.localizedString("settings.market.prioritizeOpenMarketsHelp"))
-                }
-
-                // The sources themselves live one level down, one page per class,
-                // so the settings root stays short as sources accumulate.
                 Section {
                     providerGroupRow(titleKey: "settings.section.providers.accounts", kind: .accounts)
                     providerGroupRow(titleKey: "settings.section.providers.builtin", kind: .builtin)
@@ -165,18 +105,25 @@ struct SettingsView: View {
 
                 Section {
                     Button {
-                        route = .dataSettings
+                        route = .mcpSettings
                     } label: {
-                        HStack(spacing: 6) {
-                            Text(PulseLocalization.localizedString("settings.data.row"))
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(.tertiary)
+                        LabeledContent {
+                            HStack(spacing: 6) {
+                                Text(PulseLocalization.localizedString(mcpRowStatusKey))
+                                    .foregroundStyle(.secondary)
+                                settingsChevron
+                            }
+                        } label: {
+                            Text(PulseLocalization.localizedString("settings.mcp.row"))
                         }
-                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.pressable)
+                } header: {
+                    Text(PulseLocalization.localizedString("settings.section.agents"))
+                }
+
+                Section {
+                    settingsDestinationRow(titleKey: "settings.data.row", route: .dataSettings)
                     Toggle(
                         PulseLocalization.localizedString("settings.general.anonymousAnalytics"),
                         isOn: $settings.shareAnonymousUsageData
@@ -211,8 +158,6 @@ struct SettingsView: View {
                 }
                 #endif
             }
-            .animation(contextualRowAnimation, value: settings.showPriceInMenuBar)
-            .animation(contextualRowAnimation, value: settings.menuBarMode)
             .formStyle(.grouped)
             .controlSize(.small)
             .scrollContentBackground(.hidden)
@@ -221,22 +166,38 @@ struct SettingsView: View {
         .onAppear { PulseTelemetry.signal(.settingsOpened) }
     }
 
+    private func settingsDestinationRow(titleKey: String, route destination: PopoverRoute) -> some View {
+        Button {
+            route = destination
+        } label: {
+            LabeledContent {
+                settingsChevron
+            } label: {
+                Text(PulseLocalization.localizedString(titleKey))
+            }
+        }
+        .buttonStyle(.pressable)
+    }
+
     /// Navigation row into one class of data sources, in the same shape as the
     /// data-and-privacy row below.
     private func providerGroupRow(titleKey: String, kind: ProviderListKind) -> some View {
         Button {
             route = .providerList(kind)
         } label: {
-            HStack(spacing: 6) {
+            LabeledContent {
+                settingsChevron
+            } label: {
                 Text(PulseLocalization.localizedString(titleKey))
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.tertiary)
             }
-            .contentShape(Rectangle())
         }
         .buttonStyle(.pressable)
+    }
+
+    private var settingsChevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(.tertiary)
     }
 
     private var header: some View {
@@ -261,6 +222,17 @@ struct SettingsView: View {
         }
     }
 
+    private var mcpRowStatusKey: String {
+        switch appState.agentServer?.status {
+        case .running:
+            "settings.mcp.rowStatus.on"
+        case .failed:
+            "settings.mcp.rowStatus.attention"
+        case .stopped, nil:
+            "settings.mcp.rowStatus.off"
+        }
+    }
+
     #if DEBUG
     @MainActor
     private func copyDiagnostics() {
@@ -280,27 +252,4 @@ struct SettingsView: View {
         }
     }
     #endif
-
-    private var contextualRowTransition: AnyTransition {
-        reduceMotion
-            ? .opacity
-            : .opacity.combined(with: .move(edge: .top))
-    }
-
-    private var contextualRowAnimation: Animation {
-        reduceMotion
-            ? .easeOut(duration: 0.15)
-            : .snappy(duration: 0.22)
-    }
-
-    private var menuBarRotationGroupBinding: Binding<UUID?> {
-        Binding(
-            get: { appState.menuBarRotationGroupID },
-            set: { id in
-                guard let id else { return }
-                appState.setMenuBarRotationGroup(id)
-            }
-        )
-    }
-
 }

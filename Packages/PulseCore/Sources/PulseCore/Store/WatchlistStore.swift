@@ -73,6 +73,23 @@ public final class WatchlistStore {
         save()
     }
 
+    /// Replaces tag-bar order. `orderedIDs` must be a permutation of the current group ids;
+    /// selection and memberships are unchanged.
+    @discardableResult
+    public func reorderGroups(_ orderedIDs: [UUID]) -> Bool {
+        let currentIDs = groups.map(\.id)
+        guard orderedIDs.count == currentIDs.count,
+              Set(orderedIDs) == Set(currentIDs),
+              orderedIDs.uniqued().count == orderedIDs.count else {
+            return false
+        }
+        guard orderedIDs != currentIDs else { return true }
+        let byID = Dictionary(uniqueKeysWithValues: groups.map { ($0.id, $0) })
+        groups = orderedIDs.compactMap { byID[$0] }
+        save()
+        return true
+    }
+
     @discardableResult
     public func createGroup(named rawName: String) -> UUID? {
         let name = normalizedName(rawName)
@@ -269,6 +286,39 @@ public final class WatchlistStore {
         save()
     }
 
+    /// Sets Custom Order for a specific group without changing the selected tag.
+    ///
+    /// `orderedSymbols` must be a permutation of the group's members. Pin membership is
+    /// preserved; the visible list is coerced to pinned-first using the relative order of
+    /// each section from the request. Updates `manualOrder` so restoring Custom Order matches.
+    @discardableResult
+    public func applyCustomOrder(_ orderedSymbols: [SymbolID], in groupID: UUID) -> Bool {
+        guard let groupIndex = groups.firstIndex(where: { $0.id == groupID }) else { return false }
+        let currentGroup = groups[groupIndex]
+        let ordered = orderedSymbols.uniqued()
+        guard ordered.count == currentGroup.symbols.count,
+              Set(ordered) == Set(currentGroup.symbols) else {
+            return false
+        }
+
+        let pinned = Set(currentGroup.pinnedSymbols)
+        let pinnedOrdered = ordered.filter { pinned.contains($0) }
+        let unpinnedOrdered = ordered.filter { !pinned.contains($0) }
+        let visible = pinnedOrdered + unpinnedOrdered
+
+        var updatedGroup = currentGroup
+        updatedGroup.symbols = visible
+        updatedGroup.pinnedSymbols = pinnedOrdered
+        updatedGroup.manualOrder = manualOrderPreservingPinnedPositions(
+            visibleOrder: visible,
+            pinned: pinned,
+            storedOrder: currentGroup.manualOrder
+        )
+        groups[groupIndex] = updatedGroup
+        save()
+        return true
+    }
+
     public func isPinned(_ symbol: SymbolID, in groupID: UUID? = nil) -> Bool {
         group(for: groupID ?? selectedGroupID)?.pinnedSymbols.contains(symbol) == true
     }
@@ -376,13 +426,15 @@ public final class WatchlistStore {
         _ symbol: SymbolID,
         quantity: Double,
         averageCost: Double,
-        date: Date = .now
+        date: Date = .now,
+        id: UUID = UUID()
     ) {
         guard let index = allItems.firstIndex(where: { $0.symbol == symbol }),
               allItems[index].supportsPosition,
               quantity.isFinite, averageCost >= 0 else { return }
         var transactions = allItems[index].materializedTransactions()
         transactions.append(PositionTransaction(
+            id: id,
             kind: .adjustment,
             price: averageCost,
             quantity: quantity,

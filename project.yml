@@ -16,6 +16,9 @@ packages:
   TelemetryDeck:
     url: https://github.com/TelemetryDeck/SwiftSDK
     from: "2.14.1"
+  MCP:
+    url: https://github.com/modelcontextprotocol/swift-sdk
+    from: "0.11.0"
 
 targets:
   PulseMac:
@@ -31,6 +34,8 @@ targets:
         product: Sparkle
       - package: TelemetryDeck
         product: TelemetryDeck
+      - package: MCP
+        product: MCP
     info:
       path: PulseMac/Info.plist
       properties:
@@ -59,6 +64,7 @@ targets:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
         # Loopback listener for the Longbridge OAuth redirect (primary callback path)
+        # and the local MCP agent endpoint
         com.apple.security.network.server: true
         com.apple.security.temporary-exception.mach-lookup.global-name:
           - $(PRODUCT_BUNDLE_IDENTIFIER)-spks

@@ -12,6 +12,29 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.15.0",
+    date: "2026-08-25",
+    kind: "release",
+    highlights: {
+      zh: [
+        "本机 MCP 智能体接入。在「设置 → 智能体 → MCP」开启后，Pulse 在 127.0.0.1 提供 Streamable HTTP 服务，Bearer 令牌保存在钥匙串。Claude、ChatGPT 以及任何支持 MCP 的客户端，都可以列出自选与持仓、搜索标的、管理分组与标的、记录交易与校准持仓，并调整分组顺序或自定义标的顺序——读写的就是菜单栏里那份实时数据。",
+        "设置结构调整：菜单栏与行情展示收进「外观」二级页；MCP 放在独立的「智能体」分区，含连接信息与工具说明。",
+      ],
+      en: [
+        "Local MCP for agents. Turn on Settings → Agents → MCP and Pulse serves Streamable HTTP on your Mac (127.0.0.1 only, Bearer token in the Keychain). Claude, ChatGPT, and any MCP-compatible client can list watchlists and positions, search symbols, manage groups and symbols, record trades and calibrate positions, and reorder groups or custom symbol order — against the same live data you see in the menu bar.",
+        "Settings layout for agents: Appearance nests menu bar and market presentation, and MCP sits under a dedicated Agents section with connection fields and a short tools summary.",
+      ],
+      ja: [
+        "ローカル MCP 対応。設定 → エージェント → MCP を有効にすると、Pulse が Mac 上で Streamable HTTP を提供します（127.0.0.1 のみ、Bearer トークンは Keychain）。Claude、ChatGPT、その他 MCP 対応クライアントがウォッチリストや保有の一覧、銘柄検索、グループと銘柄の管理、取引の記録とポジション校正、グループ順・カスタム銘柄順の変更を行えます——メニューバーと同じライブデータです。",
+        "設定の構成を整理。メニューバーと相場表示は「外観」の下層へ。MCP は「エージェント」セクションに接続情報とツール概要とともに置きます。",
+      ],
+      ko: [
+        "로컬 MCP 에이전트 지원. 설정 → 에이전트 → MCP를 켜면 Pulse가 Mac에서 Streamable HTTP를 제공합니다(127.0.0.1만, Bearer 토큰은 Keychain). Claude, ChatGPT 및 MCP 지원 클라이언트가 관심목록·보유 조회, 종목 검색, 그룹·종목 관리, 거래 기록과 포지션 보정, 그룹·사용자 지정 종목 순서 변경을 할 수 있습니다 — 메뉴 막대와 같은 실시간 데이터입니다.",
+        "설정 구성을 정리했습니다. 메뉴 막대와 시세 표시는 모양 하위 페이지로, MCP는 연결 정보와 도구 요약이 있는 에이전트 섹션에 둡니다.",
+      ],
+    },
+  },
+  {
     version: "0.14.1",
     date: "2026-08-25",
     kind: "fix",

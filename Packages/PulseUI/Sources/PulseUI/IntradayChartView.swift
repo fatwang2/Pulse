@@ -63,7 +63,7 @@ public struct IntradayChartView: View {
             AxisMarks(position: .trailing, values: .automatic(desiredCount: 4)) { value in
                 AxisGridLine().foregroundStyle(.quaternary)
                 if let v = value.as(Double.self) {
-                    AxisValueLabel(PriceFormatter.price(v)).font(.caption2)
+                    AxisValueLabel(PriceFormatter.price(v, market: market)).font(.caption2)
                 }
             }
         }
@@ -78,6 +78,7 @@ public struct IntradayChartView: View {
                 IntradayCrosshairOverlay(
                     candles: trend.candles,
                     session: session,
+                    market: market,
                     tint: tint,
                     wingTint: Self.wingTint,
                     formatter: formatter,
@@ -242,6 +243,7 @@ private struct CandleSegment: Identifiable {
 private struct IntradayCrosshairOverlay: View {
     let candles: [Candle]
     let session: IntradayTradingSession
+    let market: Market
     let tint: Color
     let wingTint: Color
     let formatter: DateFormatter
@@ -301,7 +303,7 @@ private struct IntradayCrosshairOverlay: View {
 
     /// Price tag over the trailing y-axis strip, vertically centered on the crosshair.
     private func priceTag(for candle: Candle, py: CGFloat) -> some View {
-        let text = PriceFormatter.price(candle.close)
+        let text = PriceFormatter.price(candle.close, market: market)
         return CrosshairTag(text: text)
             .position(x: geo.size.width - ChartCrosshair.tagWidth(text) / 2, y: py)
     }

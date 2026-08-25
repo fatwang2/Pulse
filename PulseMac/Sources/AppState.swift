@@ -451,7 +451,7 @@ final class AppState {
         }
         let arrow = PriceFormatter.arrow(quote.change)
         let percent = abs(quote.changePercent).formatted(.number.precision(.fractionLength(2)))
-        return "\(shortName(for: item)) \(PriceFormatter.price(quote.price)) \(arrow)\(percent)%"
+        return "\(shortName(for: item)) \(PriceFormatter.price(quote.price, market: item.symbol.market)) \(arrow)\(percent)%"
     }
 
     /// One presentation name per instrument, independent of whichever provider

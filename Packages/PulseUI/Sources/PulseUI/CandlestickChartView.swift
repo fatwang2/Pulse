@@ -118,7 +118,7 @@ public struct CandlestickChartView: View {
             AxisMarks(position: .trailing, values: .automatic(desiredCount: 4)) { value in
                 AxisGridLine().foregroundStyle(.quaternary)
                 if let v = value.as(Double.self) {
-                    AxisValueLabel(PriceFormatter.price(v)).font(.caption2)
+                    AxisValueLabel(PriceFormatter.price(v, market: market)).font(.caption2)
                 }
             }
         }
@@ -551,7 +551,7 @@ private struct CandlePriceOverlay: View {
     }
 
     private func priceTag(for candle: Candle, py: CGFloat) -> some View {
-        let text = PriceFormatter.price(candle.close)
+        let text = PriceFormatter.price(candle.close, market: market)
         return CrosshairTag(text: text)
             .position(x: geo.size.width - ChartCrosshair.tagWidth(text) / 2, y: py)
     }
@@ -574,12 +574,12 @@ private struct CandlePriceOverlay: View {
             }
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 2) {
                 GridRow {
-                    readoutValue(PulseLocalization.localizedString("chart.open"), PriceFormatter.price(candle.open))
-                    readoutValue(PulseLocalization.localizedString("chart.high"), PriceFormatter.price(candle.high))
+                    readoutValue(PulseLocalization.localizedString("chart.open"), PriceFormatter.price(candle.open, market: market))
+                    readoutValue(PulseLocalization.localizedString("chart.high"), PriceFormatter.price(candle.high, market: market))
                 }
                 GridRow {
-                    readoutValue(PulseLocalization.localizedString("chart.low"), PriceFormatter.price(candle.low))
-                    readoutValue(PulseLocalization.localizedString("chart.close"), PriceFormatter.price(candle.close))
+                    readoutValue(PulseLocalization.localizedString("chart.low"), PriceFormatter.price(candle.low, market: market))
+                    readoutValue(PulseLocalization.localizedString("chart.close"), PriceFormatter.price(candle.close, market: market))
                 }
                 if let volume = candle.volume {
                     GridRow {

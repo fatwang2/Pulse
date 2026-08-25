@@ -2,9 +2,48 @@ import Foundation
 import PulseCore
 
 public enum PriceFormatter {
-    /// Stock price: always 2 decimal places
-    public static func price(_ value: Double) -> String {
-        value.formatted(.number.precision(.fractionLength(2)).grouping(.never))
+    /// How many fraction digits a price may carry on screen for this market.
+    ///
+    /// The range is inclusive: the lower bound is always shown (so columns stay
+    /// aligned), and the upper bound is used when the print actually needs it.
+    /// That is what lets a HK penny stock at 0.185 or silver at 28.125 keep the
+    /// third decimal that a fixed two-digit rule would round away.
+    public static func fractionLength(for market: Market) -> ClosedRange<Int> {
+        switch market {
+        case .crypto:
+            // Spot pairs span many orders of magnitude; eight matches the text
+            // export ceiling and still pads large coins to two places.
+            return 2...8
+        case .jp, .kr, .kq:
+            // Equity prints are usually whole yen/won; indices can carry decimals.
+            return 0...2
+        case .us, .hk, .sh, .sz, .metal, .metalCN:
+            // Two is the default tick; three covers HK penny bands, CN bonds /
+            // some ETFs, and silver-style metal prints.
+            return 2...3
+        }
+    }
+
+    /// Upper bound of `fractionLength(for:)` — used by text exports and any
+    /// caller that needs a single digit count rather than a display range.
+    public static func fractionDigits(for market: Market) -> Int {
+        fractionLength(for: market).upperBound
+    }
+
+    /// Formats a price, widening to the market's upper bound when the third
+    /// (or further) digit carries information.
+    public static func price(_ value: Double, market: Market? = nil) -> String {
+        let length = market.map(fractionLength(for:)) ?? 2...3
+        return rounded(value, fractionDigits: length.upperBound)
+            .formatted(.number.precision(.fractionLength(length)).grouping(.never))
+    }
+
+    /// Magnitude snapped to the digits `price` will print. Pass this to
+    /// `.numericText(value:)` so the transition tracks the same precision the
+    /// string shows — including a third decimal when the market allows it.
+    public static func animatablePrice(_ value: Double, market: Market? = nil) -> Double {
+        let digits = market.map(fractionDigits(for:)) ?? 3
+        return NSDecimalNumber(decimal: rounded(value, fractionDigits: digits)).doubleValue
     }
 
     /// Percent change: "+1.23%" / "-0.95%" / "0.00%"
@@ -18,9 +57,9 @@ public enum PriceFormatter {
     }
 
     /// Price change (signed)
-    public static func change(_ value: Double) -> String {
+    public static func change(_ value: Double, market: Market? = nil) -> String {
         let sign = value > 0 ? "+" : ""
-        return sign + price(value)
+        return sign + price(value, market: market)
     }
 
     public static func quantity(_ value: Double) -> String {
@@ -86,6 +125,13 @@ public enum PriceFormatter {
     /// Up/down arrow for the menu bar
     public static func arrow(_ change: Double) -> String {
         change > 0 ? "▲" : (change < 0 ? "▼" : "–")
+    }
+
+    private static func rounded(_ value: Double, fractionDigits: Int) -> Decimal {
+        var decimal = Decimal(value)
+        var result = Decimal()
+        NSDecimalRound(&result, &decimal, fractionDigits, .plain)
+        return result
     }
 
     private static func currencySymbol(_ currencyCode: String?) -> String {

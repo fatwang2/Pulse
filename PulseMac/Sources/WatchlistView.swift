@@ -295,14 +295,17 @@ struct WatchlistView: View {
     /// state for its items. Reusing `ClusterIcon` here nested its own tinted chip inside
     /// the system's, leaving two chips with mismatched corners.
     ///
-    /// Both toggles state their state rather than their action, which is what a macOS
-    /// toolbar does: Finder's sidebar and Xcode's inspectors light the plain glyph rather
-    /// than showing a struck-through one. The pin is lit for as long as this window is up.
+    /// The pin is a plain button, not a lit toggle. While this window is up the pin is
+    /// always "on", so any selected chrome — accent, primary, or secondary gray — would
+    /// sit permanently in the title-bar corner and outweigh quieter neighbors. The
+    /// window's existence is the on-state; the control only needs to offer unpin.
+    /// Search stays a toggle: its accent chrome is brief.
     @ViewBuilder private var toolbarActions: some View {
-        Toggle(isOn: Binding(get: { isPinned }, set: { _ in togglePinnedWindow() })) {
+        Button {
+            togglePinnedWindow()
+        } label: {
             Label(pinHelp, systemImage: "pin")
         }
-        .toggleStyle(.button)
         .help(pinHelp)
         .popover(isPresented: tourBinding(.pin), arrowEdge: .bottom) {
             tourBubble(.pin)
@@ -621,7 +624,7 @@ struct WatchlistView: View {
                 item: item,
                 palette: appState.palette
             )
-            let priceText = quote.map { PriceFormatter.price($0.price) } ?? "—"
+            let priceText = quote.map { PriceFormatter.price($0.price, market: item.symbol.market) } ?? "—"
             let sessionLabel = appState.isIndex(item.symbol)
                 ? nil
                 : quote?.marketState?.extendedSessionLabel
@@ -1724,7 +1727,7 @@ struct WatchRow: View {
             item: item,
             palette: appState.palette
         )
-        let priceText = quote.map { PriceFormatter.price($0.price) } ?? "—"
+        let priceText = quote.map { PriceFormatter.price($0.price, market: item.symbol.market) } ?? "—"
         // Indices don't trade pre/post; their quote is just the last regular
         // print, so a session label would mislabel it.
         let sessionLabel = appState.isIndex(item.symbol)
@@ -1775,7 +1778,16 @@ struct WatchRow: View {
                         .allowsTightening(true)
                         // numericText(value:) rolls digits up on an uptick and down on a downtick;
                         // the scoped .animation supplies the transaction that quote refreshes lack.
-                        .contentTransition(reduceMotion ? .opacity : .numericText(value: quote?.price ?? 0))
+                        // Animate the same magnitude the string prints so a third decimal the
+                        // market allows stays in sync with the transition.
+                        .contentTransition(
+                            reduceMotion
+                                ? .opacity
+                                : .numericText(value: PriceFormatter.animatablePrice(
+                                    quote?.price ?? 0,
+                                    market: item.symbol.market
+                                ))
+                        )
                         .animation(.snappy(duration: 0.25), value: priceText)
                 }
                 rowMetricView(display: metricDisplay)

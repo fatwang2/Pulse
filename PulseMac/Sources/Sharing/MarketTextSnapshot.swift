@@ -1,5 +1,6 @@
 import Foundation
 import PulseCore
+import PulseUI
 
 /// Fixed-English, model-friendly text exports for the current Pulse surface.
 /// The payload carries market facts only: no analysis instructions, positions, or trade history.
@@ -400,7 +401,9 @@ private enum MarketTextRenderer {
     }
 
     private static func priceFractionDigits(for symbol: SymbolID) -> Int {
-        symbol.market == .crypto ? 8 : 2
+        // Match the on-screen PriceFormatter rule so text exports and the UI
+        // agree on how many fraction digits a price carries.
+        PriceFormatter.fractionDigits(for: symbol.market)
     }
 
     private static func percentNumber(_ value: Double?) -> Any {

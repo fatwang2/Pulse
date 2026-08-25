@@ -550,11 +550,23 @@ struct DetailView: View {
                         .font(.system(size: 9, weight: .medium))
                         .foregroundStyle(.tertiary)
                     HStack(alignment: .firstTextBaseline, spacing: 5) {
-                        Text(PriceFormatter.price(quote.price))
+                        Text(PriceFormatter.price(quote.price, market: symbol.market))
                             .font(.system(size: 28, weight: .semibold).monospacedDigit())
                             .foregroundStyle(color)
-                            .contentTransition(reduceMotion ? .opacity : .numericText(value: quote.price))
-                            .animation(.snappy(duration: 0.25), value: quote.price)
+                            // Animate the same magnitude the string prints so a third
+                            // decimal the market allows stays in sync with the transition.
+                            .contentTransition(
+                                reduceMotion
+                                    ? .opacity
+                                    : .numericText(value: PriceFormatter.animatablePrice(
+                                        quote.price,
+                                        market: symbol.market
+                                    ))
+                            )
+                            .animation(
+                                .snappy(duration: 0.25),
+                                value: PriceFormatter.animatablePrice(quote.price, market: symbol.market)
+                            )
                             .lineLimit(1)
                             .minimumScaleFactor(0.82)
                         if let currency = quote.currencyCode {
@@ -564,7 +576,7 @@ struct DetailView: View {
                         }
                     }
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(PriceFormatter.change(quote.change))
+                        Text(PriceFormatter.change(quote.change, market: symbol.market))
                             .font(.system(size: 12, weight: .medium).monospacedDigit())
                         Text(PriceFormatter.percent(quote.changePercent))
                             .font(.system(size: 12, weight: .semibold).monospacedDigit())
@@ -683,11 +695,11 @@ struct DetailView: View {
             Text(display.label)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.secondary)
-            Text(PriceFormatter.price(close.price))
+            Text(PriceFormatter.price(close.price, market: symbol.market))
                 .font(.system(size: 12, weight: .semibold).monospacedDigit())
                 .foregroundStyle(color ?? .secondary)
             if let change = close.change, let percent = close.changePercent {
-                Text(PriceFormatter.change(change))
+                Text(PriceFormatter.change(change, market: symbol.market))
                     .font(.system(size: 11, weight: .medium).monospacedDigit())
                     .foregroundStyle(color ?? .secondary)
                 Text(PriceFormatter.percent(percent))
@@ -925,12 +937,12 @@ struct DetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeaderText(PulseLocalization.localizedString("detail.section.market"))
             HStack(spacing: 8) {
-                stat(PulseLocalization.localizedString("stat.open"), quote?.open.map(PriceFormatter.price))
-                stat(PulseLocalization.localizedString("stat.high"), quote?.high.map(PriceFormatter.price))
-                stat(PulseLocalization.localizedString("stat.low"), quote?.low.map(PriceFormatter.price))
+                stat(PulseLocalization.localizedString("stat.open"), quote?.open.map { PriceFormatter.price($0, market: symbol.market) })
+                stat(PulseLocalization.localizedString("stat.high"), quote?.high.map { PriceFormatter.price($0, market: symbol.market) })
+                stat(PulseLocalization.localizedString("stat.low"), quote?.low.map { PriceFormatter.price($0, market: symbol.market) })
             }
             HStack(spacing: 8) {
-                stat(PulseLocalization.localizedString("stat.previousClose"), quote.map { PriceFormatter.price($0.previousClose) })
+                stat(PulseLocalization.localizedString("stat.previousClose"), quote.map { PriceFormatter.price($0.previousClose, market: symbol.market) })
                 stat(PulseLocalization.localizedString("stat.volume"), quote?.volume.map(PriceFormatter.compact))
                 stat(PulseLocalization.localizedString("stat.amplitude"), quote?.amplitudePercent.map(PriceFormatter.percentMagnitude))
             }

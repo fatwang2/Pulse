@@ -100,7 +100,7 @@ struct WatchlistShareSnapshot {
                 name: item.resolvedDisplayName,
                 market: item.symbol.market,
                 symbolCode: item.symbol.displayCode,
-                priceText: quote.map { PriceFormatter.price($0.price) } ?? "—",
+                priceText: quote.map { PriceFormatter.price($0.price, market: item.symbol.market) } ?? "—",
                 metricText: metricDisplay.text,
                 metricColorValue: metricDisplay.colorValue,
                 change: quote?.change,

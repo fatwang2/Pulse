@@ -52,9 +52,9 @@ struct DetailShareSnapshot {
         self.symbol = symbol
         self.name = name
         priceLabel = quote.map(Self.priceLabel) ?? PulseLocalization.localizedString("quote.price.current")
-        priceText = quote.map { PriceFormatter.price($0.price) } ?? "—"
+        priceText = quote.map { PriceFormatter.price($0.price, market: symbol.market) } ?? "—"
         currencyCode = quote?.currencyCode ?? symbol.currencyCode
-        changeText = quote.map { PriceFormatter.change($0.change) } ?? "—"
+        changeText = quote.map { PriceFormatter.change($0.change, market: symbol.market) } ?? "—"
         changePercentText = quote.map { PriceFormatter.percent($0.changePercent) } ?? "—"
         changeValue = quote?.change
         previousClose = quote?.previousClose
@@ -75,12 +75,12 @@ struct DetailShareSnapshot {
             Stat(
                 id: "open",
                 label: PulseLocalization.localizedString("stat.open"),
-                value: quote?.open.map(PriceFormatter.price) ?? "—"
+                value: quote?.open.map { PriceFormatter.price($0, market: symbol.market) } ?? "—"
             ),
             Stat(
                 id: "previousClose",
                 label: PulseLocalization.localizedString("stat.previousClose"),
-                value: quote.map { PriceFormatter.price($0.previousClose) } ?? "—"
+                value: quote.map { PriceFormatter.price($0.previousClose, market: symbol.market) } ?? "—"
             ),
             Stat(
                 id: "volume",
@@ -88,8 +88,8 @@ struct DetailShareSnapshot {
                 value: quote?.volume.map(PriceFormatter.compact) ?? "—"
             ),
         ]
-        dayLowText = quote?.low.map(PriceFormatter.price)
-        dayHighText = quote?.high.map(PriceFormatter.price)
+        dayLowText = quote?.low.map { PriceFormatter.price($0, market: symbol.market) }
+        dayHighText = quote?.high.map { PriceFormatter.price($0, market: symbol.market) }
         amplitudeText = quote?.amplitudePercent.map(PriceFormatter.percentMagnitude)
         if let quote, let low = quote.low, let high = quote.high, high > low {
             dayRangeFraction = min(max((quote.price - low) / (high - low), 0), 1)
@@ -383,7 +383,7 @@ struct DetailShareContent: View {
            let previousClose = snapshot.previousClose,
            let fraction = baselineFraction(previousClose: previousClose) {
             let plotHeight = size.height - 34 - 26
-            Text(PulseLocalization.localizedString("stat.previousClose") + " " + PriceFormatter.price(previousClose))
+            Text(PulseLocalization.localizedString("stat.previousClose") + " " + PriceFormatter.price(previousClose, market: snapshot.symbol.market))
                 .font(.system(size: 10).monospacedDigit())
                 .foregroundStyle(.tertiary)
                 .frame(maxWidth: size.width - 28 - 8, alignment: .trailing)

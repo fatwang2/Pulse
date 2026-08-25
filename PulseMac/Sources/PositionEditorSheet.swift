@@ -29,7 +29,7 @@ struct PositionEditorView: View {
         self.onSave = onSave
         self.onClear = onClear
         _quantityText = State(initialValue: item.hasPosition ? PriceFormatter.quantity(item.positionQuantity) : "")
-        _costText = State(initialValue: item.averageCost.map(PriceFormatter.price) ?? "")
+        _costText = State(initialValue: item.averageCost.map { PriceFormatter.price($0) } ?? "")
     }
 
     var body: some View {

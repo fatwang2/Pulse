@@ -142,18 +142,43 @@ public final class WatchlistStore {
         allItems.first { $0.symbol == symbol }
     }
 
+    /// Read-only view of dormant history: the retained item for the symbol, if
+    /// any. Exposure only — recording or editing still goes through
+    /// `materializeItem(_:)`, which restores the item without list membership.
+    public func retainedHistoryItem(for symbol: SymbolID) -> WatchItem? {
+        retainedHistoryItems.first { $0.symbol == symbol }
+    }
+
     /// Adds to the selected group by default. An existing instrument only gains another tag.
     public func add(_ info: SymbolInfo, to groupID: UUID? = nil) {
         guard let targetID = group(for: groupID ?? selectedGroupID)?.id,
               let groupIndex = groups.firstIndex(where: { $0.id == targetID }) else { return }
+        materializedItem(for: info)
+        if !groups[groupIndex].symbols.contains(info.symbol) {
+            insertAtTopOfUnpinned(info.symbol, inGroupAt: groupIndex)
+        }
+        save()
+    }
+
+    /// Ensures an item exists for the instrument without adding it to any group:
+    /// dormant trade history is restored, and a never-seen instrument gets a
+    /// fresh item. Groupless items keep their position ledger and quotes
+    /// reachable from the detail page while staying out of every list.
+    @discardableResult
+    public func materializeItem(_ info: SymbolInfo) -> WatchItem {
+        let item = materializedItem(for: info)
+        save()
+        return item
+    }
+
+    @discardableResult
+    private func materializedItem(for info: SymbolInfo) -> WatchItem {
         restoreRetainedHistory(for: info.symbol)
-        var didUpdateItem = false
         if let itemIndex = allItems.firstIndex(where: { $0.symbol == info.symbol }) {
             if let source = info.displayNameSource,
                shouldAcceptDisplayName(source, over: allItems[itemIndex].displayNameSource) {
                 allItems[itemIndex].displayName = info.resolvedDisplayName
                 allItems[itemIndex].displayNameSource = source
-                didUpdateItem = true
             }
             let candidateType = WatchItem.normalizedInstrumentType(info.type, for: info.symbol)
             if shouldAcceptInstrumentType(
@@ -161,22 +186,17 @@ public final class WatchlistStore {
                 over: allItems[itemIndex].instrumentType
             ) {
                 allItems[itemIndex].instrumentType = candidateType
-                didUpdateItem = true
             }
-        } else {
-            allItems.append(WatchItem(
-                symbol: info.symbol,
-                displayName: info.resolvedDisplayName,
-                displayNameSource: info.displayNameSource,
-                instrumentType: info.type
-            ))
+            return allItems[itemIndex]
         }
-        guard !groups[groupIndex].symbols.contains(info.symbol) else {
-            if didUpdateItem { save() }
-            return
-        }
-        insertAtTopOfUnpinned(info.symbol, inGroupAt: groupIndex)
-        save()
+        let item = WatchItem(
+            symbol: info.symbol,
+            displayName: info.resolvedDisplayName,
+            displayNameSource: info.displayNameSource,
+            instrumentType: info.type
+        )
+        allItems.append(item)
+        return item
     }
 
     public func setMembership(_ symbol: SymbolID, in groupID: UUID, included: Bool) {

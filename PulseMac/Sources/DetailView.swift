@@ -341,7 +341,7 @@ struct DetailView: View {
     /// graduate into the list without going back.
     private var addButton: some View {
         ClusterIcon(
-            systemName: "plus",
+            systemName: "star",
             help: PulseLocalization.localizedString(
                 "search.addToGroup",
                 appState.watchlist.selectedGroup?.name ?? ""
@@ -351,24 +351,51 @@ struct DetailView: View {
         }
     }
 
-    @ViewBuilder private func positionButton(_ item: WatchItem) -> some View {
+    /// Stable membership entry: the star mirrors the iOS detail page — outline
+    /// adds to the selected group, filled removes from it.
+    @ViewBuilder private var watchToggleButton: some View {
+        if appState.watchlist.contains(symbol) {
+            ClusterIcon(
+                systemName: "star.fill",
+                help: PulseLocalization.localizedString(
+                    "watchlist.group.removeCurrent",
+                    appState.watchlist.selectedGroup?.name ?? ""
+                )
+            ) {
+                removeFromWatchlist()
+            }
+        } else {
+            addButton
+        }
+    }
+
+    /// Positions outlive watchlist membership, so the entry stays visible for
+    /// every position-eligible instrument; tapping one that has no item yet
+    /// materializes it (restoring dormant history) without list membership.
+    private var symbolSupportsPosition: Bool {
+        switch sharedInstrumentType {
+        case .index, .commodity: false
+        default: true
+        }
+    }
+
+    @ViewBuilder private var positionButton: some View {
+        let hasPosition = item?.hasPosition == true
         ClusterIcon(
-            systemName: item.hasPosition ? "briefcase.fill" : "briefcase",
-            help: item.hasPosition
-                ? PulseLocalization.localizedString("action.editPosition")
-                : PulseLocalization.localizedString("action.addPosition")
+            systemName: hasPosition ? "briefcase.fill" : "briefcase",
+            help: PulseLocalization.localizedString(
+                hasPosition ? "action.editPosition" : "action.addPosition"
+            )
         ) {
-            route = .position(item.symbol, .detail(symbol))
+            openPositions()
         }
     }
 
     @ViewBuilder private var headerActions: some View {
         shareMenu
-        if item == nil {
-            addButton
-        }
-        if let item, item.supportsPosition {
-            positionButton(item)
+        watchToggleButton
+        if symbolSupportsPosition {
+            positionButton
         }
     }
 
@@ -404,7 +431,23 @@ struct DetailView: View {
         .help(PulseLocalization.localizedString("action.share"))
         .disabled(quote == nil)
 
-        if item == nil {
+        if appState.watchlist.contains(symbol) {
+            Button {
+                removeFromWatchlist()
+            } label: {
+                Label(
+                    PulseLocalization.localizedString(
+                        "watchlist.group.removeCurrent",
+                        appState.watchlist.selectedGroup?.name ?? ""
+                    ),
+                    systemImage: "star.fill"
+                )
+            }
+            .help(PulseLocalization.localizedString(
+                "watchlist.group.removeCurrent",
+                appState.watchlist.selectedGroup?.name ?? ""
+            ))
+        } else {
             Button {
                 addToWatchlist()
             } label: {
@@ -413,7 +456,7 @@ struct DetailView: View {
                         "search.addToGroup",
                         appState.watchlist.selectedGroup?.name ?? ""
                     ),
-                    systemImage: "plus"
+                    systemImage: "star"
                 )
             }
             .help(PulseLocalization.localizedString(
@@ -422,20 +465,20 @@ struct DetailView: View {
             ))
         }
 
-        if let item, item.supportsPosition {
+        if symbolSupportsPosition {
             Button {
-                route = .position(item.symbol, .detail(symbol))
+                openPositions()
             } label: {
                 Label(
-                    item.hasPosition
-                        ? PulseLocalization.localizedString("action.editPosition")
-                        : PulseLocalization.localizedString("action.addPosition"),
-                    systemImage: item.hasPosition ? "briefcase.fill" : "briefcase"
+                    PulseLocalization.localizedString(
+                        (item?.hasPosition == true) ? "action.editPosition" : "action.addPosition"
+                    ),
+                    systemImage: (item?.hasPosition == true) ? "briefcase.fill" : "briefcase"
                 )
             }
-            .help(item.hasPosition
-                ? PulseLocalization.localizedString("action.editPosition")
-                : PulseLocalization.localizedString("action.addPosition"))
+            .help(PulseLocalization.localizedString(
+                (item?.hasPosition == true) ? "action.editPosition" : "action.addPosition"
+            ))
         }
     }
 
@@ -447,6 +490,26 @@ struct DetailView: View {
         )
         appState.watchlist.add(info)
         appState.engine.poke()
+    }
+
+    @MainActor
+    private func removeFromWatchlist() {
+        appState.watchlist.remove(symbol)
+    }
+
+    /// Materializes a missing item (restoring dormant trade history) before the
+    /// position hub opens: the hub and the ledger both require an item, but the
+    /// instrument stays out of every list.
+    @MainActor
+    private func openPositions() {
+        if appState.watchlist.item(for: symbol) == nil {
+            appState.watchlist.materializeItem(SymbolInfo(
+                symbol: symbol,
+                name: appState.market.quote(for: symbol)?.name ?? appState.displayName(for: symbol)
+            ))
+            appState.engine.poke()
+        }
+        route = .position(symbol, .detail(symbol))
     }
 
     @MainActor
@@ -952,9 +1015,17 @@ struct DetailView: View {
 
     // MARK: - Position
 
+    /// Display driver for the position area: the live item when present,
+    /// otherwise dormant history — an instrument removed from every list keeps
+    /// its records visible here. Mutating goes through `openPositions()`, which
+    /// materializes first.
+    private var positionDisplayItem: WatchItem? {
+        item ?? appState.watchlist.retainedHistoryItem(for: symbol)
+    }
+
     @ViewBuilder
     private var positionArea: some View {
-        if let item, item.supportsPosition {
+        if symbolSupportsPosition {
             sectionSeparator
             positionSection
         } else if let item, item.hasPosition {
@@ -972,12 +1043,12 @@ struct DetailView: View {
     @ViewBuilder
     private var positionSection: some View {
         Group {
-            if let item, item.hasPosition {
+            if let item = positionDisplayItem, item.hasPosition {
                 // The whole summary is the way into the position hub — same
                 // destination as the header briefcase, but where the eye
                 // already is.
                 Button {
-                    route = .position(item.symbol, .detail(symbol))
+                    openPositions()
                 } label: {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 4) {
@@ -1006,13 +1077,13 @@ struct DetailView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.pressable)
-            } else if let item, item.hasPositionHistory {
+            } else if let item = positionDisplayItem, item.hasPositionHistory {
                 // Selling out is not the same as never having held: the trade
                 // log and what it realized outlive the position, and dropping
                 // straight back to "no position" reads as if the record was
                 // lost. Same target and same whole-block tap as an open one.
                 Button {
-                    route = .position(item.symbol, .detail(symbol))
+                    openPositions()
                 } label: {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 4) {
@@ -1048,14 +1119,12 @@ struct DetailView: View {
                             .font(.system(size: 10.5))
                             .foregroundStyle(.tertiary)
                         Spacer()
-                        if let item {
-                            Button(PulseLocalization.localizedString("action.addPosition")) {
-                                route = .position(item.symbol, .detail(symbol))
-                            }
-                            .buttonStyle(.pressable)
-                            .font(.system(size: 10.5, weight: .medium))
-                            .foregroundStyle(.tint)
+                        Button(PulseLocalization.localizedString("action.addPosition")) {
+                            openPositions()
                         }
+                        .buttonStyle(.pressable)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.tint)
                     }
                 }
             }

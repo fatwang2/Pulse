@@ -882,7 +882,8 @@ struct WatchlistView: View {
                     SearchResultRow(
                         info: info,
                         onOpen: { openSearchResult(info) },
-                        onAdd: { addSearchResult(info) }
+                        onAdd: { addSearchResult(info) },
+                        onRemove: { removeSearchResult(info) }
                     )
                 }
             }
@@ -1039,6 +1040,11 @@ struct WatchlistView: View {
             guard normalizedSearchQuery(searchSession.text) == queryAtAddition else { return }
             exitSearch()
         }
+    }
+
+    /// Unlike adding, removal stays on the results so the user can keep curating.
+    private func removeSearchResult(_ info: SymbolInfo) {
+        appState.watchlist.remove(info.symbol)
     }
 
     private func shortErrorText(_ error: any Error) -> String {
@@ -1626,17 +1632,20 @@ struct SearchResultRow: View {
     let info: SymbolInfo
     let onOpen: () -> Void
     let onAdd: () -> Void
+    let onRemove: () -> Void
     @State private var hovering = false
 
     var body: some View {
         let isIncluded = appState.watchlist.contains(info.symbol)
         let selectedGroupName = appState.watchlist.selectedGroup?.name ?? ""
-        let addLabel = PulseLocalization.localizedString(
-            isIncluded ? "search.inGroup" : "search.addToGroup",
+        let addLabel = PulseLocalization.localizedString("search.addToGroup", selectedGroupName)
+        let removeLabel = PulseLocalization.localizedString(
+            "watchlist.group.removeCurrent",
             selectedGroupName
         )
 
-        // The row navigates to the quote page; adding is the trailing accessory.
+        // The row navigates to the quote page; the trailing accessory toggles
+        // membership in the selected group — checkmark is a click-to-remove.
         Button(action: onOpen) {
             HStack(spacing: 6) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -1657,9 +1666,16 @@ struct SearchResultRow: View {
                 }
                 Spacer()
                 if isIncluded {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                        .help(addLabel)
+                    Button(action: onRemove) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.pressable)
+                    .help(removeLabel)
+                    .accessibilityLabel(removeLabel)
                 } else {
                     Button(action: onAdd) {
                         Image(systemName: "plus.circle.fill")

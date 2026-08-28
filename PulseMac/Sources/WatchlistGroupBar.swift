@@ -18,6 +18,7 @@ struct WatchlistGroupBar: View {
     @State private var draggingGroupID: UUID?
     @State private var visibleGroupIDs: Set<UUID> = []
     @State private var shouldAnimateNextSelectionScroll = false
+    @State private var barHovering = false
     @FocusState private var nameFieldFocused: Bool
 
     var body: some View {
@@ -63,6 +64,9 @@ struct WatchlistGroupBar: View {
                                 )
                             )
                             .contextMenu {
+                                Button(PulseLocalization.localizedString("watchlist.group.new")) {
+                                    beginCreating()
+                                }
                                 Button(PulseLocalization.localizedString("watchlist.group.rename")) {
                                     beginRenaming(group)
                                 }
@@ -82,20 +86,29 @@ struct WatchlistGroupBar: View {
                     if isCreating {
                         nameField
                     } else {
+                        // Hover-revealed: a standing plus at the end of the tabs
+                        // reads as "add symbol", which the search field owns.
+                        // Creating a list is occasional, so the affordance only
+                        // surfaces while the pointer is in the strip; the tab
+                        // context menu carries a permanent "New List" entry.
                         Button(action: beginCreating) {
                             Image(systemName: "plus")
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 22, height: 22)
                                 .contentShape(Rectangle())
+                                .opacity(barHovering ? 1 : 0)
                         }
                         .buttonStyle(.pressable)
+                        .animation(.easeOut(duration: 0.15), value: barHovering)
                         .help(PulseLocalization.localizedString("watchlist.group.new"))
+                        .accessibilityLabel(PulseLocalization.localizedString("watchlist.group.new"))
                     }
                 }
                 .padding(.horizontal, 1)
             }
             .scrollIndicators(.hidden)
+            .onHover { barHovering = $0 }
             .onAppear { scrollToSelectedGroup(using: proxy) }
             .onChange(of: appState.watchlist.selectedGroupID) { _, _ in
                 scrollToSelectedGroup(using: proxy)

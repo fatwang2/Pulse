@@ -12,6 +12,33 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.15.1",
+    date: "2026-08-28",
+    kind: "fix",
+    highlights: {
+      zh: [
+        "自选可以在原地取舍了：搜索结果里已添加标的的对勾现在可点击，移除后停留在结果页；详情页与固定小窗的自选入口改为星标切换——描边星加入当前分组，实心星移除。",
+        "持仓与自选解耦。持仓录入入口对每个可持仓标的长驻显示；从所有分组移除后交易记录照常保留，详情页底部统一为“无记录显示引导、有记录显示记录”。对未自选标的录入持仓不会再把它悄悄加回列表。",
+        "分组条尾部的加号改为悬停显示，右键任意分组标签可直接“新建列表”，不再被误认成添加标的的入口（加标的仍走顶部搜索）。",
+      ],
+      en: [
+        "Watchlist membership is editable in place: a watched search result's checkmark now removes it from the current list while staying on the results, and the detail page's watch entry becomes a star toggle — outline star adds to the selected group, filled star removes — mirrored on the pinned window title bar.",
+        "Positions are decoupled from the watchlist. The position entry stays visible for every position-eligible instrument, trade records survive removal from every list, and the detail page uniformly shows guidance when there are no records and the records when there are. Recording a position on an unlisted symbol no longer re-adds it to any list.",
+        "The plus at the end of the group bar is hover-revealed and “New List” joins the tab context menu, so it no longer reads as the add-symbol entry — search remains the way to add symbols.",
+      ],
+      ja: [
+        "ウォッチリストをその場で編集できるようにしました。検索結果の追加済みチェックマークがクリックで現在のリストから外せます（結果ページはそのまま）。詳細ページのウォッチ入口は星のトグルになり、中空の星でグループに追加、塗りつぶしの星で削除します。ピン留めウィンドウのタイトルバーも同様です。",
+        "ポジションをウォッチリストから切り離しました。ポジション入口は対象なら常に表示され、すべてのリストから外しても取引履歴は残り、詳細ページ下部は「記録なし＝ガイド／記録あり＝履歴」に統一されます。未登録銘柄のポジション記録がリストに黙って再追加されることはありません。",
+        "グループバー末端のプラスはホバー表示になり、タブの右クリックメニューに「新規リスト」を追加しました。銘柄追加の入口と誤認しにくくなります（銘柄追加は上部の検索から）。",
+      ],
+      ko: [
+        "관심목록을 그 자리에서 편집할 수 있습니다. 검색 결과의 추가됨 체크마크가 클릭으로 현재 목록에서 제거되며(결과 화면 유지), 상세 페이지의 관심 항목은 별 토글로 바뀌어 — 빈 별은 현재 그룹에 추가, 채운 별은 제거 — 고정 창 제목 표시줄에서도 동일하게 동작합니다.",
+        "포지션을 관심목록에서 분리했습니다. 포지션 항목은 대상 종목이면 항상 표시되고, 모든 목록에서 제거해도 거래 기록이 유지되며, 상세 페이지 하단은 “기록 없음＝안내 / 기록 있음＝기록”으로 통일됩니다. 미등록 종목의 포지션 기록이 목록에 몰래 다시 추가되지 않습니다.",
+        "그룹 바 끝의 플러스는 호버 시 표시되고, 탭 우클릭 메뉴에 “새 목록”이 추가되어 종목 추가 진입점으로 오인되지 않습니다(종목 추가는 상단 검색을 사용합니다).",
+      ],
+    },
+  },
+  {
     version: "0.15.0",
     date: "2026-08-26",
     kind: "release",

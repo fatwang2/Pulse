@@ -44,7 +44,7 @@ const organizationJsonLd = JSON.stringify({
   name: organizationInfo.legalName,
   alternateName: organizationInfo.alternateName,
   url: siteUrl,
-  logo: `${siteUrl}/icon.png`,
+  logo: `${siteUrl}/pulse-icon.png`,
   contactPoint: {
     "@type": "ContactPoint",
     email: organizationInfo.supportEmail,
@@ -74,8 +74,9 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "stylesheet", href: globalsCss },
-      { rel: "icon", href: "/icon.png", type: "image/png" },
-      { rel: "apple-touch-icon", href: "/apple-icon.png" },
+      { rel: "icon", href: "/pulse-icon.svg", type: "image/svg+xml" },
+      { rel: "icon", href: "/icon.png?v=2", type: "image/png", sizes: "64x64" },
+      { rel: "apple-touch-icon", href: "/apple-icon.png?v=2", sizes: "180x180" },
       {
         rel: "alternate",
         type: "application/atom+xml",

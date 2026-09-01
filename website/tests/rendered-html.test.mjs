@@ -59,6 +59,10 @@ test("server-renders the English landing page at the root", async () => {
   assert.match(html, /Japan and Korea stocks, crypto, precious metals/);
   assert.match(html, /class="market-pulse" aria-hidden="true"/);
   assert.match(html, /class="brand-mark"/);
+  assert.match(html, /src="\/pulse-icon\.svg"/);
+  assert.match(html, /href="\/pulse-icon\.svg"/);
+  assert.match(html, /apple-icon\.png\?v=2/);
+  assert.match(html, /www\.pulseticker\.app\/pulse-icon\.png/);
   assert.match(html, /href="\/download"/);
   assert.match(html, /href="\/changelog"/);
   assert.doesNotMatch(html, /github\.com\/fatwang2\/Pulse\/releases\/latest/);
@@ -784,4 +788,14 @@ test("HTML responses carry a Vary header for content negotiation", async () => {
   assert.equal(response.status, 200);
   const vary = response.headers.get("vary") ?? "";
   assert.match(vary, /Accept/);
+});
+
+test("website mark is a full-bleed square without baked-in rounding", async () => {
+  const svg = await readFile(
+    new URL("../public/pulse-icon.svg", import.meta.url),
+    "utf8",
+  );
+  assert.match(svg, /viewBox="0 0 1024 1024"/);
+  assert.match(svg, /<rect width="1024" height="1024"/);
+  assert.doesNotMatch(svg, /\brx=|\bry=|clipPath|clip-path|<mask/);
 });

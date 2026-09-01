@@ -69,7 +69,7 @@ export function SiteHeader({
     <header className="header shell">
       <Link className="brand" to={homePath(language)} aria-label={copy.homeLabel}>
         <span className="brand-mark">
-          <img src="/pulse-icon.png" alt="" width={34} height={34} />
+          <img src="/pulse-icon.svg" alt="" width={34} height={34} />
         </span>
         <span>Pulse</span>
       </Link>

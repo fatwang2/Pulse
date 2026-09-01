@@ -100,13 +100,16 @@ a {
 }
 
 .brand-mark {
-  display: grid;
+  display: block;
   width: 34px;
   height: 34px;
-  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 
 .brand img {
+  display: block;
   width: 34px;
   height: 34px;
 }

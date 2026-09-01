@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Full-bleed square mark. Platforms and CSS apply any rounding; do not bake a squircle or padding into this file. -->
+  <rect width="1024" height="1024" fill="#07182E"/>
+  <path
+    d="M170 512 L292 512 C316 512 328 476 348 476 C371 476 383 537 405 537 C425 537 444 423 493 278 C502 251 520 251 529 280 L627 728 C634 759 654 759 666 730 L738 520 C744 503 756 498 774 498 L854 498"
+    fill="none"
+    stroke="#F7F9FC"
+    stroke-width="72"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M700 631 L738 520 C744 503 756 498 774 498 L854 498"
+    fill="none"
+    stroke="#6AB0FF"
+    stroke-width="72"
+    stroke-linecap="butt"
+    stroke-linejoin="round"
+  />
+  <circle cx="854" cy="498" r="36" fill="#6AB0FF"/>
+</svg>

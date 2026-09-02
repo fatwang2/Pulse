@@ -308,6 +308,7 @@
 
 "watchlist.menu.display" = "표시 지표";
 "watchlist.menu.sort" = "정렬 기준";
+"watchlist.menu.checkForUpdates" = "업데이트 확인…";
 "watchlist.sort.adjust" = "순서 바꾸기";
 "watchlist.sort.adjustActive" = "순서 바꾸는 중";
 "watchlist.sort.manual" = "직접 지정한 순서";

@@ -308,6 +308,7 @@
 
 "watchlist.menu.display" = "表示する指標";
 "watchlist.menu.sort" = "並べ替え";
+"watchlist.menu.checkForUpdates" = "アップデートを確認…";
 "watchlist.sort.adjust" = "順序を調整";
 "watchlist.sort.adjustActive" = "順序を調整中";
 "watchlist.sort.manual" = "カスタム順";

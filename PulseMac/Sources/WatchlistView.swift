@@ -22,6 +22,7 @@ private enum PulseExternalLinks {
 }
 
 struct WatchlistView: View {
+    @ObservedObject private var softwareUpdate = SoftwareUpdateController.shared
     @Environment(AppState.self) private var appState
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -227,6 +228,7 @@ struct WatchlistView: View {
             Text(PulseLocalization.localizedString("action.openGitHub"))
         }
         Divider()
+        updateMenuItem
         Button {
             route = .settings
         } label: {
@@ -238,6 +240,22 @@ struct WatchlistView: View {
         } label: {
             Text(PulseLocalization.localizedString("action.quitPulse"))
         }
+    }
+
+    /// A fixed "Check for Updates…" entry that, while a newer build is known,
+    /// carries the version as a native menu badge — the treatment System
+    /// Settings gives Software Update. The label never changes, so the entry
+    /// stays where users expect it; the dot on the icon does the noticing and
+    /// the badge names the version. Either way it opens Sparkle's own alert,
+    /// which carries the release notes.
+    private var updateMenuItem: some View {
+        Button {
+            softwareUpdate.checkForUpdates()
+        } label: {
+            Text(PulseLocalization.localizedString("watchlist.menu.checkForUpdates"))
+        }
+        .badge(softwareUpdate.availableUpdate.map { Text($0.displayVersion) })
+        .disabled(!softwareUpdate.isConfigured)
     }
 
     private var pinHelp: String {
@@ -283,7 +301,11 @@ struct WatchlistView: View {
         }
         .disabled(appState.watchlist.items.isEmpty)
         .opacity(appState.watchlist.items.isEmpty ? 0.45 : 1)
-        ClusterMenu(systemName: "ellipsis.circle", help: PulseLocalization.localizedString("action.more")) {
+        ClusterMenu(
+            systemName: "ellipsis.circle",
+            help: PulseLocalization.localizedString("action.more"),
+            badge: softwareUpdate.availableUpdate != nil
+        ) {
             moreMenuContent
         }
         .frame(height: 26)
@@ -1485,12 +1507,17 @@ struct IconButton: View {
 struct ClusterMenu<Content: View>: View {
     let systemName: String
     let help: String
+    /// A dot on the icon's corner for something waiting inside the menu (an
+    /// update). System red rather than the up/down palette: it is a notice,
+    /// not a price move.
+    let badge: Bool
     @ViewBuilder let content: Content
     @State private var hovering = false
 
-    init(systemName: String, help: String, @ViewBuilder content: () -> Content) {
+    init(systemName: String, help: String, badge: Bool = false, @ViewBuilder content: () -> Content) {
         self.systemName = systemName
         self.help = help
+        self.badge = badge
         self.content = content()
     }
 
@@ -1506,6 +1533,15 @@ struct ClusterMenu<Content: View>: View {
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
                         .fill(hovering ? Color.primary.opacity(0.08) : .clear)
                 )
+                .overlay(alignment: .topTrailing) {
+                    if badge {
+                        Circle()
+                            .fill(Color(nsColor: .systemRed))
+                            .frame(width: 6, height: 6)
+                            .padding(.top, 3)
+                            .padding(.trailing, 3)
+                    }
+                }
         }
         .buttonStyle(.plain)
         .menuIndicator(.hidden)

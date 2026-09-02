@@ -308,6 +308,7 @@
 
 "watchlist.menu.display" = "列表显示";
 "watchlist.menu.sort" = "列表排序";
+"watchlist.menu.checkForUpdates" = "检查更新…";
 "watchlist.sort.adjust" = "调整顺序";
 "watchlist.sort.adjustActive" = "正在调整顺序";
 "watchlist.sort.manual" = "自定义排序";

@@ -308,6 +308,7 @@
 
 "watchlist.menu.display" = "Display Metric";
 "watchlist.menu.sort" = "Sort By";
+"watchlist.menu.checkForUpdates" = "Check for Updates…";
 "watchlist.sort.adjust" = "Adjust Order";
 "watchlist.sort.adjustActive" = "Adjusting Order";
 "watchlist.sort.manual" = "Custom Order";

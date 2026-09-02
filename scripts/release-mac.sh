@@ -387,6 +387,25 @@ echo "==> Creating update archive $ZIP_NAME"
 /usr/bin/ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
 cp "$ZIP_PATH" "$APPCAST_DIR/$ZIP_NAME"
 
+# Release notes ride along with the archive: generate_appcast picks up files
+# named like it. The English fragment (no DOCTYPE or <body>) is embedded in
+# the item's <description>, so Sparkle's alert shows what changed; the
+# localized pages can only be linked, so they are uploaded next to the
+# archive and referenced through the same download prefix.
+echo "==> Preparing release notes for the appcast"
+NOTES_BASENAME="$APPCAST_DIR/Pulse-${VERSION}"
+if [[ -f "$RELEASE_NOTES_FILE" ]]; then
+  /usr/bin/python3 "$ROOT/scripts/release-notes-html.py" "$RELEASE_NOTES_FILE" > "$NOTES_BASENAME.html"
+fi
+if command -v node >/dev/null 2>&1; then
+  node "$ROOT/scripts/release-notes-localized.mjs" "$VERSION" "$APPCAST_DIR"
+else
+  echo "warning: node not found; localized release notes skipped" >&2
+fi
+shopt -s nullglob
+LOCALIZED_NOTES=("$NOTES_BASENAME".*.html)
+shopt -u nullglob
+
 DMG_NAME="Pulse-${VERSION}.dmg"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 DMG_STAGE="$BUILD_DIR/dmg-stage"
@@ -422,6 +441,9 @@ DOWNLOAD_PREFIX="https://github.com/${GH_REPO}/releases/download/${TAG}/"
 echo "==> Generating Sparkle appcast"
 "$GENERATE_APPCAST" \
   --download-url-prefix "$DOWNLOAD_PREFIX" \
+  --release-notes-url-prefix "$DOWNLOAD_PREFIX" \
+  --link "https://www.pulseticker.app/" \
+  --full-release-notes-url "https://www.pulseticker.app/changelog" \
   "$APPCAST_DIR"
 
 if [[ "${SKIP_UPLOAD:-0}" == "1" ]]; then
@@ -431,15 +453,16 @@ fi
 
 echo "==> Uploading GitHub Release assets"
 if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
-  gh release upload "$TAG" "$ZIP_PATH" "$DMG_PATH" --repo "$GH_REPO" --clobber
+  gh release upload "$TAG" "$ZIP_PATH" "$DMG_PATH" ${LOCALIZED_NOTES[@]+"${LOCALIZED_NOTES[@]}"} \
+    --repo "$GH_REPO" --clobber
 else
   if [[ -f "$RELEASE_NOTES_FILE" ]]; then
-    gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" \
+    gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" ${LOCALIZED_NOTES[@]+"${LOCALIZED_NOTES[@]}"} \
       --repo "$GH_REPO" \
       --title "Pulse ${VERSION}" \
       --notes-file "$RELEASE_NOTES_FILE"
   else
-    gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" \
+    gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" ${LOCALIZED_NOTES[@]+"${LOCALIZED_NOTES[@]}"} \
       --repo "$GH_REPO" \
       --title "Pulse ${VERSION}" \
       --notes "Pulse ${VERSION}

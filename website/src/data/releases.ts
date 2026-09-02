@@ -12,6 +12,33 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.15.2",
+    date: "2026-09-02",
+    kind: "improvement",
+    highlights: {
+      zh: [
+        "交易日期对 Agent 读回正确了。客户端录入的交易按本地零点记日期，之前 MCP 读回时按 UTC 格式化，东八区用户看到的日期会少一天。现在按你的时区读回，record_trade 和 calibrate_position 直接接受 YYYY-MM-DD；同一天的记录按录入先后回放，快速设置不再盖掉当天补录的买入。",
+        "交易表单支持一键填入。现价和可卖数量以小胶囊显示在输入框旁，点一下就填入并收回焦点，直接回车即可录入；填入的价格是点击那一刻的价格。",
+        "更新更容易被注意到。有新版本时更多图标右上角出现红点，菜单里的“检查更新…”带版本角标，更新窗口会显示你所用语言的更新日志。定时检查不再弹窗打断，除非刚启动或电脑空闲。",
+      ],
+      en: [
+        "Trade dates read back correctly for agents. A trade recorded in the app is dated at local midnight, but the MCP readback formatted it in UTC, so anyone east of Greenwich saw every trade one day early. Dates now read back in your time zone, record_trade and calibrate_position accept a plain YYYY-MM-DD, and same-day entries replay in the order they were entered, so a quick-set calibration no longer swallows a buy recorded later that day.",
+        "One-click fills in the trade form. The live price and the sellable quantity sit beside their fields as small chips; one click drops the value in and hands focus back, so Return records the trade. The price that lands is the one at the moment of the click.",
+        "Updates are easier to notice. A red dot appears on the popover's “more” icon when a new version is available, “Check for Updates…” in that menu shows the version as a badge, and the update window carries the release notes in your language. Scheduled checks no longer interrupt you unless you just launched the app or the Mac has been idle.",
+      ],
+      ja: [
+        "エージェントが読み取る取引日を修正しました。アプリで記録した取引は現地時間の 0 時で日付が付きますが、MCP の読み出しは UTC で整形していたため、グリニッジより東では 1 日早い日付になっていました。現在はお使いのタイムゾーンで返し、record_trade と calibrate_position は YYYY-MM-DD をそのまま受け付け、同じ日の記録は入力順に再生されるため、クイック設定が同日の買いを上書きすることもなくなりました。",
+        "取引フォームにワンクリック入力を追加しました。現在値と売却可能数量が入力欄の横に小さなチップとして表示され、クリックで値が入りフォーカスが戻るので、Return で記録できます。入る価格はクリックした瞬間の価格です。",
+        "アップデートに気づきやすくなりました。新しいバージョンがあるとパネルの「その他」アイコンに赤い点が付き、メニューの「アップデートを確認…」にバージョンのバッジが表示され、アップデートウィンドウにはお使いの言語の更新履歴が表示されます。定期チェックは、起動直後や Mac がアイドル状態のとき以外は通知で作業を遮りません。",
+      ],
+      ko: [
+        "에이전트가 읽는 거래 날짜를 수정했습니다. 앱에서 기록한 거래는 현지 시간 0시로 날짜가 붙지만 MCP 읽기는 UTC로 변환해 그리니치 동쪽에서는 하루 이른 날짜가 표시되었습니다. 이제 사용자의 시간대로 반환하고, record_trade와 calibrate_position은 YYYY-MM-DD를 그대로 받으며, 같은 날의 기록은 입력 순서대로 재생되어 빠른 설정이 같은 날의 매수를 덮어쓰지 않습니다.",
+        "거래 양식에 원클릭 입력을 추가했습니다. 현재가와 매도 가능 수량이 입력란 옆에 작은 칩으로 표시되며, 클릭하면 값이 채워지고 포커스가 돌아와 Return으로 바로 기록할 수 있습니다. 채워지는 가격은 클릭한 순간의 가격입니다.",
+        "업데이트를 더 쉽게 알아챌 수 있습니다. 새 버전이 있으면 패널의 “더 보기” 아이콘에 빨간 점이 표시되고, 메뉴의 “업데이트 확인…”에 버전 배지가 붙으며, 업데이트 창에 사용 중인 언어의 업데이트 내역이 표시됩니다. 예약 검사는 방금 실행했거나 Mac이 유휴 상태일 때가 아니면 알림으로 방해하지 않습니다.",
+      ],
+    },
+  },
+  {
     version: "0.15.1",
     date: "2026-08-28",
     kind: "fix",

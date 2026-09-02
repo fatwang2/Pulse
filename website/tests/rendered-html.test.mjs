@@ -132,7 +132,7 @@ test("server-renders the full bilingual release timeline", async () => {
   assert.doesNotMatch(html, /class="release-link"/);
 
   const releaseEntries = html.match(/class="release-entry"/g) ?? [];
-  assert.equal(releaseEntries.length, 39);
+  assert.equal(releaseEntries.length, 40);
   assert.ok(html.indexOf("0.14.0") < html.indexOf("0.13.0"));
 });
 

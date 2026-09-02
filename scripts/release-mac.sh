@@ -387,24 +387,15 @@ echo "==> Creating update archive $ZIP_NAME"
 /usr/bin/ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
 cp "$ZIP_PATH" "$APPCAST_DIR/$ZIP_NAME"
 
-# Release notes ride along with the archive: generate_appcast picks up files
-# named like it. The English fragment (no DOCTYPE or <body>) is embedded in
-# the item's <description>, so Sparkle's alert shows what changed; the
-# localized pages can only be linked, so they are uploaded next to the
-# archive and referenced through the same download prefix.
+# Release notes ride along with the archive: generate_appcast picks up a file
+# named like it, and an HTML fragment (no DOCTYPE or <body>) is embedded in
+# the item's <description>, so Sparkle's alert shows what changed. This
+# English fragment is the fallback; the localized set is inlined after the
+# appcast is generated (see below).
 echo "==> Preparing release notes for the appcast"
-NOTES_BASENAME="$APPCAST_DIR/Pulse-${VERSION}"
 if [[ -f "$RELEASE_NOTES_FILE" ]]; then
-  /usr/bin/python3 "$ROOT/scripts/release-notes-html.py" "$RELEASE_NOTES_FILE" > "$NOTES_BASENAME.html"
+  /usr/bin/python3 "$ROOT/scripts/release-notes-html.py" "$RELEASE_NOTES_FILE" > "$APPCAST_DIR/Pulse-${VERSION}.html"
 fi
-if command -v node >/dev/null 2>&1; then
-  node "$ROOT/scripts/release-notes-localized.mjs" "$VERSION" "$APPCAST_DIR"
-else
-  echo "warning: node not found; localized release notes skipped" >&2
-fi
-shopt -s nullglob
-LOCALIZED_NOTES=("$NOTES_BASENAME".*.html)
-shopt -u nullglob
 
 DMG_NAME="Pulse-${VERSION}.dmg"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
@@ -441,10 +432,19 @@ DOWNLOAD_PREFIX="https://github.com/${GH_REPO}/releases/download/${TAG}/"
 echo "==> Generating Sparkle appcast"
 "$GENERATE_APPCAST" \
   --download-url-prefix "$DOWNLOAD_PREFIX" \
-  --release-notes-url-prefix "$DOWNLOAD_PREFIX" \
   --link "https://www.pulseticker.app/" \
   --full-release-notes-url "https://www.pulseticker.app/changelog" \
   "$APPCAST_DIR"
+
+# Localized notes are inlined as <description xml:lang="…"> from the website's
+# changelog data rather than linked: GitHub serves release assets as
+# application/octet-stream, which Sparkle hands to the web view untouched, so
+# a linked page never renders in the alert.
+if command -v node >/dev/null 2>&1; then
+  node "$ROOT/scripts/release-notes-localized.mjs" "$VERSION" "$APPCAST_DIR/appcast.xml"
+else
+  echo "warning: node not found; the appcast carries English release notes only" >&2
+fi
 
 if [[ "${SKIP_UPLOAD:-0}" == "1" ]]; then
   echo "warning: SKIP_UPLOAD=1; artifacts are in $DIST_DIR and $APPCAST_DIR" >&2
@@ -453,16 +453,15 @@ fi
 
 echo "==> Uploading GitHub Release assets"
 if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
-  gh release upload "$TAG" "$ZIP_PATH" "$DMG_PATH" ${LOCALIZED_NOTES[@]+"${LOCALIZED_NOTES[@]}"} \
-    --repo "$GH_REPO" --clobber
+  gh release upload "$TAG" "$ZIP_PATH" "$DMG_PATH" --repo "$GH_REPO" --clobber
 else
   if [[ -f "$RELEASE_NOTES_FILE" ]]; then
-    gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" ${LOCALIZED_NOTES[@]+"${LOCALIZED_NOTES[@]}"} \
+    gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" \
       --repo "$GH_REPO" \
       --title "Pulse ${VERSION}" \
       --notes-file "$RELEASE_NOTES_FILE"
   else
-    gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" ${LOCALIZED_NOTES[@]+"${LOCALIZED_NOTES[@]}"} \
+    gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" \
       --repo "$GH_REPO" \
       --title "Pulse ${VERSION}" \
       --notes "Pulse ${VERSION}

@@ -339,8 +339,10 @@
 "trade.price" = "价格";
 "trade.date" = "日期";
 "trade.dateToday" = "今天";
-"trade.priceHintCurrent" = "已预填现价";
+"trade.currentPrice" = "现价 %@";
+"trade.fillCurrentPriceHelp" = "点击填入当前价格";
 "trade.availableToSell" = "可卖 %@";
+"trade.fillAvailableHelp" = "点击填入可卖数量";
 "trade.amount" = "本笔金额";
 "trade.realizedPnL" = "本笔已实现盈亏";
 "trade.resultingPosition" = "成交后持仓";

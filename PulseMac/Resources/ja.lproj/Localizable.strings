@@ -339,8 +339,10 @@
 "trade.price" = "価格";
 "trade.date" = "日付";
 "trade.dateToday" = "今日";
-"trade.priceHintCurrent" = "現在値を自動入力済み";
+"trade.currentPrice" = "現在値 %@";
+"trade.fillCurrentPriceHelp" = "クリックで現在値を入力";
 "trade.availableToSell" = "売却可能: %@";
+"trade.fillAvailableHelp" = "クリックで売却可能数量を入力";
 "trade.amount" = "取引金額";
 "trade.realizedPnL" = "実現損益（この取引）";
 "trade.resultingPosition" = "取引後の保有";

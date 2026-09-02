@@ -339,8 +339,10 @@
 "trade.price" = "Price";
 "trade.date" = "Date";
 "trade.dateToday" = "Today";
-"trade.priceHintCurrent" = "Prefilled with live price";
+"trade.currentPrice" = "Last %@";
+"trade.fillCurrentPriceHelp" = "Click to fill in the current price";
 "trade.availableToSell" = "Available: %@";
+"trade.fillAvailableHelp" = "Click to fill in the sellable quantity";
 "trade.amount" = "Trade Amount";
 "trade.realizedPnL" = "Realized P&L (this trade)";
 "trade.resultingPosition" = "Position After Trade";

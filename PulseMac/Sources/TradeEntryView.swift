@@ -46,12 +46,13 @@ struct TradeEntryView: View {
                     PositionInputCell(
                         label: PulseLocalization.localizedString("trade.price"),
                         text: $priceText,
+                        suggestion: currentPriceSuggestion,
                         autofocus: true
                     )
                     PositionInputCell(
                         label: PulseLocalization.localizedString("position.quantity"),
                         text: $quantityText,
-                        hint: quantityHint
+                        suggestion: availableToSellSuggestion
                     )
                 }
                 dateRow
@@ -80,13 +81,28 @@ struct TradeEntryView: View {
 
     // MARK: - Form rows
 
-    /// Selling against a long shows what's sellable. Shorts stay unadorned —
+    /// The live price as a one-click fill. The chip follows the quote, but
+    /// what lands in the field is the price at the moment of the click and
+    /// stays put — a limit the user chose, not a number that keeps moving.
+    private var currentPriceSuggestion: PositionInputCell.Suggestion? {
+        guard let quote, quote.price.isFinite, quote.price > 0 else { return nil }
+        let price = PriceFormatter.price(quote.price, market: symbol.market)
+        return PositionInputCell.Suggestion(
+            label: PulseLocalization.localizedString("trade.currentPrice", price),
+            help: PulseLocalization.localizedString("trade.fillCurrentPriceHelp"),
+            fill: { priceText = price }
+        )
+    }
+
+    /// Selling against a long offers what's sellable. Shorts stay unadorned —
     /// negative quantities speak for themselves to anyone shorting.
-    private var quantityHint: String? {
+    private var availableToSellSuggestion: PositionInputCell.Suggestion? {
         guard side == .sell, let item, item.positionQuantity > 0 else { return nil }
-        return PulseLocalization.localizedString(
-            "trade.availableToSell",
-            PriceFormatter.quantity(item.positionQuantity)
+        let quantity = PriceFormatter.quantity(item.positionQuantity)
+        return PositionInputCell.Suggestion(
+            label: PulseLocalization.localizedString("trade.availableToSell", quantity),
+            help: PulseLocalization.localizedString("trade.fillAvailableHelp"),
+            fill: { quantityText = quantity }
         )
     }
 

@@ -465,12 +465,23 @@ struct TradeKindBadge: View {
 /// label above, monospaced input below — same DNA as the hub's stat cells,
 /// sized for a short number rather than a full-width system form row.
 struct PositionInputCell: View {
+    /// A value the user would otherwise retype, offered as a chip beside the
+    /// label. One click drops it into the field and gives focus back, so
+    /// Return or the confirm button records the trade without another step.
+    /// The chip shows exactly the text the field will receive.
+    struct Suggestion {
+        var label: String
+        var help: String
+        var fill: () -> Void
+    }
+
     @Environment(\.colorScheme) private var colorScheme
     let label: String
     @Binding var text: String
-    /// Small trailing note beside the label (e.g. "可卖 200").
+    /// Small trailing note beside the label (e.g. a warning).
     var hint: String?
     var hintIsWarning = false
+    var suggestion: Suggestion?
     var autofocus = false
     @FocusState private var isFocused: Bool
 
@@ -487,7 +498,13 @@ struct PositionInputCell: View {
                         .foregroundStyle(hintIsWarning ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
                         .lineLimit(1)
                 }
+                if let suggestion {
+                    SuggestionChip(suggestion: suggestion) { isFocused = false }
+                }
             }
+            // A chip stands taller than the 9pt label; a fixed row height keeps
+            // the two side-by-side cells' fields level whether or not each has one.
+            .frame(height: 14)
             TextField("", text: $text)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12.5, weight: .medium).monospacedDigit())
@@ -517,6 +534,34 @@ struct PositionInputCell: View {
             try? await Task.sleep(for: .milliseconds(360))
             isFocused = true
         }
+    }
+}
+
+/// The one-click fill beside a `PositionInputCell` label. Plain caption text
+/// gave no sign it could be clicked; a tinted capsule reads as a button and
+/// brightens under the pointer.
+private struct SuggestionChip: View {
+    let suggestion: PositionInputCell.Suggestion
+    let afterFill: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button {
+            suggestion.fill()
+            afterFill()
+        } label: {
+            Text(suggestion.label)
+                .font(.system(size: 9, weight: .medium).monospacedDigit())
+                .foregroundStyle(hovering ? .primary : .secondary)
+                .lineLimit(1)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1.5)
+                .background(Capsule().fill(Color.primary.opacity(hovering ? 0.14 : 0.08)))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.pressable)
+        .onHover { hovering = $0 }
+        .help(suggestion.help)
     }
 }
 

@@ -339,8 +339,10 @@
 "trade.price" = "체결가";
 "trade.date" = "날짜";
 "trade.dateToday" = "오늘";
-"trade.priceHintCurrent" = "현재가를 미리 채웠습니다";
+"trade.currentPrice" = "현재가 %@";
+"trade.fillCurrentPriceHelp" = "클릭하여 현재가 입력";
 "trade.availableToSell" = "매도 가능: %@";
+"trade.fillAvailableHelp" = "클릭하여 매도 가능 수량 입력";
 "trade.amount" = "거래 금액";
 "trade.realizedPnL" = "실현 손익 (이번 거래)";
 "trade.resultingPosition" = "거래 후 보유";

@@ -208,13 +208,13 @@ final class MCPToolAdapter {
         },
         ToolSpec(
             name: "record_trade",
-            description: "Record a buy or sell for a symbol already on the watchlist. Pass a stable id to make retries idempotent.",
+            description: "Record a buy or sell for a symbol already on the watchlist. The date is the trade day in the user's local calendar. Pass a stable id to make retries idempotent.",
             properties: [
                 "symbol": symbolSchema,
                 "kind": .object(["type": "string", "enum": .array([.string("buy"), .string("sell")])]),
                 "quantity": .object(["type": "number"]),
                 "price": .object(["type": "number"]),
-                "date": dateTimeSchema,
+                "date": tradeDateSchema,
                 "id": uuidSchema,
             ],
             required: ["symbol", "kind", "quantity", "price", "date"]
@@ -244,12 +244,12 @@ final class MCPToolAdapter {
         },
         ToolSpec(
             name: "calibrate_position",
-            description: "Overwrite a position to an exact quantity and average cost as one calibration entry. Without an id this is not idempotent across retries.",
+            description: "Overwrite a position to an exact quantity and average cost as one calibration entry. The date is the calibration day in the user's local calendar. Without an id this is not idempotent across retries.",
             properties: [
                 "symbol": symbolSchema,
                 "quantity": .object(["type": "number"]),
                 "average_cost": .object(["type": "number"]),
-                "date": dateTimeSchema,
+                "date": tradeDateSchema,
                 "id": uuidSchema,
             ],
             required: ["symbol", "quantity", "average_cost", "date"]
@@ -283,7 +283,11 @@ final class MCPToolAdapter {
     ])
 
     private static let uuidSchema: Value = .object(["type": "string", "format": "uuid"])
-    private static let dateTimeSchema: Value = .object(["type": "string", "format": "date-time"])
+    private static let tradeDateSchema: Value = .object([
+        "type": "string",
+        "format": "date",
+        "description": "Trade day as YYYY-MM-DD in the user's local calendar. A full ISO 8601 date-time is also accepted and filed under the local day it falls on.",
+    ])
 
     // MARK: - Results
 
@@ -445,11 +449,11 @@ struct ToolArguments {
     }
 
     func date(_ key: String) throws -> Date {
-        let string = try string(key)
-        let date = (try? Date(string, strategy: Self.plainStyle))
-            ?? (try? Date(string, strategy: Self.fractionalStyle))
-        guard let date else {
-            throw Self.wrongType(key, expected: "ISO 8601 date-time string (e.g. 2026-08-25T14:30:00Z)")
+        guard let date = AgentTradeDate.parse(try string(key)) else {
+            throw Self.wrongType(
+                key,
+                expected: "a trade day as YYYY-MM-DD (e.g. 2026-08-25) or an ISO 8601 date-time (e.g. 2026-08-25T14:30:00Z)"
+            )
         }
         return date
     }
@@ -512,7 +516,4 @@ struct ToolArguments {
     private static func wrongType(_ key: String, expected: String) -> ToolFailure {
         ToolFailure(code: "invalid_arguments", message: "Argument \(key) must be \(expected).")
     }
-
-    private static let fractionalStyle = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
-    private static let plainStyle = Date.ISO8601FormatStyle()
 }

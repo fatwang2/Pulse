@@ -458,13 +458,13 @@ public struct AgentWatchlistCommands {
         String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(20))
     }
 
+    /// Trade dates are calendar days in the user's own zone — that is how the
+    /// app enters and displays them — so they read back in that zone too.
+    /// Formatting in UTC shifted every entry east of Greenwich to the previous
+    /// day: a trade the user dated September 2 came back as September 1.
     private func formattedDay(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+        let day = CalendarDay(date, in: .current)
+        return String(format: "%04d-%02d-%02d", day.year, day.month, day.day)
     }
 }
 

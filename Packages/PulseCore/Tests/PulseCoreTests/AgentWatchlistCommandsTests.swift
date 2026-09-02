@@ -99,6 +99,30 @@ struct AgentWatchlistCommandsTests {
     }
 
     @Test
+    func transactionDatesReadBackAsLocalCalendarDays() throws {
+        let (store, defaults, suiteName) = try makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let groupID = try #require(store.selectedGroupID)
+        let commands = AgentWatchlistCommands(store: store)
+        let ref = AgentSymbolRef(market: "us", code: "NVDA")
+        _ = try commands.addSymbol(ref, name: "NVIDIA", to: groupID).get()
+        // Dated the way the app's entry form does it — local midnight — which
+        // in any zone east of Greenwich is still the previous day in UTC.
+        let calendar = Calendar.current
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 2)))
+        let lateEvening = try #require(calendar.date(byAdding: .minute, value: 23 * 60 + 30, to: day))
+
+        _ = try commands.recordTrade(AgentTradeDraft(
+            symbol: ref, kind: .buy, quantity: 10, price: 120, date: day
+        )).get()
+        let snapshot = try commands.recordTrade(AgentTradeDraft(
+            symbol: ref, kind: .buy, quantity: 1, price: 121, date: lateEvening
+        )).get()
+
+        #expect(snapshot.value.transactions.map(\.date) == ["2026-09-02", "2026-09-02"])
+    }
+
+    @Test
     func lastGroupDeleteFails() throws {
         let (store, defaults, suiteName) = try makeStore()
         defer { defaults.removePersistentDomain(forName: suiteName) }

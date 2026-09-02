@@ -20,7 +20,12 @@ public struct PositionTransaction: Codable, Sendable, Hashable, Identifiable {
     public var price: Double
     /// Traded quantity; for `.adjustment` the target total quantity.
     public var quantity: Double
-    /// User-facing trade date (day granularity).
+    /// User-facing trade date. Read as a calendar day in the user's own time
+    /// zone everywhere (replay order, day P&L, chart markers, agent readback):
+    /// the entry form records local midnight, a quick-set calibration keeps
+    /// the time it was made, and an agent may send any instant — none of
+    /// which may change which day the trade lands on or how it orders
+    /// against other trades that day.
     public var date: Date
     /// Insertion timestamp; breaks replay-order ties between same-day entries.
     public var createdAt: Date
@@ -160,8 +165,15 @@ public struct PositionLedger: Sendable, Hashable {
 
     public var hasOpenPosition: Bool { quantity != 0 }
 
-    /// Chronological replay order: trade date first, insertion order breaking
+    /// Chronological replay order: trade day first, insertion order breaking
     /// same-day ties so re-sorting never shuffles what the user entered.
+    ///
+    /// The trade date is compared as a calendar day in the user's zone, never
+    /// as an instant. Same-day entries carry different times of day — the
+    /// entry form dates trades at local midnight while a quick-set calibration
+    /// keeps the time it was made — and comparing instants replayed a buy
+    /// dated "today" ahead of a calibration made that morning, letting the
+    /// calibration wipe it out.
     ///
     /// Two trades recorded back to back share both timestamps about three times
     /// in four — `Date.now` is not fine-grained enough to separate consecutive
@@ -169,17 +181,23 @@ public struct PositionLedger: Sendable, Hashable {
     /// looks. It has to be the position in the stored array, which is the order
     /// the user entered them in; ordering by `id` there sorted random UUIDs and
     /// shuffled the ledger roughly half the time it was consulted.
-    public static func replayOrdered(_ transactions: [PositionTransaction]) -> [PositionTransaction] {
+    public static func replayOrdered(
+        _ transactions: [PositionTransaction],
+        timeZone: TimeZone = .current
+    ) -> [PositionTransaction] {
         transactions.enumerated()
+            .map { offset, transaction in
+                (day: CalendarDay(transaction.date, in: timeZone), transaction: transaction, offset: offset)
+            }
             .sorted { lhs, rhs in
-                if lhs.element.date != rhs.element.date {
-                    return lhs.element.date < rhs.element.date
+                if lhs.day != rhs.day {
+                    return lhs.day < rhs.day
                 }
-                if lhs.element.createdAt != rhs.element.createdAt {
-                    return lhs.element.createdAt < rhs.element.createdAt
+                if lhs.transaction.createdAt != rhs.transaction.createdAt {
+                    return lhs.transaction.createdAt < rhs.transaction.createdAt
                 }
                 return lhs.offset < rhs.offset
             }
-            .map(\.element)
+            .map(\.transaction)
     }
 }

@@ -270,6 +270,26 @@ struct PositionLedgerTests {
         #expect(PositionLedger.replayOrdered([newer, older]).map(\.id) == [older.id, newer.id])
     }
 
+    /// The entry form dates trades at local midnight while a quick-set
+    /// calibration keeps the time it was made, so two same-day entries rarely
+    /// share an instant. Ordering by instant replayed the midnight-dated buy
+    /// ahead of a calibration made that morning, and the calibration wiped it.
+    @Test("Same-day entries order by insertion time, whatever time of day they carry")
+    func sameDayEntriesIgnoreTimeOfDay() throws {
+        let calendar = Calendar.current
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 2)))
+        let morning = try #require(calendar.date(byAdding: .hour, value: 9, to: day))
+        let noon = try #require(calendar.date(byAdding: .hour, value: 12, to: day))
+        let calibration = PositionTransaction(
+            kind: .adjustment, price: 150, quantity: 100, date: morning, createdAt: morning)
+        let buy = PositionTransaction(
+            kind: .buy, price: 200, quantity: 10, date: day, createdAt: noon)
+
+        let ledger = PositionLedger(transactions: [buy, calibration])
+        #expect(ledger.entries.map(\.id) == [calibration.id, buy.id])
+        #expect(ledger.quantity == 110)
+    }
+
 }
 
 @Suite("Watchlist store transactions")
@@ -306,6 +326,25 @@ struct WatchlistStoreTransactionTests {
         #expect(item.lots.count == 1)
         #expect(item.lots.first?.quantity == 20)
         #expect(item.lots.first?.price == 150)
+    }
+
+    @MainActor
+    @Test("A trade dated today lands on top of a quick-set made earlier that day")
+    func sameDayTradeFollowsEarlierCalibration() throws {
+        let (store, defaults, suiteName) = try makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        store.add(apple)
+        // Quick-set carries the current time; the entry form then dates the
+        // buy at local midnight, exactly as the Mac popover does.
+        store.calibratePosition(apple.symbol, quantity: 100, averageCost: 150)
+        store.addTransaction(apple.symbol, PositionTransaction(
+            kind: .buy, price: 200, quantity: 10, date: Calendar.current.startOfDay(for: .now)
+        ))
+
+        let item = try #require(store.item(for: apple.symbol))
+        #expect(item.transactions.map(\.kind) == [.adjustment, .buy])
+        #expect(item.positionQuantity == 110)
     }
 
     @MainActor

@@ -88,6 +88,7 @@ public struct AgentTransaction: Hashable, Codable, Sendable {
     public var kind: String
     public var price: Double
     public var quantity: Double
+    /// Trade day as `YYYY-MM-DD` in the user's local calendar.
     public var date: String
 
     public init(id: UUID, kind: String, price: Double, quantity: Double, date: String) {

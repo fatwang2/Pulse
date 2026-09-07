@@ -12,6 +12,33 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.15.3",
+    date: "2026-09-07",
+    kind: "improvement",
+    highlights: {
+      zh: [
+        "反馈自带上下文。面板的「更多」菜单新增「反馈」：发送邮件会新建一封到 hello@pulseticker.app 的邮件并附上诊断报告，「复制诊断报告」则把报告放进剪贴板，方便贴进邮件或 GitHub issue。「设置 → 支持」会直接显示邮箱地址，没有邮件客户端也能看清、能复制。",
+        "报告里没有任何隐私内容。诊断报告包含 Pulse 与 macOS 版本、你的设置、数据源状态以及本次运行最近 30 分钟的日志；永远不会包含你的自选、持仓、搜索记录或凭证。",
+        "排序诊断在正式版也可用。用于排查自选拖拽排序问题的记录此前只在 Debug 版本存在，现在正式版同样开启，并会记录所在界面（菜单栏或固定小窗）以及焦点与激活状态的变化，一并进入诊断报告——你在自己 Mac 上导出的报告，就是我们排查需要看到的样子。",
+      ],
+      en: [
+        "Feedback that carries its context. The popover's \"more\" menu gains a Feedback entry: Send Email drafts a message to hello@pulseticker.app with a diagnostics report attached, and Copy Diagnostics Report puts the same report on the clipboard for pasting into an email or a GitHub issue. Settings → Support shows the address itself — readable and copyable even on a Mac with no mail client set up.",
+        "A report with nothing private in it. The diagnostics report lists the Pulse and macOS versions, your settings, data-source status, and the last 30 minutes of log lines from the current session. It never includes your symbols, watchlists, positions, searches, or credentials.",
+        "Reorder diagnostics in every build. The drag trail that helps diagnose watchlist reorder problems previously existed only in Debug builds. It now ships in Release too, records which surface you were on (menu bar or pinned window) along with focus and activation changes, and feeds the diagnostics report — so a report captured on your Mac carries what we need to see.",
+      ],
+      ja: [
+        "文脈を伴うフィードバック。パネルの「その他」メニューに「フィードバック」が加わりました。「メールを送る」は hello@pulseticker.app 宛のメールを診断レポート添付で下書きし、「診断レポートをコピー」は同じレポートをクリップボードに入れて、メールや GitHub issue に貼り付けられます。「設定 → サポート」にはメールアドレスそのものが表示され、メールクライアントがない Mac でも読めてコピーできます。",
+        "レポートに個人情報は含まれません。診断レポートは Pulse と macOS のバージョン、設定、データソースの状態、このセッションの直近 30 分のログ行を載せます。銘柄、ウォッチリスト、ポジション、検索、認証情報は決して含まれません。",
+        "並べ替え診断がすべてのビルドで有効に。ウォッチリストのドラッグ並べ替え問題の切り分けに使う記録は、それまで Debug ビルドにしか存在しませんでした。Release にも同梱されるようになり、操作していた面（メニューバーかピン留めウィンドウか）とフォーカス・アクティベーションの変化も記録されて診断レポートに入ります。お使いの Mac で書き出したレポートが、こちらで必要とする内容そのものになります。",
+      ],
+      ko: [
+        "맥락을 담은 피드백. 패널의 “더 보기” 메뉴에 “피드백”이 추가되었습니다. “이메일 보내기”는 hello@pulseticker.app로 진단 리포트를 첨부한 메일 초안을 만들고, “진단 리포트 복사”는 같은 리포트를 클립보드에 넣어 이메일이나 GitHub 이슈에 붙여넣을 수 있게 합니다. “설정 → 지원”에는 주소 자체가 표시되어 메일 클라이언트가 없어도 읽고 복사할 수 있습니다.",
+        "리포트에는 사적인 내용이 없습니다. 진단 리포트는 Pulse와 macOS 버전, 설정, 데이터 소스 상태, 이번 세션의 최근 30분 로그 행을 담습니다. 종목, 관심목록, 포지션, 검색, 자격 증명은 절대 포함되지 않습니다.",
+        "정렬 진단이 모든 빌드에서 동작합니다. 관심목록 드래그 정렬 문제를 진단하는 기록은 그동안 Debug 빌드에만 존재했습니다. 이제 Release에도 포함되어, 조작하던 화면(메뉴 막대 또는 고정 창)과 포커스·활성화 변화까지 기록해 진단 리포트에 들어갑니다. 사용 중인 Mac에서 내보낸 리포트가 우리가 봐야 할 내용 그대로입니다.",
+      ],
+    },
+  },
+  {
     version: "0.15.2",
     date: "2026-09-02",
     kind: "improvement",

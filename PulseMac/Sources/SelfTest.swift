@@ -1,6 +1,7 @@
 import AppKit
 import Dispatch
 import Foundation
+import OSLog
 import SwiftUI
 import PulseCore
 import PulseUI
@@ -54,9 +55,11 @@ enum SelfTest {
                 orderMode: "manual",
                 sortOption: "changePercent",
                 prioritizesOpenMarkets: true,
-                reduceMotion: false
+                reduceMotion: false,
+                host: "menuBar",
+                window: nil
             )
-            diagnostics.pointerDown(horizontalZone: "trailing", clickCount: 1, modifierFlags: 0)
+            diagnostics.pointerDown(horizontalZone: "trailing", clickCount: 1, modifierFlags: 0, window: nil)
             diagnostics.pointerDragStarted(initialDistance: 4)
             diagnostics.pointerEnded(
                 dragged: true,
@@ -78,6 +81,8 @@ enum SelfTest {
                 let passed = text.contains("watchlist.reorder")
                     && text.contains("pointer.dragStarted")
                     && text.contains("reorder.onMove")
+                    && text.contains("\"host\" : \"menuBar\"")
+                    && text.contains("\"appActive\"")
                     && !text.contains("AAPL")
                 print(passed
                     ? "PULSE_REORDER_DIAGNOSTICS_SELFTEST ok"
@@ -486,6 +491,12 @@ enum SelfTest {
         if CommandLine.arguments.contains("--watchlist-sort-selftest") {
             exit(runWatchlistSortTest() ? 0 : 1)
         }
+        if CommandLine.arguments.contains("--diagnostics-selftest") {
+            Task { @MainActor in
+                exit(runDiagnosticsTest() ? 0 : 1)
+            }
+            return
+        }
 
         guard CommandLine.arguments.contains("--selftest") else { return }
         Task.detached {
@@ -634,6 +645,61 @@ enum SelfTest {
         }
         fflush(stdout)
         return passed
+    }
+
+    /// `Pulse --diagnostics-selftest`: renders the support report inside the real
+    /// sandbox and checks that the log excerpt actually reaches this process's
+    /// entries, since that is the part that cannot be unit-tested from the package.
+    @MainActor
+    private static func runDiagnosticsTest() -> Bool {
+        let marker = "diagnostics-selftest-\(UUID().uuidString)"
+        Logger(subsystem: Bundle.main.bundleIdentifier ?? "app.pulse.mac", category: "SelfTest")
+            .info("Marker \(marker, privacy: .public)")
+
+        let snapshot = SupportDiagnostics.Snapshot(
+            host: .menuBar,
+            languagePreference: "system",
+            launchAtLogin: false,
+            anonymousAnalytics: true,
+            providers: [("yahoo", true), ("longbridge", false)],
+            longbridgeAuth: "not configured",
+            longbridgeConnection: nil,
+            longbridgeDelayedMarkets: [],
+            fuyaoConfigured: false,
+            groupCount: 2,
+            symbolCount: 5,
+            symbolsPerMarket: ["us": 3, "hk": 2],
+            mcpStatus: "stopped"
+        )
+        let report = SupportDiagnostics.report(snapshot)
+        print(report)
+
+        var failures: [String] = []
+        for expected in ["## App", "Version: ", "## Data sources", "yahoo: enabled", "Per market: hk=2, us=3", "## Recent log", marker] {
+            if !report.contains(expected) {
+                failures.append("report is missing \"\(expected)\"")
+            }
+        }
+
+        do {
+            let attachment = try SupportLinks.writeReportFile(report)
+            defer { try? FileManager.default.removeItem(at: attachment) }
+            if try String(contentsOf: attachment, encoding: .utf8) != report {
+                failures.append("attachment does not round-trip the report: \(attachment.path)")
+            }
+        } catch {
+            failures.append("attachment could not be written: \(error)")
+        }
+        if NSSharingService(named: .composeEmail) == nil {
+            failures.append("compose-email sharing service is unavailable")
+        }
+
+        for failure in failures {
+            print("DIAGNOSTICS_SELFTEST failed: \(failure)")
+        }
+        print(failures.isEmpty ? "DIAGNOSTICS_SELFTEST ok" : "DIAGNOSTICS_SELFTEST failed")
+        fflush(stdout)
+        return failures.isEmpty
     }
 
     @MainActor

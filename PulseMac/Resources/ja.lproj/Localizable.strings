@@ -21,7 +21,6 @@
 "action.saveHelp" = "保存（Return）";
 "action.share" = "共有";
 
-"diagnostics.copy" = "診断ログをコピー";
 
 "assetType.fund" = "ファンド";
 "assetType.index" = "指数";
@@ -437,3 +436,18 @@
 "settings.mcp.rowStatus.on" = "オン";
 "settings.mcp.rowStatus.off" = "オフ";
 "settings.mcp.rowStatus.attention" = "要確認";
+
+/* Feedback and support */
+"diagnostics.copyReorderLog" = "並べ替えログをコピー";
+"feedback.menu" = "フィードバック";
+"feedback.emailLabel" = "メール";
+"feedback.email" = "%@ にメール…";
+"feedback.sendEmail" = "メールを送る…";
+"feedback.copyEmail" = "メールアドレスをコピー";
+"feedback.copyDiagnostics" = "診断レポートをコピー";
+"feedback.copySuccess" = "診断レポートをコピーしました";
+"feedback.copyFailed" = "診断レポートをコピーできません";
+"feedback.emailUnavailableCopied" = "メール不可 · レポートをコピー";
+"feedback.emailUnavailable" = "メールを開けません";
+"settings.section.support" = "サポート";
+"settings.support.help" = "「メールを送る」は診断レポートを添付したメールの下書きを作成します。レポートには Pulse と macOS のバージョン、データソースの状態、このセッションの最近のログが含まれ、銘柄、ポジション、認証情報は含まれません。メールクライアントがない場合はアドレスとレポートをコピーしてください。";

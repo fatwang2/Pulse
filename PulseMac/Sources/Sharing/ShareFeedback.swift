@@ -5,6 +5,8 @@ struct ShareFeedback: Equatable {
     enum Content: Equatable {
         case image
         case text
+        case diagnostics
+        case emailFallback
     }
 
     let id = UUID()
@@ -17,6 +19,10 @@ struct ShareFeedback: Equatable {
         case (.image, false): "share.image.copyFailed"
         case (.text, true): "share.text.copySuccess"
         case (.text, false): "share.text.copyFailed"
+        case (.diagnostics, true): "feedback.copySuccess"
+        case (.diagnostics, false): "feedback.copyFailed"
+        case (.emailFallback, true): "feedback.emailUnavailableCopied"
+        case (.emailFallback, false): "feedback.emailUnavailable"
         }
     }
 }

@@ -21,7 +21,6 @@
 "action.saveHelp" = "保存（回车）";
 "action.share" = "分享";
 
-"diagnostics.copy" = "复制诊断日志";
 
 "assetType.fund" = "基金";
 "assetType.index" = "指数";
@@ -437,3 +436,18 @@
 "settings.mcp.rowStatus.on" = "开";
 "settings.mcp.rowStatus.off" = "关";
 "settings.mcp.rowStatus.attention" = "需处理";
+
+/* Feedback and support */
+"diagnostics.copyReorderLog" = "复制排序日志";
+"feedback.menu" = "反馈";
+"feedback.emailLabel" = "邮箱";
+"feedback.email" = "发邮件至 %@…";
+"feedback.sendEmail" = "发送邮件…";
+"feedback.copyEmail" = "复制邮箱地址";
+"feedback.copyDiagnostics" = "复制诊断报告";
+"feedback.copySuccess" = "已复制诊断报告";
+"feedback.copyFailed" = "无法复制诊断报告";
+"feedback.emailUnavailableCopied" = "无邮件客户端 · 已复制报告";
+"feedback.emailUnavailable" = "无法打开邮件";
+"settings.section.support" = "支持";
+"settings.support.help" = "“发送邮件”会新建一封给我们的邮件并附上诊断报告。报告包含 Pulse 与 macOS 版本、数据源状态以及本次运行的近期日志，不包含你的自选股、持仓或凭证。没有邮件客户端时，可分别复制地址和报告。";

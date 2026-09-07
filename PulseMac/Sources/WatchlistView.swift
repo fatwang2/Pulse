@@ -90,20 +90,18 @@ struct WatchlistView: View {
                 watchlistReorderLogger.info(
                     "Reorder mode entered; itemCount=\(appState.watchlist.items.count, privacy: .public)"
                 )
-                #if DEBUG
                 ReorderDiagnostics.shared.reorderModeEntered(
                     itemCount: appState.watchlist.items.count,
                     orderMode: listOrderMode,
                     sortOption: listSortOption,
                     prioritizesOpenMarkets: appState.settings.prioritizeOpenMarkets,
-                    reduceMotion: reduceMotion
+                    reduceMotion: reduceMotion,
+                    host: host == .pinnedWindow ? "pinnedWindow" : "menuBar",
+                    window: hostWindow
                 )
-                #endif
             } else {
                 watchlistReorderLogger.info("Reorder mode exited")
-                #if DEBUG
                 ReorderDiagnostics.shared.reorderModeExited()
-                #endif
             }
         }
         .onAppear { maybeStartTour() }
@@ -227,6 +225,11 @@ struct WatchlistView: View {
         } label: {
             Text(PulseLocalization.localizedString("action.openGitHub"))
         }
+        Menu {
+            feedbackMenuContent
+        } label: {
+            Text(PulseLocalization.localizedString("feedback.menu"))
+        }
         Divider()
         updateMenuItem
         Button {
@@ -239,6 +242,23 @@ struct WatchlistView: View {
             NSApplication.shared.terminate(nil)
         } label: {
             Text(PulseLocalization.localizedString("action.quitPulse"))
+        }
+    }
+
+    /// Mail, with the address spelled out in the item itself so someone without a
+    /// mail client still learns where to write, and the diagnostics report that
+    /// goes with the mail.
+    @ViewBuilder private var feedbackMenuContent: some View {
+        Button {
+            emailFeedback()
+        } label: {
+            Text(PulseLocalization.localizedString("feedback.email", SupportLinks.supportEmail))
+        }
+        Button {
+            let copied = SupportDiagnostics.copyReport(appState: appState, host: host)
+            showShareFeedback(content: .diagnostics, isSuccess: copied)
+        } label: {
+            Text(PulseLocalization.localizedString("feedback.copyDiagnostics"))
         }
     }
 
@@ -789,6 +809,15 @@ struct WatchlistView: View {
     }
 
     @MainActor
+    private func emailFeedback() {
+        switch SupportDiagnostics.emailReport(appState: appState, host: host) {
+        case .drafted: break
+        case .copiedInstead: showShareFeedback(content: .emailFallback, isSuccess: true)
+        case .failed: showShareFeedback(content: .emailFallback, isSuccess: false)
+        }
+    }
+
+    @MainActor
     private func showShareFeedback(content: ShareFeedback.Content, isSuccess: Bool) {
         let feedback = ShareFeedback(content: content, isSuccess: isSuccess)
         withAnimation(.snappy(duration: 0.2)) {
@@ -1235,14 +1264,12 @@ struct WatchlistView: View {
                 watchlistReorderLogger.info(
                     "List move commit completed; success=\(committed, privacy: .public)"
                 )
-                #if DEBUG
                 ReorderDiagnostics.shared.moveReceived(
                     sourceCount: source.count,
                     destination: destination,
                     itemCount: currentSymbols.count,
                     committed: committed
                 )
-                #endif
                 if committed {
                     listOrderMode = WatchlistOrderMode.manual.rawValue
                 }
@@ -1255,11 +1282,7 @@ struct WatchlistView: View {
         .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollContentBackground(.hidden)
         .background {
-            #if DEBUG
             ReorderPointerMonitor(enabled: isReordering)
-            #else
-            EmptyView()
-            #endif
         }
         // A persistent AppKit scroller becomes a heavy dark rail in this compact
         // glass popover. The system soft edge effect communicates overflow while

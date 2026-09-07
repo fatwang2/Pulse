@@ -1,4 +1,3 @@
-#if DEBUG
 import AppKit
 import Darwin
 import Foundation
@@ -6,7 +5,10 @@ import OSLog
 import SwiftUI
 
 /// A small, process-local diagnostic trail for the native watchlist reorder path.
-/// Nothing leaves the Mac automatically; the user explicitly copies the report for support.
+/// Every checkpoint also goes to the unified log with its fields public, which is
+/// how it reaches the support diagnostics report. Nothing leaves the Mac on its
+/// own: the user pastes the report themselves. Fields are bounded interaction
+/// metadata only; no symbols, positions, or other user content.
 @MainActor
 final class ReorderDiagnostics {
     static let shared = ReorderDiagnostics()
@@ -55,25 +57,37 @@ final class ReorderDiagnostics {
         append("diagnostics.started")
     }
 
+    /// `host` names the surface (menu bar panel or pinned window). The activation
+    /// and key-window flags are the first thing to check when a drag never starts:
+    /// an accessory app's menu bar panel opens without activating the app, while the
+    /// pinned window activates it explicitly.
     func reorderModeEntered(
         itemCount: Int,
         orderMode: String,
         sortOption: String,
         prioritizesOpenMarkets: Bool,
-        reduceMotion: Bool
+        reduceMotion: Bool,
+        host: String,
+        window: NSWindow?
     ) {
         sessionNumber += 1
         moveCount = 0
-        append(
-            "reorder.modeEntered",
-            fields: [
-                "itemCount": String(itemCount),
-                "orderMode": orderMode,
-                "sortOption": sortOption,
-                "prioritizesOpenMarkets": String(prioritizesOpenMarkets),
-                "reduceMotion": String(reduceMotion),
-            ]
-        )
+        var fields = [
+            "itemCount": String(itemCount),
+            "orderMode": orderMode,
+            "sortOption": sortOption,
+            "prioritizesOpenMarkets": String(prioritizesOpenMarkets),
+            "reduceMotion": String(reduceMotion),
+            "host": host,
+        ]
+        fields.merge(Self.windowFields(window)) { _, new in new }
+        append("reorder.modeEntered", fields: fields)
+    }
+
+    /// Focus and activation changes while the mode is active: a panel that resigns
+    /// key the moment the pointer moves explains a drag that never begins.
+    func hostEvent(_ name: String, window: NSWindow?) {
+        append("host.\(name)", fields: Self.windowFields(window))
     }
 
     func reorderModeExited() {
@@ -101,15 +115,14 @@ final class ReorderDiagnostics {
         )
     }
 
-    func pointerDown(horizontalZone: String, clickCount: Int, modifierFlags: UInt) {
-        append(
-            "pointer.down",
-            fields: [
-                "horizontalZone": horizontalZone,
-                "clickCount": String(clickCount),
-                "modifierFlags": String(modifierFlags),
-            ]
-        )
+    func pointerDown(horizontalZone: String, clickCount: Int, modifierFlags: UInt, window: NSWindow?) {
+        var fields = [
+            "horizontalZone": horizontalZone,
+            "clickCount": String(clickCount),
+            "modifierFlags": String(modifierFlags),
+        ]
+        fields.merge(Self.windowFields(window)) { _, new in new }
+        append("pointer.down", fields: fields)
     }
 
     func pointerDragStarted(initialDistance: Int) {
@@ -215,7 +228,26 @@ final class ReorderDiagnostics {
         if events.count > Self.maximumEventCount {
             events.removeFirst(events.count - Self.maximumEventCount)
         }
-        logger.debug("Diagnostic checkpoint: \(name, privacy: .public)")
+        let rendered = scopedFields.keys.sorted().map { "\($0)=\(scopedFields[$0]!)" }.joined(separator: " ")
+        logger.info("Reorder checkpoint \(name, privacy: .public) \(rendered, privacy: .public)")
+    }
+
+    /// What the host looked like at that instant. `window` is nil when the view is
+    /// not in a window yet, which is itself worth knowing.
+    private static func windowFields(_ window: NSWindow?) -> [String: String] {
+        // `NSApp` is nil until the application object exists (launch-time self-tests).
+        let app: NSApplication? = NSApp
+        var fields = ["appActive": app.map { String($0.isActive) } ?? "noApp"]
+        guard let window else {
+            fields["window"] = "none"
+            return fields
+        }
+        fields["window"] = String(describing: type(of: window))
+        fields["windowKey"] = String(window.isKeyWindow)
+        fields["windowVisible"] = String(window.isVisible)
+        fields["windowLevel"] = String(window.level.rawValue)
+        fields["canBecomeKey"] = String(window.canBecomeKey)
+        return fields
     }
 
     private static var architecture: String {
@@ -242,6 +274,14 @@ final class ReorderDiagnostics {
 /// Observes the native pointer sequence without consuming it. This is intentionally
 /// outside the rows: observing a row with a SwiftUI gesture would compete with List's
 /// AppKit drag recognizer and could change the behavior we are trying to diagnose.
+///
+/// Reading the trail: once NSTableView starts its AppKit drag session, that session
+/// runs its own event loop and this monitor stops seeing the sequence. A successful
+/// drag therefore looks like `pointer.down`, at most a few drag events, then
+/// `reorder.onMove`; the eventual `pointer.ended` may report `dragged=false` and a
+/// tiny distance. That is normal. The failure signature is the opposite: a long,
+/// wide pointer sequence (`dragEventCount` high, `maximumDistancePoints` large)
+/// with no `reorder.onMove` at all, meaning the table never began a drag session.
 struct ReorderPointerMonitor: NSViewRepresentable {
     let enabled: Bool
 
@@ -263,6 +303,7 @@ struct ReorderPointerMonitor: NSViewRepresentable {
 @MainActor
 final class ReorderPointerMonitorView: NSView {
     private var monitor: Any?
+    private var hostObservers: [NSObjectProtocol] = []
     private var isEnabled = false
     private var pointerStart: (location: CGPoint, timestamp: TimeInterval)?
     private var dragEventCount = 0
@@ -299,15 +340,46 @@ final class ReorderPointerMonitorView: NSView {
             NSEvent.removeMonitor(monitor)
             self.monitor = nil
         }
+        for observer in hostObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        hostObservers = []
     }
 
     private func synchronizeMonitor() {
-        guard isEnabled, monitor == nil, window != nil else { return }
+        guard isEnabled, monitor == nil, let hostWindow = window else { return }
         monitor = NSEvent.addLocalMonitorForEvents(
             matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
         ) { [weak self] event in
             self?.observe(event)
             return event
+        }
+
+        // Focus and activation transitions during the mode. The window ones are
+        // scoped to this host; the app ones are global by nature.
+        let center = NotificationCenter.default
+        let windowEvents: [(Notification.Name, String)] = [
+            (NSWindow.didBecomeKeyNotification, "windowBecameKey"),
+            (NSWindow.didResignKeyNotification, "windowResignedKey"),
+            (NSWindow.willCloseNotification, "windowWillClose"),
+        ]
+        for (name, label) in windowEvents {
+            hostObservers.append(center.addObserver(forName: name, object: hostWindow, queue: .main) { [weak hostWindow] _ in
+                MainActor.assumeIsolated {
+                    ReorderDiagnostics.shared.hostEvent(label, window: hostWindow)
+                }
+            })
+        }
+        let appEvents: [(Notification.Name, String)] = [
+            (NSApplication.didBecomeActiveNotification, "appBecameActive"),
+            (NSApplication.didResignActiveNotification, "appResignedActive"),
+        ]
+        for (name, label) in appEvents {
+            hostObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak hostWindow] _ in
+                MainActor.assumeIsolated {
+                    ReorderDiagnostics.shared.hostEvent(label, window: hostWindow)
+                }
+            })
         }
     }
 
@@ -325,7 +397,8 @@ final class ReorderPointerMonitorView: NSView {
             ReorderDiagnostics.shared.pointerDown(
                 horizontalZone: horizontalZone(for: location.x),
                 clickCount: event.clickCount,
-                modifierFlags: event.modifierFlags.rawValue
+                modifierFlags: event.modifierFlags.rawValue,
+                window: hostWindow
             )
 
         case .leftMouseDragged:
@@ -374,4 +447,3 @@ final class ReorderPointerMonitorView: NSView {
         didStartDragging = false
     }
 }
-#endif

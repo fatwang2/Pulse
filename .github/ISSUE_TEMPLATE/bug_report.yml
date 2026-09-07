@@ -1,0 +1,52 @@
+name: Bug report
+description: Something in Pulse is broken or behaves unexpectedly.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. In the app, **More (…) → Feedback → Copy Diagnostics Report** copies a report with the versions, data-source status, and recent log lines. Pasting it below saves a round trip. It never includes your symbols, positions, or credentials.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what Pulse did instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the popover
+        2. …
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Pulse version, macOS version, and Mac model. The first lines of the diagnostics report have these.
+      placeholder: "Pulse 0.15.2 (152) · macOS 26.0 · arm64 · Mac16,1"
+    validations:
+      required: true
+  - type: dropdown
+    id: data-source
+    attributes:
+      label: Data source involved
+      multiple: true
+      options:
+        - Built-in sources (Yahoo, Sina, Tencent, Naver, Binance)
+        - Longbridge
+        - Fuyao (同花顺)
+        - Not sure / not related to quotes
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics report
+      description: Paste the report from More → Feedback → Copy Diagnostics Report. Remove anything you would rather not share.
+      render: text
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots or recording
+      description: Drag images or a short screen recording here if they help.

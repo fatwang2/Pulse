@@ -40,6 +40,12 @@ Tools cover listing groups and positions, searching symbols, creating/renaming/d
 
 Download the latest `Pulse-*.dmg` from [GitHub Releases](https://github.com/fatwang2/Pulse/releases), open it, and drag `Pulse.app` to Applications before launching. The `Pulse-*.zip` asset is used by Sparkle for automatic updates.
 
+## Support & Feedback
+
+- **Bug reports and feature requests**: [GitHub Issues](https://github.com/fatwang2/Pulse/issues/new/choose). The templates ask for the details we need to reproduce a problem.
+- **Email**: [hello@pulseticker.app](mailto:hello@pulseticker.app) for questions or anything you would rather keep private. Security reports go to [sys@pulseticker.app](mailto:sys@pulseticker.app), not a public issue.
+- **From the app**: **More (…) → Feedback** drafts an email with your Pulse and macOS versions filled in, and **Copy Diagnostics Report** copies the versions, data-source status, and recent log lines from the current session for pasting into the email or an issue. The report never includes your symbols, positions, or credentials. **Settings → Support** shows the address itself, so it can be copied when no mail client is set up.
+
 ## Privacy & Analytics
 
 Pulse uses [TelemetryDeck](https://telemetrydeck.com) to understand basic product usage. Anonymous

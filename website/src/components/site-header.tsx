@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   changelogPath,
+  contactPath,
   homePath,
   languages,
   type Language,
@@ -13,13 +14,14 @@ const repositoryUrl = "https://github.com/fatwang2/Pulse";
 
 const headerCopy: Record<
   Language,
-  { homeLabel: string; navigationLabel: string; home: string; changelog: string; githubLabel: string; languageLabel: string }
+  { homeLabel: string; navigationLabel: string; home: string; changelog: string; contact: string; githubLabel: string; languageLabel: string }
 > = {
   zh: {
     homeLabel: "Pulse 首页",
     navigationLabel: "Pulse 首页",
     home: "首页",
     changelog: "更新日志",
+    contact: "联系我们",
     githubLabel: "在 GitHub 查看 Pulse 源码",
     languageLabel: "切换网站语言",
   },
@@ -28,6 +30,7 @@ const headerCopy: Record<
     navigationLabel: "Pulse home",
     home: "Home",
     changelog: "Changelog",
+    contact: "Contact",
     githubLabel: "View Pulse source on GitHub",
     languageLabel: "Change website language",
   },
@@ -36,6 +39,7 @@ const headerCopy: Record<
     navigationLabel: "Pulse ホーム",
     home: "ホーム",
     changelog: "更新履歴",
+    contact: "お問い合わせ",
     githubLabel: "GitHub で Pulse のソースを見る",
     languageLabel: "サイトの言語を切り替え",
   },
@@ -44,6 +48,7 @@ const headerCopy: Record<
     navigationLabel: "Pulse 홈",
     home: "홈",
     changelog: "업데이트 내역",
+    contact: "문의",
     githubLabel: "GitHub에서 Pulse 소스 보기",
     languageLabel: "사이트 언어 변경",
   },
@@ -88,6 +93,13 @@ export function SiteHeader({
             aria-current={page === "changelog" ? "page" : undefined}
           >
             {copy.changelog}
+          </Link>
+          <Link
+            to={contactPath(language)}
+            activeOptions={{ exact: true }}
+            aria-current={page === "contact" ? "page" : undefined}
+          >
+            {copy.contact}
           </Link>
         </nav>
         <a

@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Email the maintainers
+    url: mailto:hello@pulseticker.app
+    about: Questions, private feedback, or anything you would rather not post publicly.
+  - name: Security issue
+    url: mailto:sys@pulseticker.app
+    about: Please report vulnerabilities by email instead of a public issue.
+  - name: Website contact page
+    url: https://www.pulseticker.app/contact
+    about: All the ways to reach us, in English, 中文, 日本語, and 한국어.

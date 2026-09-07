@@ -21,7 +21,6 @@
 "action.saveHelp" = "Save (Return)";
 "action.share" = "Share";
 
-"diagnostics.copy" = "Copy Diagnostic Log";
 
 "assetType.fund" = "Fund";
 "assetType.index" = "Index";
@@ -437,3 +436,18 @@
 "settings.mcp.rowStatus.on" = "On";
 "settings.mcp.rowStatus.off" = "Off";
 "settings.mcp.rowStatus.attention" = "Needs Attention";
+
+/* Feedback and support */
+"diagnostics.copyReorderLog" = "Copy Reorder Log";
+"feedback.menu" = "Feedback";
+"feedback.emailLabel" = "Email";
+"feedback.email" = "Email %@…";
+"feedback.sendEmail" = "Send Email…";
+"feedback.copyEmail" = "Copy Email Address";
+"feedback.copyDiagnostics" = "Copy Diagnostics Report";
+"feedback.copySuccess" = "Diagnostics copied";
+"feedback.copyFailed" = "Couldn’t copy diagnostics";
+"feedback.emailUnavailableCopied" = "Mail unavailable · report copied";
+"feedback.emailUnavailable" = "Mail unavailable";
+"settings.section.support" = "Support";
+"settings.support.help" = "Send Email drafts a message to us with the diagnostics report attached. The report lists the Pulse and macOS versions, data-source status, and recent log lines from this session, and never includes your symbols, positions, or credentials. Without a mail client, copy the address and the report instead.";

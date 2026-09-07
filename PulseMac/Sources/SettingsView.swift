@@ -147,10 +147,48 @@ struct SettingsView: View {
                     Text(PulseLocalization.localizedString("settings.section.updates"))
                 }
 
+                Section {
+                    // The address is a value, not a link: it has to be readable and
+                    // copyable even on a Mac with no mail client configured.
+                    LabeledContent(PulseLocalization.localizedString("feedback.emailLabel")) {
+                        HStack(spacing: 4) {
+                            Text(SupportLinks.supportEmail)
+                                .textSelection(.enabled)
+                                .foregroundStyle(.secondary)
+                            IconButton(
+                                systemName: "doc.on.doc",
+                                help: PulseLocalization.localizedString("feedback.copyEmail")
+                            ) {
+                                showDiagnosticsFeedback(content: .text, isSuccess: SupportLinks.copyEmailAddress())
+                            }
+                        }
+                    }
+                    Button(PulseLocalization.localizedString("feedback.sendEmail")) {
+                        switch SupportDiagnostics.emailReport(appState: appState, host: host) {
+                        case .drafted: break
+                        case .copiedInstead: showDiagnosticsFeedback(content: .emailFallback, isSuccess: true)
+                        case .failed: showDiagnosticsFeedback(content: .emailFallback, isSuccess: false)
+                        }
+                    }
+                    Button(PulseLocalization.localizedString("feedback.copyDiagnostics")) {
+                        showDiagnosticsFeedback(
+                            content: .diagnostics,
+                            isSuccess: SupportDiagnostics.copyReport(appState: appState, host: host)
+                        )
+                    }
+                } header: {
+                    Text(PulseLocalization.localizedString("settings.section.support"))
+                } footer: {
+                    Text(PulseLocalization.localizedString("settings.support.help"))
+                }
+
                 #if DEBUG
                 Section {
-                    Button(PulseLocalization.localizedString("diagnostics.copy")) {
-                        copyDiagnostics()
+                    Button(PulseLocalization.localizedString("diagnostics.copyReorderLog")) {
+                        showDiagnosticsFeedback(
+                            content: .text,
+                            isSuccess: ReorderDiagnostics.shared.copyLog()
+                        )
                     }
                     Button(PulseLocalization.localizedString("onboarding.reset")) {
                         appState.onboarding.reset()
@@ -233,13 +271,9 @@ struct SettingsView: View {
         }
     }
 
-    #if DEBUG
     @MainActor
-    private func copyDiagnostics() {
-        let feedback = ShareFeedback(
-            content: .text,
-            isSuccess: ReorderDiagnostics.shared.copyLog()
-        )
+    private func showDiagnosticsFeedback(content: ShareFeedback.Content, isSuccess: Bool) {
+        let feedback = ShareFeedback(content: content, isSuccess: isSuccess)
         withAnimation(.snappy(duration: 0.2)) {
             diagnosticsFeedback = feedback
         }
@@ -251,5 +285,4 @@ struct SettingsView: View {
             }
         }
     }
-    #endif
 }

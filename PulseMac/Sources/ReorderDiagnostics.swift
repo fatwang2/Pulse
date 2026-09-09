@@ -275,13 +275,16 @@ final class ReorderDiagnostics {
 /// outside the rows: observing a row with a SwiftUI gesture would compete with List's
 /// AppKit drag recognizer and could change the behavior we are trying to diagnose.
 ///
-/// Reading the trail: once NSTableView starts its AppKit drag session, that session
-/// runs its own event loop and this monitor stops seeing the sequence. A successful
-/// drag therefore looks like `pointer.down`, at most a few drag events, then
-/// `reorder.onMove`; the eventual `pointer.ended` may report `dragged=false` and a
-/// tiny distance. That is normal. The failure signature is the opposite: a long,
-/// wide pointer sequence (`dragEventCount` high, `maximumDistancePoints` large)
-/// with no `reorder.onMove` at all, meaning the table never began a drag session.
+/// Reading the trail: reorder mode moves rows with a SwiftUI drag gesture, so a
+/// successful drag is `pointer.down`, a run of drag events, `reorder.onMove`, then
+/// `pointer.ended` with `dragged=true`. A drag that ends without `reorder.onMove`
+/// either never left its own row (`maximumDistancePoints` under one row height) or
+/// was refused by the store (a pinned/unpinned mix, `committed=false`).
+///
+/// History: until 0.15.3 reordering used List's AppKit drag session. Inside the
+/// MenuBarExtra panel on macOS 26 that session started but the panel never accepted
+/// the drop, so `onMove` never fired while the pinned window worked; the same trail
+/// then showed `pointer.ended` arriving ~560ms late, the drag image sliding back.
 struct ReorderPointerMonitor: NSViewRepresentable {
     let enabled: Bool
 

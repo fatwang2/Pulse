@@ -39,6 +39,13 @@ struct WatchlistView: View {
     @State private var searchError: String?
     @State private var refreshHovering = false
     @State private var isReordering = false
+    /// The row being dragged in reorder mode, if any. Reordering runs on a SwiftUI
+    /// drag gesture rather than List's AppKit drag session: the MenuBarExtra panel
+    /// on macOS 26 never accepts the drop (the drag image slides back and `onMove`
+    /// is never called), while the same List works in the pinned window.
+    @State private var reorderDrag: ReorderDrag?
+    /// Measured from the first row; every watch row lays out to the same height.
+    @State private var reorderRowHeight: CGFloat = 46
     @State private var shareFeedback: ShareFeedback?
     @State private var hostWindow: NSWindow?
     @AppStorage("pulse.watchlist.orderMode.v1") private var listOrderMode = WatchlistOrderMode.manual.rawValue
@@ -1166,130 +1173,194 @@ struct WatchlistView: View {
         .onDisappear { emptyStateShown = false }
     }
 
+    /// One scroll container for both modes, a plain stack rather than a List on
+    /// purpose. List bridges to NSTableView, which draws an accent-colored ring around
+    /// a row while its context menu is up, and whose AppKit drag session never lands in
+    /// the MenuBarExtra panel on macOS 26. Nothing here needs either: rows carry their
+    /// own hover treatment, and reordering is a SwiftUI gesture.
     private func watchList(at date: Date) -> some View {
         let items = displayedItems(at: date)
         let titleColumnWidth = watchRowTitleColumnWidth
         let metricColumnWidth = watchRowMetricColumnWidth
-        return List {
-            ForEach(items) { item in
-                WatchRow(
-                    item: item,
-                    titleColumnWidth: titleColumnWidth,
-                    metricColumnWidth: metricColumnWidth,
-                    isPinned: appState.watchlist.isPinned(item.symbol),
-                    isReordering: isReordering
-                ) {
-                    route = .detail(item.symbol)
-                }
-                // The detail stop anchors on the first row: one bubble, not one per row.
-                .popover(
-                    isPresented: item.symbol == items.first?.symbol
-                        ? tourBinding(.detail)
-                        : .constant(false),
-                    arrowEdge: .bottom
-                ) {
-                    tourBubble(.detail)
-                }
-                // Inset 4 + the row's internal 8pt padding puts row content on the same 12pt grid as the chrome
-                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
-                .listRowSeparator(.hidden)
-                .moveDisabled(!isReordering)
-                .contextMenu {
-                    if !isReordering {
-                        Toggle(
-                            PulseLocalization.localizedString("watchlist.sort.pinToTop"),
-                            isOn: pinnedBinding(item.symbol)
-                        )
-                        Divider()
-                        Button(PulseLocalization.localizedString("action.pinToMenuBar")) {
-                            appState.settings.primarySymbol = item.symbol
-                            appState.settings.menuBarMode = .single
-                            appState.settings.showPriceInMenuBar = true
-                        }
-                        if item.supportsPosition {
-                            Button(PulseLocalization.localizedString("action.editPosition")) {
-                                route = .position(item.symbol, .list)
-                            }
-                        }
-                        Menu(PulseLocalization.localizedString("watchlist.group.membership")) {
-                            ForEach(appState.watchlist.groups) { group in
-                                // Toggle renders as a native checkmark menu
-                                // item; a Label's icon does not survive menu
-                                // rendering on macOS.
-                                Toggle(group.name, isOn: membershipBinding(item.symbol, group.id))
-                            }
-                        }
-                        Divider()
-                        Button(PulseLocalization.localizedString("watchlist.sort.adjust")) {
-                            beginAdjustingOrder()
-                        }
-                        if let currentGroup = appState.watchlist.selectedGroup {
+        return ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    let isDragging = reorderDrag?.originIndex == index
+                    WatchRow(
+                        item: item,
+                        titleColumnWidth: titleColumnWidth,
+                        metricColumnWidth: metricColumnWidth,
+                        isPinned: appState.watchlist.isPinned(item.symbol),
+                        isReordering: isReordering
+                    ) {
+                        route = .detail(item.symbol)
+                    }
+                    // The detail stop anchors on the first row: one bubble, not one per row.
+                    .popover(
+                        isPresented: item.symbol == items.first?.symbol
+                            ? tourBinding(.detail)
+                            : .constant(false),
+                        arrowEdge: .bottom
+                    ) {
+                        tourBubble(.detail)
+                    }
+                    .contextMenu {
+                        if !isReordering {
+                            Toggle(
+                                PulseLocalization.localizedString("watchlist.sort.pinToTop"),
+                                isOn: pinnedBinding(item.symbol)
+                            )
                             Divider()
-                            Button(
-                                PulseLocalization.localizedString(
-                                    "watchlist.group.removeCurrent",
-                                    currentGroup.name
-                                ),
-                                role: .destructive
-                            ) {
-                                withAnimation(.snappy(duration: 0.22)) {
-                                    appState.watchlist.setMembership(
-                                        item.symbol,
-                                        in: currentGroup.id,
-                                        included: false
-                                    )
+                            Button(PulseLocalization.localizedString("action.pinToMenuBar")) {
+                                appState.settings.primarySymbol = item.symbol
+                                appState.settings.menuBarMode = .single
+                                appState.settings.showPriceInMenuBar = true
+                            }
+                            if item.supportsPosition {
+                                Button(PulseLocalization.localizedString("action.editPosition")) {
+                                    route = .position(item.symbol, .list)
+                                }
+                            }
+                            Menu(PulseLocalization.localizedString("watchlist.group.membership")) {
+                                ForEach(appState.watchlist.groups) { group in
+                                    // Toggle renders as a native checkmark menu
+                                    // item; a Label's icon does not survive menu
+                                    // rendering on macOS.
+                                    Toggle(group.name, isOn: membershipBinding(item.symbol, group.id))
+                                }
+                            }
+                            Divider()
+                            Button(PulseLocalization.localizedString("watchlist.sort.adjust")) {
+                                beginAdjustingOrder()
+                            }
+                            if let currentGroup = appState.watchlist.selectedGroup {
+                                Divider()
+                                Button(
+                                    PulseLocalization.localizedString(
+                                        "watchlist.group.removeCurrent",
+                                        currentGroup.name
+                                    ),
+                                    role: .destructive
+                                ) {
+                                    withAnimation(.snappy(duration: 0.22)) {
+                                        appState.watchlist.setMembership(
+                                            item.symbol,
+                                            in: currentGroup.id,
+                                            included: false
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+                    .offset(y: reorderOffset(for: index))
+                    .zIndex(isDragging ? 1 : 0)
+                    .shadow(color: .black.opacity(isDragging ? 0.18 : 0), radius: 6, y: 2)
+                    .onGeometryChange(for: CGFloat.self) { proxy in
+                        proxy.size.height
+                    } action: { height in
+                        if index == 0, height > 0 { reorderRowHeight = height }
+                    }
+                    .gesture(
+                        reorderGesture(index: index, item: item, itemCount: items.count),
+                        isEnabled: isReordering
+                    )
                 }
             }
-            .onMove { source, destination in
-                watchlistReorderLogger.info(
-                    "List onMove received; sourceCount=\(source.count, privacy: .public) destination=\(destination, privacy: .public)"
-                )
-                // Reorder always edits the persisted baseline. Session grouping is
-                // bypassed while `isReordering` so indices match `group.symbols`.
-                let currentSymbols = appState.watchlist.items.map(\.symbol)
-                let movingSymbols = source
-                    .filter { currentSymbols.indices.contains($0) }
-                    .sorted()
-                    .map { currentSymbols[$0] }
-                var orderedSymbols = currentSymbols
-                orderedSymbols.move(fromOffsets: source, toOffset: destination)
-                let committed = appState.watchlist.commitManualMove(
-                    orderedSymbols: orderedSymbols,
-                    movingSymbols: movingSymbols
-                )
-                watchlistReorderLogger.info(
-                    "List move commit completed; success=\(committed, privacy: .public)"
-                )
-                ReorderDiagnostics.shared.moveReceived(
-                    sourceCount: source.count,
-                    destination: destination,
-                    itemCount: currentSymbols.count,
-                    committed: committed
-                )
-                if committed {
-                    listOrderMode = WatchlistOrderMode.manual.rawValue
-                }
-            }
+            // Inset 4 + the row's internal 8pt padding puts row content on the same 12pt grid as the chrome
+            .padding(.horizontal, 4)
         }
-        .listStyle(.plain)
-        // macOS List keeps a host-level horizontal margin even after row insets
-        // are customized. Remove it so the row surface shares the chrome/footer
-        // 12pt rail; WatchRow's own 8pt padding still protects its text and prices.
-        .contentMargins(.horizontal, 0, for: .scrollContent)
-        .scrollContentBackground(.hidden)
         .background {
             ReorderPointerMonitor(enabled: isReordering)
         }
         // A persistent AppKit scroller becomes a heavy dark rail in this compact
-        // glass popover. The system soft edge effect communicates overflow while
-        // keeping scrolling, keyboard navigation, and List reordering unchanged.
+        // glass popover. The system soft edge effect communicates overflow instead.
         .scrollIndicators(.never, axes: .vertical)
         .scrollEdgeEffectStyle(.soft, for: .vertical)
         .animation(.snappy(duration: 0.16), value: items.map(\.symbol))
+        .onChange(of: isReordering) { _, active in
+            if !active { reorderDrag = nil }
+        }
+    }
+
+    // MARK: - Reorder mode
+
+    struct ReorderDrag {
+        let symbol: SymbolID
+        let originIndex: Int
+        var translation: CGFloat = 0
+        var proposedIndex: Int
+    }
+
+    /// Global coordinates on purpose: the dragged row moves with the pointer, so a
+    /// local-space translation would chase its own offset.
+    private func reorderGesture(index: Int, item: WatchItem, itemCount: Int) -> some Gesture {
+        DragGesture(minimumDistance: 3, coordinateSpace: .global)
+            .onChanged { value in
+                if reorderDrag == nil {
+                    reorderDrag = ReorderDrag(symbol: item.symbol, originIndex: index, proposedIndex: index)
+                }
+                guard var drag = reorderDrag, drag.originIndex == index else { return }
+                drag.translation = value.translation.height
+                let shift = Int((value.translation.height / max(reorderRowHeight, 1)).rounded())
+                let proposed = min(max(drag.originIndex + shift, 0), itemCount - 1)
+                if proposed != drag.proposedIndex {
+                    drag.proposedIndex = proposed
+                    withAnimation(.snappy(duration: 0.18)) { reorderDrag = drag }
+                } else {
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) { reorderDrag = drag }
+                }
+            }
+            .onEnded { _ in
+                guard let drag = reorderDrag, drag.originIndex == index else { return }
+                withAnimation(.snappy(duration: 0.2)) {
+                    reorderDrag = nil
+                    if drag.proposedIndex != drag.originIndex {
+                        commitReorder(from: drag.originIndex, to: drag.proposedIndex)
+                    }
+                }
+            }
+    }
+
+    /// Rows between the origin and the proposed slot step aside by one row height;
+    /// the dragged row follows the pointer.
+    private func reorderOffset(for index: Int) -> CGFloat {
+        guard let drag = reorderDrag else { return 0 }
+        if index == drag.originIndex { return drag.translation }
+        if drag.originIndex < index, index <= drag.proposedIndex { return -reorderRowHeight }
+        if drag.proposedIndex <= index, index < drag.originIndex { return reorderRowHeight }
+        return 0
+    }
+
+    /// Reorder always edits the persisted baseline. Session grouping is bypassed
+    /// while `isReordering`, so the indices match `group.symbols`.
+    private func commitReorder(from origin: Int, to target: Int) {
+        let currentSymbols = appState.watchlist.items.map(\.symbol)
+        guard currentSymbols.indices.contains(origin), currentSymbols.indices.contains(target) else { return }
+        watchlistReorderLogger.info(
+            "Reorder gesture ended; from=\(origin, privacy: .public) to=\(target, privacy: .public)"
+        )
+        var orderedSymbols = currentSymbols
+        let moving = orderedSymbols.remove(at: origin)
+        orderedSymbols.insert(moving, at: target)
+        let committed = appState.watchlist.commitManualMove(
+            orderedSymbols: orderedSymbols,
+            movingSymbols: [moving]
+        )
+        watchlistReorderLogger.info(
+            "Reorder move commit completed; success=\(committed, privacy: .public)"
+        )
+        ReorderDiagnostics.shared.moveReceived(
+            sourceCount: 1,
+            destination: target,
+            itemCount: currentSymbols.count,
+            committed: committed
+        )
+        if committed {
+            listOrderMode = WatchlistOrderMode.manual.rawValue
+        }
     }
 
     /// Membership as a menu Toggle binding: unchecking the current group slides
@@ -1809,7 +1880,7 @@ struct WatchRow: View {
             ? nil
             : quote?.marketState?.extendedSessionLabel
 
-        // In manual sort mode, row tap gestures are fully detached so List's reorder drag can own mousedown.
+        // In reorder mode, row tap gestures are fully detached so the row-move drag gesture owns mousedown.
         HStack(spacing: 8) {
             HStack(spacing: 8) {
                 // The list's widest required title establishes one shared column; the aligned remainder goes to every sparkline.
@@ -1894,9 +1965,9 @@ struct WatchRow: View {
                 .fill(hovering || isReordering ? Color.primary.opacity(0.05) : .clear)
         )
         .contentShape(RoundedRectangle(cornerRadius: 7))
-        // AppKit owns the drag session once List starts moving a row. Updating local
-        // hover state while the pointer crosses rows rebuilds their hosting views and
-        // can invalidate the native drop indicator on macOS 26.
+        // Hover feedback stays frozen while a row is being dragged: the row surfaces
+        // already show the reorder tint, and toggling hover under the pointer as it
+        // crosses rows would flicker mid-drag.
         .onHover { isHovering in
             guard !isReordering else { return }
             hovering = isHovering

@@ -12,6 +12,29 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.15.4",
+    date: "2026-09-09",
+    kind: "fix",
+    highlights: {
+      zh: [
+        "菜单栏面板里的自选排序恢复正常。在 macOS 26 上，「调整顺序」时在菜单栏面板里拖动的行会滑回原位、顺序不变，而同样的拖动在固定小窗里却正常。现在行的移动改由 Pulse 自己的拖动手势完成，不再依赖面板从不接受的系统表格拖放；两个界面行为一致，进出排序模式时滚动位置也不会再跳回顶部。",
+        "右键不再出现强调色外框。打开某一行的右键菜单时，这一行会被系统强调色描一圈，这是底层表格视图的残留。自选列表现在是普通的滚动列表，菜单打开时不再有这个框。",
+      ],
+      en: [
+        "Watchlist reordering works in the menu bar panel again. On macOS 26, an \"Adjust Order\" drag in the menu bar panel slid back to where it started without moving anything, while the same drag worked in the pinned window. Rows are now moved by Pulse's own drag gesture instead of the system table's drag-and-drop, which the panel never accepted. Both surfaces behave identically, and your scroll position no longer resets when you enter or leave reorder mode.",
+        "No more accent-colored ring on right-click. Opening a row's context menu used to outline the row in the system accent color, a leftover of the underlying table view. The watchlist is now a plain scrolling list, so the menu opens without it.",
+      ],
+      ja: [
+        "メニューバーパネルでのウォッチリスト並べ替えが再び動作します。macOS 26 では「順序を調整」中にメニューバーパネルで行をドラッグしても元の位置に戻ってしまい、ピン留めウィンドウでは同じ操作が動いていました。行の移動は、パネルが受け付けなかったシステムのテーブルのドラッグ＆ドロップではなく Pulse 独自のドラッグジェスチャで行うようになり、両方の画面で同じ挙動になります。並べ替えモードの出入りでスクロール位置がリセットされることもなくなりました。",
+        "右クリックでアクセントカラーの枠が出なくなりました。行のコンテキストメニューを開くと、その行がシステムのアクセントカラーで縁取られていました。これは下層のテーブルビューの名残です。ウォッチリストはシンプルなスクロールリストになり、枠なしでメニューが開きます。",
+      ],
+      ko: [
+        "메뉴 막대 패널에서 관심목록 정렬이 다시 동작합니다. macOS 26에서는 “순서 바꾸기” 중 메뉴 막대 패널에서 행을 드래그하면 제자리로 미끄러져 돌아가고 순서가 바뀌지 않았지만, 고정 창에서는 같은 드래그가 정상이었습니다. 이제 행 이동은 패널이 받아들이지 않던 시스템 테이블의 드래그 앤 드롭 대신 Pulse 자체 드래그 제스처로 처리되어 두 화면의 동작이 같아졌고, 정렬 모드에 들어가거나 나갈 때 스크롤 위치도 초기화되지 않습니다.",
+        "우클릭 시 강조색 테두리가 더 이상 나타나지 않습니다. 행의 콘텍스트 메뉴를 열면 그 행이 시스템 강조색으로 둘러싸였는데, 이는 기반 테이블 뷰의 흔적이었습니다. 관심목록은 이제 일반 스크롤 목록이므로 테두리 없이 메뉴가 열립니다.",
+      ],
+    },
+  },
+  {
     version: "0.15.3",
     date: "2026-09-07",
     kind: "improvement",

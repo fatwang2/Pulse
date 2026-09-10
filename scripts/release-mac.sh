@@ -248,6 +248,27 @@ create_dmg() {
   fi
 }
 
+# A DMG whose layout file did not make it in still mounts, still installs, and
+# still looks like a release from the outside — it just opens as a bare Finder
+# window with no background and no drag arrow. Assert it here rather than find
+# out from a user after publishing.
+assert_dmg_layout() {
+  local image="$1"
+  local mount
+  mount="$(mktemp -d)"
+  hdiutil attach "$image" -nobrowse -readonly -mountpoint "$mount" >/dev/null
+  local missing=""
+  [[ -f "$mount/.DS_Store" ]] || missing="$missing .DS_Store"
+  [[ -f "$mount/.background/background.tiff" ]] || missing="$missing .background/background.tiff"
+  hdiutil detach "$mount" >/dev/null
+  rmdir "$mount" 2>/dev/null || true
+  if [[ -n "$missing" ]]; then
+    echo "error: $(basename "$image") carries no Finder layout (missing:$missing); it would open unstyled" >&2
+    exit 1
+  fi
+  echo "    installer layout verified (.DS_Store + background)"
+}
+
 # The installer DMG with the branded background and drag-to-Applications layout.
 # Finder view options live in the volume's .DS_Store, so this works on a
 # read-write image first and compresses afterwards. If Finder scripting fails
@@ -278,7 +299,17 @@ create_installer_dmg() {
   local layout="$ROOT/assets/dmg/DS_Store"
   if [[ -f "$layout" ]]; then
     cp "$layout" "$source_dir/.DS_Store"
-    create_dmg "$source_dir" "$output_path" "$volume_name"
+    # hdiutil, not create_dmg: `diskutil image create from` silently drops
+    # .DS_Store from the source folder while keeping .background, so the image
+    # looks right in every check except opening it.
+    rm -f "$output_path"
+    hdiutil create \
+      -volname "$volume_name" \
+      -srcfolder "$source_dir" \
+      -ov \
+      -format UDZO \
+      "$output_path" >/dev/null
+    assert_dmg_layout "$output_path"
     return 0
   fi
 
@@ -328,6 +359,7 @@ EOF
   hdiutil detach "$device" >/dev/null
   hdiutil convert "$rw_path" -format UDZO -o "$output_path" >/dev/null
   rm -f "$rw_path"
+  assert_dmg_layout "$output_path"
 }
 
 GENERATE_APPCAST="$(find_sparkle_tool generate_appcast || true)"

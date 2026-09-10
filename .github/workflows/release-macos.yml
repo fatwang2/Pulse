@@ -239,6 +239,37 @@ jobs:
           echo "::error::the release did not come out complete; see the line above for what is missing" >&2
           exit 1
 
+      # The site serves the DMG from its own R2 mirror, and that Worker refuses
+      # to cache bytes whose size and checksum do not match what the repository
+      # says. Both are properties of the artifact this run just built, so the
+      # run records them instead of leaving a hash for someone to transcribe
+      # into a follow-up commit after every release.
+      - name: Point the website's download mirror at this release
+        if: ${{ inputs.publish }}
+        env:
+          GH_REPO: ${{ github.repository }}
+        run: |
+          DMG="$(ls build/release/dist/Pulse-*.dmg | head -1)"
+          if [ ! -f "$DMG" ]; then
+            echo "::error::no DMG in build/release/dist to describe" >&2
+            exit 1
+          fi
+          node scripts/update-download-mirror.mjs "$DMG"
+          if git diff --quiet -- website/src/download.ts; then
+            echo "the mirror already points at this release"
+            exit 0
+          fi
+          VERSION="${DMG##*/Pulse-}"
+          VERSION="${VERSION%.dmg}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/src/download.ts
+          git commit -m "website: Pulse $VERSION download"
+          # main can move while a release builds; rebase onto it rather than
+          # force anything on top of someone else's commit.
+          git pull --rebase origin main
+          git push origin HEAD:main
+
       - name: Keep the artifacts with the run
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v6

@@ -274,16 +274,28 @@ public struct SymbolID: Hashable, Codable, Sendable, CustomStringConvertible {
         }
     }
 
+    // The three accessors below unwrap `storage`, and each is deliberately not
+    // inlined. Inlined into a caller that is holding the symbol borrowed — a
+    // loop over a [SymbolID], say — the switch over the private storage lands
+    // inside that borrow, and every stable Swift compiler through 6.3.3 crashes
+    // its SIL ownership verifier on it ("Found outside of lifetime use?!").
+    // Only the 6.4 toolchain compiles the inlined form, which is what tied
+    // releases to one machine that happened to run it. The call costs nothing
+    // that matters here: these unwrap an enum, never on a hot path. Remove the
+    // attributes once the release toolchain is past the bug.
+    @inline(never)
     public var indexID: MarketIndexID? {
         guard case .marketIndex(let index) = storage else { return nil }
         return index
     }
 
+    @inline(never)
     public var metalID: PreciousMetalID? {
         guard case .preciousMetal(let metal) = storage else { return nil }
         return metal
     }
 
+    @inline(never)
     public var cryptoPair: CryptoPair? {
         guard case .cryptoPair(let pair) = storage else { return nil }
         return pair

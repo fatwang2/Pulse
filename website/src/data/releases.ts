@@ -12,6 +12,33 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.15.5",
+    date: "2026-09-10",
+    kind: "fix",
+    highlights: {
+      zh: [
+        "搜索代码时能找到那只股票了。输入一个同时被某个币占用的代码——AR、APT、SOL——返回的却是那个币的一堆交易对，同名股票被挤到很靠后甚至挤出结果：查「APT」时前七行全是 Aptos 的交易对，第一家公司排在第八。现在一个币只占一行（它流动性最好的那个交易对），与你输入完全一致的代码排在最前，币紧随其后，该币其余的交易对退到证券之后。",
+        "慢一些的数据源不再被中途掐断。此前留给各数据源应答的时间窗口，比美股数据源实际需要的时间还短，所以你要找的那只股票常常不是来晚了，而是根本没进结果集。现在首次搜索约半秒返回完整结果，同一个词再搜依然是瞬时的。",
+        "安装用的磁盘映像重新设计，挂载后的磁盘也带上了 Pulse 自己的图标。",
+      ],
+      en: [
+        "Searching a ticker finds the company again. Type a code that a coin also uses — AR, APT, SOL — and the results were that coin's trading pairs, with the stock pushed far down the list or out of it entirely: \"APT\" led with seven Aptos pairs before the first company. A coin now takes a single row, on its most liquid pair; a code that matches exactly what you typed comes first, the coin follows it, and the coin's remaining pairs sit behind the listings.",
+        "Slower sources are no longer cut off mid-search. The window each source had to answer was shorter than US listings actually take to come back, so the stock you were looking for was often not late — it was missing. A first search now takes about half a second and returns everything; searching the same thing again stays instant.",
+        "A redesigned installer disk image, which now carries Pulse's own icon when mounted.",
+      ],
+      ja: [
+        "ティッカーで検索すると、その銘柄が見つかるようになりました。AR、APT、SOL のように暗号資産にも使われているコードを入力すると、結果はその通貨の取引ペアばかりで、同名の株式ははるか下に押しやられるか、そもそも出てきませんでした。「APT」では最初の企業が現れる前に Aptos のペアが 7 行並んでいました。通貨は最も流動性の高いペア 1 行だけになり、入力したコードと完全に一致する銘柄が先頭に、その次に通貨が来ます。残りのペアは証券のうしろに回ります。",
+        "遅いデータソースが検索の途中で打ち切られなくなりました。各ソースに与えられていた応答時間は、米国株のソースが実際に必要とする時間より短く、探していた株式は遅れて届いたのではなく、結果に入っていなかったのです。初回の検索はおよそ 0.5 秒で完全な結果を返し、同じ検索を繰り返せば変わらず即座です。",
+        "インストール用ディスクイメージを刷新し、マウント時に Pulse 自身のアイコンが表示されるようになりました。",
+      ],
+      ko: [
+        "티커로 검색하면 그 종목이 다시 나옵니다. AR, APT, SOL처럼 암호화폐도 쓰는 코드를 입력하면 결과가 그 코인의 거래쌍으로 채워져, 같은 이름의 주식은 한참 아래로 밀리거나 아예 나오지 않았습니다. “APT”는 첫 회사가 나오기 전에 Aptos 거래쌍이 일곱 줄 있었습니다. 이제 코인은 유동성이 가장 높은 거래쌍 한 줄만 차지하고, 입력한 코드와 정확히 일치하는 종목이 맨 앞에, 그다음이 코인입니다. 코인의 나머지 거래쌍은 증권 뒤로 갑니다.",
+        "느린 소스가 검색 도중에 잘리지 않습니다. 각 소스에 주어진 응답 시간이 미국 주식 소스가 실제로 필요로 하는 시간보다 짧아서, 찾던 주식은 늦게 도착한 것이 아니라 결과에 없었습니다. 첫 검색은 약 0.5초에 완전한 결과를 반환하고, 같은 검색을 다시 하면 여전히 즉시 나옵니다.",
+        "설치용 디스크 이미지를 새로 디자인했고, 마운트하면 Pulse 자체 아이콘이 표시됩니다.",
+      ],
+    },
+  },
+  {
     version: "0.15.4",
     date: "2026-09-09",
     kind: "fix",

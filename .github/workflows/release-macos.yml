@@ -48,7 +48,7 @@ env:
 jobs:
   release:
     name: Build, sign, notarize, and publish
-    runs-on: macos-15
+    runs-on: macos-26
     # Approval gate. Named environments carry the reviewer rule, so this is
     # also where a reviewer sees which run is asking to sign an update.
     environment: release
@@ -63,6 +63,21 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 22
+
+      # The compiler is part of what ships, so it is pinned rather than
+      # inherited: the image's default Xcode moves without warning, and a
+      # release should record exactly what built it. Bump this deliberately
+      # after checking the build still compiles — the macos-26 image lists its
+      # installed Xcodes in actions/runner-images.
+      - name: Select Xcode 26.6
+        run: |
+          XCODE=/Applications/Xcode_26.6.app
+          if [ ! -d "$XCODE" ]; then
+            echo "::error::$XCODE is gone from this image; pick another from /Applications and update this step" >&2
+            ls -d /Applications/Xcode*.app >&2
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE"
 
       - name: Report the toolchain
         run: |

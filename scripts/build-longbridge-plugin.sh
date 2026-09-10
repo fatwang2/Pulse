@@ -16,7 +16,13 @@ SDK_SOURCE="$CACHE_ROOT/openapi"
 # Rust loads proc-macro dylibs while compiling. Keeping these short-lived
 # artifacts on the system volume avoids sporadic malformed LINKEDIT reads seen
 # when the workspace itself lives on an external APFS volume.
-CARGO_TARGET_DIR="${TMPDIR%/}/app.pulse.longbridge-sdk/$SDK_VERSION/target"
+#
+# PULSE_CARGO_TARGET_DIR overrides that for a runner, whose TMPDIR is discarded
+# with the machine: pointing it somewhere cacheable is what lets a release
+# build skip recompiling an SDK that has not changed. The build stamp below is
+# keyed on the SDK commit and the patch, so a restored directory can only ever
+# skip work that would have produced the same library.
+CARGO_TARGET_DIR="${PULSE_CARGO_TARGET_DIR:-${TMPDIR%/}/app.pulse.longbridge-sdk/$SDK_VERSION/target}"
 
 BUILD_ARCHS=()
 if [[ -n "${CURRENT_ARCH:-}" && "$CURRENT_ARCH" != "undefined_arch" ]]; then

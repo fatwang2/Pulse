@@ -106,6 +106,32 @@ jobs:
           echo "$BIN" >> "$GITHUB_PATH"
           "$BIN/xcodegen" --version
 
+      # Two caches, both of which can only ever skip work that would have
+      # produced identical output. The Rust one is keyed on the plugin script,
+      # which pins the SDK version, commit and patch, and the build itself
+      # re-checks that stamp before skipping. Compiled Swift is deliberately
+      # not cached: a stale object file in a release is a binary that does not
+      # match its source, which costs more than the ten minutes it saves.
+      - name: Restore the Longbridge SDK build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .build/longbridge-sdk
+            .cache/cargo-target
+          key: longbridge-${{ runner.os }}-${{ hashFiles('scripts/build-longbridge-plugin.sh') }}
+          restore-keys: longbridge-${{ runner.os }}-
+
+      - name: Restore resolved Swift packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            ~/Library/Developer/Xcode/DerivedData/*/SourcePackages
+          key: swiftpm-${{ runner.os }}-${{ hashFiles('Pulse.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'project.yml') }}
+          restore-keys: swiftpm-${{ runner.os }}-
+
       # The Longbridge plugin is a Rust library built once per architecture and
       # lipo'd together, and a release build is universal. The image ships only
       # the host target, so the second one has to be added explicitly.
@@ -178,6 +204,7 @@ jobs:
       - name: Build, sign, notarize, and publish
         env:
           PULSE_RELEASE_UPLOAD: ${{ inputs.publish && '1' || '0' }}
+          PULSE_CARGO_TARGET_DIR: ${{ github.workspace }}/.cache/cargo-target
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}

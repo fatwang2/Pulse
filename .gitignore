@@ -65,3 +65,6 @@ xcuserdata/
 /.conductor/
 /.context/
 /.impeccable.md
+
+# Cached Rust build products for the Longbridge plugin (CI restores these).
+.cache/

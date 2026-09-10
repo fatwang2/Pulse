@@ -30,7 +30,15 @@ public actor CompositeProvider: QuoteProvider {
                 searchCacheTTL: TimeInterval = 300,
                 quoteCacheTTL: TimeInterval = 12,
                 candleCacheTTL: TimeInterval = 60,
-                searchResultSettleDelay: Duration = .milliseconds(350),
+                // Long enough for the securities sources to answer a cold
+                // query: Binance replies from an in-memory catalog in under
+                // 10ms and Tencent in about 100ms, but Yahoo — the only source
+                // for US equities — measured 223-487ms cold. At 350ms it lost
+                // that race often enough that searching a ticker like APT or
+                // SOL returned the coin and no stock at all. Waiting costs
+                // nothing in the common case: the loop returns the moment every
+                // source has answered, and warm sources answer in milliseconds.
+                searchResultSettleDelay: Duration = .milliseconds(800),
                 searchDeadline: Duration = .seconds(3)) {
         self.providers = providers
         self.disabledIDs = disabledIDs
@@ -709,22 +717,58 @@ public actor CompositeProvider: QuoteProvider {
         for query: String
     ) -> [SymbolInfo] {
         let compactQuery = compactSearchCode(query)
-        var exactCrypto: [SymbolInfo] = []
+        var leadCrypto: [SymbolInfo] = []
+        var metals: [SymbolInfo] = []
+        var exactSecurities: [SymbolInfo] = []
         var securities: [SymbolInfo] = []
         var otherCrypto: [SymbolInfo] = []
+        var leadingBases: Set<String> = []
 
         for info in results {
             guard let pair = info.symbol.cryptoPair else {
-                securities.append(info)
+                // Catalog identities keep the lead the merge gave them: an exact
+                // alias ("黄金", "XAU") is a stronger answer than a listed
+                // company whose ticker happens to read the same way.
+                if info.symbol.metalID != nil {
+                    metals.append(info)
+                    continue
+                }
+                // A ticker is unique on its exchange, so a code that matches the
+                // query exactly is a stronger answer than one that merely
+                // contains it, whatever order the sources happened to return.
+                if isExactSecurityMatch(info.symbol, compactQuery: compactQuery) {
+                    exactSecurities.append(info)
+                } else {
+                    securities.append(info)
+                }
                 continue
             }
-            if isExactCryptoMatch(pair, compactQuery: compactQuery) {
-                exactCrypto.append(info)
+            guard isExactCryptoMatch(pair, compactQuery: compactQuery) else {
+                otherCrypto.append(info)
+                continue
+            }
+            // One coin trades against a dozen quote currencies, and every one of
+            // them matches the base asset exactly. Ranking them all as top hits
+            // buried the securities: "APT" led with seven Aptos pairs before the
+            // first stock. Only the best-quoted pair per coin leads — sources
+            // already order their own pairs, so that is the one in hand first —
+            // and the rest stay reachable behind the securities.
+            if leadingBases.insert(compactSearchCode(pair.baseAsset)).inserted {
+                leadCrypto.append(info)
             } else {
                 otherCrypto.append(info)
             }
         }
-        return exactCrypto + securities + otherCrypto
+        return metals + exactSecurities + leadCrypto + securities + otherCrypto
+    }
+
+    private nonisolated static func isExactSecurityMatch(
+        _ symbol: SymbolID,
+        compactQuery: String
+    ) -> Bool {
+        guard !compactQuery.isEmpty else { return false }
+        return compactQuery == compactSearchCode(symbol.code)
+            || compactQuery == compactSearchCode(symbol.displayCode)
     }
 
     /// A weak crypto-only hit must not close the enrichment window before a slower

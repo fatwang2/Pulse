@@ -221,6 +221,55 @@ struct CompositeProviderTests {
         #expect(results.map(\.symbol) == [crypto.symbol, stock.symbol])
     }
 
+    @Test("A ticker leads over the coin of the same name, and over the coin's other pairs")
+    func globalSearchCollapsesCryptoPairsOfOneCoin() async throws {
+        // Sources order their own pairs, so the first is the best quoted one.
+        let pairs = ["USDT", "USDC", "EUR", "TRY"].map { quote in
+            SymbolInfo(
+                symbol: SymbolID(cryptoBase: "APT", quote: quote),
+                name: "APT",
+                type: .crypto
+            )
+        }
+        let stock = SymbolInfo(
+            symbol: SymbolID(market: .us, code: "APT"),
+            name: "Alpha Pro Tech, Ltd.",
+            type: .equity
+        )
+        let cryptoFirst = MockProvider(id: "crypto", searchResults: pairs)
+        let stocksSecond = MockProvider(id: "stocks", searchResults: [stock])
+        let composite = CompositeProvider(providers: [cryptoFirst, stocksSecond])
+
+        let results = try await composite.search("apt")
+
+        // Typing a ticker is a precise act, so the listing that carries it comes
+        // first; the coin keeps the next row on its best-quoted pair alone. The
+        // stock used to land eighth, behind every pair the coin trades against.
+        #expect(results.prefix(2).map(\.symbol) == [stock.symbol, pairs[0].symbol])
+        #expect(Set(results.map(\.symbol)) == Set(pairs.map(\.symbol) + [stock.symbol]))
+    }
+
+    @Test("An exact ticker outranks a listing that merely contains the query")
+    func globalSearchRanksExactSecurityCodeFirst() async throws {
+        let contains = SymbolInfo(
+            symbol: SymbolID(market: .us, code: "ABUF"),
+            name: "Aptus Laddered Buffer ETF",
+            type: .equity
+        )
+        let exact = SymbolInfo(
+            symbol: SymbolID(market: .us, code: "APT"),
+            name: "Alpha Pro Tech, Ltd.",
+            type: .equity
+        )
+        // Returned in the unhelpful order, from one source.
+        let stocks = MockProvider(id: "stocks", searchResults: [contains, exact])
+        let composite = CompositeProvider(providers: [stocks])
+
+        let results = try await composite.search("apt")
+
+        #expect(results.map(\.symbol) == [exact.symbol, contains.symbol])
+    }
+
     @Test("A stalled source cannot hold useful search results")
     func stalledSourceReturnsPartialResults() async throws {
         let fast = MockProvider(id: "fast", searchResults: [Self.apple])

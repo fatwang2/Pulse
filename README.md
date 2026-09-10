@@ -128,10 +128,10 @@ To ship a version:
 2. Actions → *Release Pulse* → *Run workflow*.
 3. Approve the deployment when the run asks.
 
-Nothing is left to do by hand afterwards: the run also points the website's
+Nothing is left to do by hand afterwards. The run also points the website's
 download mirror at the release it just built, committing the new version, size
-and checksum to `website/src/download.ts`. Deploying the site is still a
-separate `npm run deploy` in `website/`.
+and checksum to `website/src/download.ts`; Cloudflare deploys the site from
+that push, so the download page follows the release on its own.
 
 `dry_run` builds, signs, notarizes, and verifies without publishing.
 `allow_republish` is needed only to replace a version that is already fully

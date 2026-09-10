@@ -1,0 +1,48 @@
+# The release button.
+#
+# Pulse has no upstream to follow, so there is nothing to release on a
+# schedule: a release happens when someone decides a version is ready. Bump
+# MARKETING_VERSION in project.yml, write .github/release-notes/<version>.md,
+# merge to main, then run this workflow and approve the deployment.
+#
+# It calls the same workflow that does all the work, so there is one build,
+# signing, notarization, and publishing path and no second one to drift.
+
+name: Release Pulse
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build, sign, notarize, and verify without publishing"
+        required: false
+        type: boolean
+        default: false
+      allow_republish:
+        description: "Allow replacing a version that is already fully released"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+# One release at a time. A queued run waits rather than cancelling: a run that
+# is already notarizing holds a submission Apple will finish regardless, and
+# two runs uploading to one tag can interleave assets from different builds.
+concurrency:
+  group: pulse-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # `workflow_dispatch` has no branch filter (`branches:` is not one of its
+    # keys), and a release always ships main, so refuse anything else here.
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/release-macos.yml
+    with:
+      publish: ${{ !inputs.dry_run }}
+      # Replacing a finished release is deliberate: its assets are what
+      # installed copies already verified against the appcast.
+      require_new_release: ${{ !inputs.allow_republish }}
+    secrets: inherit

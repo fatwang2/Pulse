@@ -113,10 +113,96 @@ PULSE_LIVE_TESTS=1 swift test
 
 ## Releasing
 
-The release pipeline lives in `scripts/release-mac.sh`. It archives, signs,
-notarizes, packages, and uploads Pulse together with its Sparkle appcast.
-Version-specific GitHub Release copy lives in `.github/release-notes/<version>.md`.
-Both are tracked so a release can be reproduced from the repository.
+**Releases are built and published by GitHub Actions only.** The pipeline still
+lives in `scripts/release-mac.sh` — it archives, signs, notarizes, packages,
+and uploads Pulse together with its Sparkle appcast — but it uploads only when
+`PULSE_RELEASE_UPLOAD=1` on a real Actions runner. Run it on a Mac and it
+builds and verifies the identical artifacts, then stops before publishing.
+Version-specific GitHub Release copy lives in `.github/release-notes/<version>.md`,
+tracked so a release can be reproduced from the repository.
+
+To ship a version:
+
+1. Bump `MARKETING_VERSION` in `project.yml`, write
+   `.github/release-notes/<version>.md`, and merge to `main`.
+2. Actions → *Release Pulse* → *Run workflow*.
+3. Approve the deployment when the run asks.
+
+`dry_run` builds, signs, notarizes, and verifies without publishing.
+`allow_republish` is needed only to replace a version that is already fully
+released; without it the run refuses before the build, which is the guard
+working — a released version's assets are what installed copies already
+verified against the appcast.
+
+### The approval gate
+
+The release job runs in the `release` environment, which requires a human
+approval before its first step. That gate exists for one secret in particular:
+Sparkle's EdDSA key signs every update, it has no revocation path, and its
+public half is already compiled into every installed copy of Pulse. A Developer
+ID certificate Apple can revoke; a leaked Sparkle key would let anyone hand all
+existing users an update they would accept. Approving a run is the moment to
+notice one you did not start.
+
+### What counts as released
+
+`scripts/release-status.mjs` holds the definition, and both the pre-build gate
+and the post-publish check read it. A version is released only when its GitHub
+Release is published (not a draft, not a pre-release) with both
+`Pulse-<version>.zip` and `Pulse-<version>.dmg`, **and** the appcast on the
+stable `appcast` tag advertises that version with an enclosure pointing at that
+version's own tag. The two halves matter: assets that uploaded without an
+appcast entry are invisible to every installed copy — published by GitHub's
+reckoning, unreleased by Sparkle's. A run that failed halfway leaves the
+version incomplete, so simply running the workflow again repairs it on the
+existing tag.
+
+### Secrets
+
+| Secret | Content |
+|---|---|
+| `CSC_LINK` | Base64 of the Developer ID Application `.p12` |
+| `CSC_KEY_PASSWORD` | Password of that `.p12` |
+| `APPLE_API_KEY_P8` | Contents of the App Store Connect API key `.p8` |
+| `APPLE_API_KEY_ID` | Key ID of that API key |
+| `APPLE_API_ISSUER` | Issuer ID of that API key |
+| `SPARKLE_PRIVATE_KEY` | The EdDSA key exported with `generate_keys -x` |
+| `TELEMETRYDECK_APP_ID` | Optional; analytics are disabled when absent |
+
+`CSC_LINK` and `CSC_KEY_PASSWORD` are one pair, not two settings: re-exporting
+the `.p12` gives it a new password, so set both from the same export. Updating
+one alone fails at signing with `MAC verification failed during PKCS12 import`,
+the identical error a genuinely wrong password produces.
+
+The signing identity and team id are not configured here — they are read back
+out of the imported certificate, so the certificate is the only source of truth
+for who signs.
+
+Export the Sparkle key from the keychain that holds it (the tool lives in the
+Sparkle artifact SwiftPM resolves, so build once first), and delete the export
+afterwards:
+
+```sh
+generate_keys -x sparkle_key.txt          # prompts for keychain access
+gh secret set SPARKLE_PRIVATE_KEY < sparkle_key.txt
+rm sparkle_key.txt
+```
+
+On the runner that key is piped to `generate_appcast` on standard input, so it
+never lands on disk and never enters a keychain there.
+
+### The installer DMG layout
+
+The DMG's window bounds, icon positions, and background reference live in the
+volume's `.DS_Store`, which only Finder can write and Finder needs a GUI
+session no runner has. `assets/dmg/DS_Store` is therefore committed and copied
+in verbatim, so every build gets the identical layout without scripting Finder.
+After changing `assets/dmg/background.tiff` or the icon positions, rebuild the
+styled DMG on a Mac and re-capture it:
+
+```sh
+scripts/capture-dmg-layout.sh build/release/dist/Pulse-<version>.dmg
+```
 
 ## Architecture
 

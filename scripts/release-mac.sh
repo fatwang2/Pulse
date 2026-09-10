@@ -19,14 +19,18 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# A runner is configured by repository secrets, so there is no .env.release to
+# copy there — and requiring one would only invite committing it. On a
+# developer machine the file stays mandatory: a half-configured shell must not
+# produce a signed build that looks like a release.
 ENV_FILE="${PULSE_RELEASE_ENV:-$ROOT/.env.release}"
-if [[ ! -f "$ENV_FILE" ]]; then
+if [[ -f "$ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  set -a; . "$ENV_FILE"; set +a
+elif [[ "${GITHUB_ACTIONS:-}" != "true" ]]; then
   echo "error: missing $ENV_FILE (copy .env.release.example first)" >&2
   exit 1
 fi
-
-# shellcheck disable=SC1090
-set -a; . "$ENV_FILE"; set +a
 
 : "${DEVELOPMENT_TEAM:?DEVELOPMENT_TEAM is required}"
 : "${APPLE_SIGNING_IDENTITY:?APPLE_SIGNING_IDENTITY is required}"
@@ -84,7 +88,25 @@ if [[ ! -f "$RELEASE_NOTES_FILE" && "${ALLOW_MISSING_RELEASE_NOTES:-0}" != "1" ]
   exit 1
 fi
 
-echo "==> Releasing Pulse $VERSION as $TAG"
+# Publishing is a property of the runner, not of the operator. Uploads happen
+# only when a real Actions run asked for them: GITHUB_ACTIONS and the run id
+# are the runner's to set, so exporting PULSE_RELEASE_UPLOAD on a laptop that
+# is already authenticated to the repo still builds and verifies without
+# publishing. It is a guard, not a compiler — someone determined to fake all
+# three variables would get through — so treat the local flow as build-only.
+PUBLISH=0
+if [[ "${PULSE_RELEASE_UPLOAD:-0}" == "1" && "${GITHUB_ACTIONS:-}" == "true" && -n "${GITHUB_RUN_ID:-}" ]]; then
+  PUBLISH=1
+fi
+if [[ "${SKIP_UPLOAD:-0}" == "1" ]]; then
+  PUBLISH=0
+fi
+
+if [[ "$PUBLISH" == "1" ]]; then
+  echo "==> Releasing Pulse $VERSION as $TAG"
+else
+  echo "==> Building Pulse $VERSION as $TAG (build and verify only; this run does not publish)"
+fi
 
 if [[ ! "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
   echo "error: build number must be a positive integer, found: $BUILD_NUMBER" >&2
@@ -247,6 +269,19 @@ create_installer_dmg() {
   mkdir -p "$source_dir/.background"
   cp "$background" "$source_dir/.background/background.tiff"
 
+  # Finder view options live in the volume's .DS_Store, and writing one means
+  # scripting Finder, which needs a GUI session a runner does not have. The
+  # styled .DS_Store is therefore committed and copied in verbatim: every
+  # build gets the identical layout without Finder, headless or not.
+  # Regenerate it with scripts/capture-dmg-layout.sh after changing the
+  # background or the icon positions.
+  local layout="$ROOT/assets/dmg/DS_Store"
+  if [[ -f "$layout" ]]; then
+    cp "$layout" "$source_dir/.DS_Store"
+    create_dmg "$source_dir" "$output_path" "$volume_name"
+    return 0
+  fi
+
   local rw_path="${output_path%.dmg}-rw.dmg"
   rm -f "$rw_path" "$output_path"
   hdiutil create \
@@ -309,7 +344,12 @@ EOF
   exit 1
 fi
 
-if [[ -n "${SPARKLE_PRIVATE_KEY_FILE:-}" ]]; then
+# SPARKLE_PRIVATE_KEY carries the exported EdDSA key itself (generate_keys -x),
+# which is how it reaches a runner. It is piped to generate_appcast on standard
+# input, so on CI the key never lands on disk and never enters a keychain.
+if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
+  echo "==> Signing the appcast with SPARKLE_PRIVATE_KEY"
+elif [[ -n "${SPARKLE_PRIVATE_KEY_FILE:-}" ]]; then
   [[ -f "$SPARKLE_PRIVATE_KEY_FILE" ]] || { echo "error: missing SPARKLE_PRIVATE_KEY_FILE" >&2; exit 1; }
   if [[ -n "$GENERATE_KEYS" ]]; then
     "$GENERATE_KEYS" -f "$SPARKLE_PRIVATE_KEY_FILE" >/dev/null
@@ -430,11 +470,20 @@ fi
 
 DOWNLOAD_PREFIX="https://github.com/${GH_REPO}/releases/download/${TAG}/"
 echo "==> Generating Sparkle appcast"
-"$GENERATE_APPCAST" \
-  --download-url-prefix "$DOWNLOAD_PREFIX" \
-  --link "https://www.pulseticker.app/" \
-  --full-release-notes-url "https://www.pulseticker.app/changelog" \
-  "$APPCAST_DIR"
+if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
+  printf '%s' "$SPARKLE_PRIVATE_KEY" | "$GENERATE_APPCAST" \
+    --ed-key-file - \
+    --download-url-prefix "$DOWNLOAD_PREFIX" \
+    --link "https://www.pulseticker.app/" \
+    --full-release-notes-url "https://www.pulseticker.app/changelog" \
+    "$APPCAST_DIR"
+else
+  "$GENERATE_APPCAST" \
+    --download-url-prefix "$DOWNLOAD_PREFIX" \
+    --link "https://www.pulseticker.app/" \
+    --full-release-notes-url "https://www.pulseticker.app/changelog" \
+    "$APPCAST_DIR"
+fi
 
 # Localized notes are inlined as <description xml:lang="…"> from the website's
 # changelog data rather than linked: GitHub serves release assets as
@@ -446,8 +495,8 @@ else
   echo "warning: node not found; the appcast carries English release notes only" >&2
 fi
 
-if [[ "${SKIP_UPLOAD:-0}" == "1" ]]; then
-  echo "warning: SKIP_UPLOAD=1; artifacts are in $DIST_DIR and $APPCAST_DIR" >&2
+if [[ "$PUBLISH" != "1" ]]; then
+  echo "artifacts are in $DIST_DIR and $APPCAST_DIR; this run does not publish" >&2
   exit 0
 fi
 

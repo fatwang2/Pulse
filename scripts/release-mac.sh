@@ -248,6 +248,24 @@ create_dmg() {
   fi
 }
 
+# The mounted volume shows the app's own icon instead of the generic white
+# disk. This icon lives inside the image, unlike a .dmg file's own icon, which
+# rides in a resource fork and is lost the moment the file is downloaded — so
+# this is the one that actually reaches anyone.
+apply_volume_icon() {
+  local source_dir="$1"
+  local mount="$2"
+  local icon
+  icon="$(/usr/bin/find "$source_dir" -path '*.app/Contents/Resources/*.icns' -print -quit 2>/dev/null || true)"
+  if [[ -z "$icon" ]]; then
+    echo "error: no .icns inside the staged app; the volume would mount iconless" >&2
+    exit 1
+  fi
+  cp "$icon" "$mount/.VolumeIcon.icns"
+  # kHasCustomIcon on the volume's root directory is what makes Finder read it.
+  xcrun SetFile -a C "$mount"
+}
+
 # A DMG whose layout file did not make it in still mounts, still installs, and
 # still looks like a release from the outside — it just opens as a bare Finder
 # window with no background and no drag arrow. Assert it here rather than find
@@ -260,6 +278,8 @@ assert_dmg_layout() {
   local missing=""
   [[ -f "$mount/.DS_Store" ]] || missing="$missing .DS_Store"
   [[ -f "$mount/.background/background.tiff" ]] || missing="$missing .background/background.tiff"
+  [[ -f "$mount/.VolumeIcon.icns" ]] || missing="$missing .VolumeIcon.icns"
+  [[ "$(xcrun GetFileInfo -aC "$mount" 2>/dev/null | tr -d ' ')" == "1" ]] || missing="$missing custom-icon-flag"
   hdiutil detach "$mount" >/dev/null
   rmdir "$mount" 2>/dev/null || true
   if [[ -n "$missing" ]]; then
@@ -298,17 +318,32 @@ create_installer_dmg() {
   # background or the icon positions.
   local layout="$ROOT/assets/dmg/DS_Store"
   if [[ -f "$layout" ]]; then
-    cp "$layout" "$source_dir/.DS_Store"
-    # hdiutil, not create_dmg: `diskutil image create from` silently drops
-    # .DS_Store from the source folder while keeping .background, so the image
-    # looks right in every check except opening it.
-    rm -f "$output_path"
+    # Build read-write and dress the mounted volume, then compress. The layout
+    # could be copied in with the source folder, but the custom-icon flag is an
+    # attribute of the volume's root directory, which does not exist until the
+    # volume does. (Note `create_dmg` is not used here: `diskutil image create
+    # from` silently drops .DS_Store from a source folder while keeping
+    # .background, so the image passes every check except being opened.)
+    local rw_path="${output_path%.dmg}-rw.dmg"
+    rm -f "$rw_path" "$output_path"
     hdiutil create \
       -volname "$volume_name" \
       -srcfolder "$source_dir" \
       -ov \
-      -format UDZO \
-      "$output_path" >/dev/null
+      -format UDRW \
+      -fs HFS+ \
+      "$rw_path" >/dev/null
+
+    local mount
+    mount="$(mktemp -d)"
+    hdiutil attach "$rw_path" -readwrite -noverify -noautoopen -nobrowse -mountpoint "$mount" >/dev/null
+    cp "$layout" "$mount/.DS_Store"
+    apply_volume_icon "$source_dir" "$mount"
+    hdiutil detach "$mount" >/dev/null
+    rmdir "$mount" 2>/dev/null || true
+
+    hdiutil convert "$rw_path" -format UDZO -o "$output_path" >/dev/null
+    rm -f "$rw_path"
     assert_dmg_layout "$output_path"
     return 0
   fi
@@ -326,7 +361,7 @@ create_installer_dmg() {
   local device
   device="$(hdiutil attach -readwrite -noverify -noautoopen "$rw_path" | awk '/\/dev\/disk/ {print $1; exit}')"
 
-  # Window bounds: 600x400 content (matching the background) plus the title bar.
+  # Window bounds: 600x360 content (matching the background) plus the title bar.
   # Icon positions pair with the arrow endpoints drawn into the background.
   if ! osascript <<EOF
 tell application "Finder"
@@ -335,14 +370,14 @@ tell application "Finder"
     set current view of container window to icon view
     set toolbar visible of container window to false
     set statusbar visible of container window to false
-    set the bounds of container window to {400, 140, 1000, 568}
+    set the bounds of container window to {400, 140, 1000, 528}
     set view_options to the icon view options of container window
     set arrangement of view_options to not arranged
-    set icon size of view_options to 112
+    set icon size of view_options to 128
     set text size of view_options to 12
     set background picture of view_options to file ".background:background.tiff"
-    set position of item "Pulse.app" of container window to {150, 205}
-    set position of item "Applications" of container window to {450, 205}
+    set position of item "Pulse.app" of container window to {150, 180}
+    set position of item "Applications" of container window to {450, 180}
     close
     open
     update without registering applications
@@ -355,6 +390,7 @@ EOF
     echo "warning: Finder layout scripting failed; the DMG ships without it" >&2
   fi
 
+  apply_volume_icon "$source_dir" "/Volumes/$volume_name"
   sync
   hdiutil detach "$device" >/dev/null
   hdiutil convert "$rw_path" -format UDZO -o "$output_path" >/dev/null

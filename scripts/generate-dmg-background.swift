@@ -4,14 +4,21 @@
 // Run from the repo root after changing anything here:
 //   swift scripts/generate-dmg-background.swift
 //
-// The output is a 600x400pt canvas with 1x and 2x representations in one TIFF
-// (Finder picks the right one per display). Icon slots match the AppleScript
-// layout in release-mac.sh: Pulse.app centered at (150, 205), Applications at
-// (450, 205), both in top-left-origin window coordinates.
+// The output is a 600x360pt canvas with 1x and 2x representations in one TIFF
+// (Finder picks the right one per display). The icon slots this artwork is
+// composed around live in the volume's .DS_Store, not here: Pulse.app centred
+// at (150, 180) and Applications at (450, 180) in top-left-origin window
+// coordinates, both 128pt. Change one and re-capture the other with
+// scripts/capture-dmg-layout.sh, or the arrow will point at nothing.
+//
+// The artwork carries no words. Finder already labels both icons, so a title
+// and a "drag to install" line would put the product's name on screen three
+// times over and say what the arrow says. What is left is the brand's own
+// mark: a pulse line, faint, and low enough to stay clear of the labels.
 
 import AppKit
 
-let canvas = NSSize(width: 600, height: 400)
+let canvas = NSSize(width: 600, height: 360)
 
 func render(scale: CGFloat) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -34,70 +41,51 @@ func render(scale: CGFloat) -> NSBitmapImageRep {
 
     // Layout constants are written in window coordinates (origin top-left, the
     // system the Finder icon positions use) and converted here: flipping the
-    // context instead would mirror the text drawing.
+    // context instead would mirror anything with a direction.
     func fromTop(_ y: CGFloat) -> CGFloat { canvas.height - y }
 
-    let ink = NSColor(calibratedRed: 0.11, green: 0.11, blue: 0.12, alpha: 1)
-    let subtle = NSColor(calibratedRed: 0.52, green: 0.52, blue: 0.55, alpha: 1)
     let accent = NSColor(calibratedRed: 0.04, green: 0.52, blue: 1.0, alpha: 1)
 
+    // Cool white falling to a hint of the brand blue, rather than neutral grey.
     NSGradient(
-        starting: NSColor(calibratedWhite: 0.985, alpha: 1),
-        ending: NSColor(calibratedWhite: 0.945, alpha: 1)
+        starting: NSColor(calibratedRed: 0.988, green: 0.991, blue: 0.996, alpha: 1),
+        ending: NSColor(calibratedRed: 0.929, green: 0.945, blue: 0.972, alpha: 1)
     )!.draw(in: NSRect(origin: .zero, size: canvas), angle: 90)
 
-    // Wordmark: the ECG waveform from the app mark, then the name.
-    let wave = NSBezierPath()
-    wave.lineWidth = 3
-    wave.lineCapStyle = .round
-    wave.lineJoinStyle = .round
-    let waveY = fromTop(66)
-    let waveStart: CGFloat = 232
-    wave.move(to: NSPoint(x: waveStart, y: waveY))
-    wave.line(to: NSPoint(x: waveStart + 12, y: waveY))
-    wave.line(to: NSPoint(x: waveStart + 19, y: waveY + 14))
-    wave.line(to: NSPoint(x: waveStart + 29, y: waveY - 16))
-    wave.line(to: NSPoint(x: waveStart + 37, y: waveY + 6))
-    wave.line(to: NSPoint(x: waveStart + 42, y: waveY))
-    wave.line(to: NSPoint(x: waveStart + 54, y: waveY))
-    accent.setStroke()
-    wave.stroke()
-
-    func drawCentered(_ text: String, font: NSFont, color: NSColor, centerX: CGFloat, topY: CGFloat) {
-        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
-        let size = text.size(withAttributes: attributes)
-        text.draw(
-            at: NSPoint(x: centerX - size.width / 2, y: fromTop(topY) - size.height),
-            withAttributes: attributes
-        )
+    // The pulse line runs the full width below the icon row. At 13% alpha it
+    // reads as texture rather than content, which is what keeps it from
+    // competing with the two icons the window is actually about.
+    let line = NSBezierPath()
+    line.lineWidth = 2
+    line.lineCapStyle = .round
+    line.lineJoinStyle = .round
+    let baseline = fromTop(300)
+    line.move(to: NSPoint(x: 0, y: baseline))
+    var x: CGFloat = 40
+    while x < canvas.width {
+        line.line(to: NSPoint(x: x + 26, y: baseline))
+        line.line(to: NSPoint(x: x + 38, y: baseline + 20))
+        line.line(to: NSPoint(x: x + 52, y: baseline - 24))
+        line.line(to: NSPoint(x: x + 64, y: baseline + 9))
+        line.line(to: NSPoint(x: x + 72, y: baseline))
+        x += 150
     }
+    line.line(to: NSPoint(x: canvas.width, y: baseline))
+    accent.withAlphaComponent(0.13).setStroke()
+    line.stroke()
 
-    drawCentered(
-        "Pulse",
-        font: .systemFont(ofSize: 27, weight: .semibold),
-        color: ink,
-        centerX: 316,
-        topY: 46
-    )
-    drawCentered(
-        "Drag Pulse to the Applications folder to install",
-        font: .systemFont(ofSize: 12.5, weight: .regular),
-        color: subtle,
-        centerX: 300,
-        topY: 96
-    )
-
-    // Arrow between the two icon slots.
-    let arrowY = fromTop(205)
+    // The arrow spans the gap between the two icon slots, clear of both.
     let arrow = NSBezierPath()
-    arrow.lineWidth = 3
+    arrow.lineWidth = 2.5
     arrow.lineCapStyle = .round
-    arrow.move(to: NSPoint(x: 245, y: arrowY))
-    arrow.line(to: NSPoint(x: 355, y: arrowY))
-    arrow.move(to: NSPoint(x: 341, y: arrowY - 11))
-    arrow.line(to: NSPoint(x: 355, y: arrowY))
-    arrow.line(to: NSPoint(x: 341, y: arrowY + 11))
-    NSColor(calibratedWhite: 0.72, alpha: 1).setStroke()
+    arrow.lineJoinStyle = .round
+    let arrowY = fromTop(180)
+    arrow.move(to: NSPoint(x: 258, y: arrowY))
+    arrow.line(to: NSPoint(x: 342, y: arrowY))
+    arrow.move(to: NSPoint(x: 333, y: arrowY - 9))
+    arrow.line(to: NSPoint(x: 342, y: arrowY))
+    arrow.line(to: NSPoint(x: 333, y: arrowY + 9))
+    NSColor(calibratedWhite: 0.70, alpha: 1).setStroke()
     arrow.stroke()
 
     return rep

@@ -106,6 +106,14 @@ jobs:
           echo "$BIN" >> "$GITHUB_PATH"
           "$BIN/xcodegen" --version
 
+      # The Longbridge plugin is a Rust library built once per architecture and
+      # lipo'd together, and a release build is universal. The image ships only
+      # the host target, so the second one has to be added explicitly.
+      - name: Install the Rust targets the Longbridge plugin needs
+        run: |
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          rustup target list --installed
+
       # The certificate is the source of truth for who signs: the identity and
       # the team id are read back out of it rather than configured twice.
       - name: Import the Developer ID certificate

@@ -134,6 +134,19 @@ released; without it the run refuses before the build, which is the guard
 working — a released version's assets are what installed copies already
 verified against the appcast.
 
+### The build toolchain
+
+The workflow pins Xcode explicitly rather than taking the runner image's
+default, and installs both Rust targets, because a release build of the
+Longbridge plugin is universal and the image ships only its host target.
+
+Building in the cloud is also what pins down which compilers the code actually
+supports. Xcode 16.4 rejects `CompositeProvider`, and every stable Swift
+through 6.3.3 crashed on `SymbolID`'s storage accessors until they were marked
+`@inline(never)` — the 6.4 beta toolchain on one Mac had been quietly covering
+for that. Bump the pin deliberately, and expect a run to tell you when the
+codebase has drifted onto something only a beta compiler accepts.
+
 ### The approval gate
 
 The release job runs in the `release` environment, which requires a human

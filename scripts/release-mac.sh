@@ -568,6 +568,13 @@ if [[ "$PUBLISH" != "1" ]]; then
   exit 0
 fi
 
+# Without --target, `gh release create` tags whatever the remote default
+# branch happens to point at, which is not necessarily the commit that was
+# built: v0.15.2 and v0.15.4 both ended up tagging a tree whose project.yml
+# still named the previous version. Pin the tag to the commit in hand, so
+# checking out a release tag gets the source that produced it.
+RELEASE_COMMIT="$(git rev-parse HEAD)"
+
 echo "==> Uploading GitHub Release assets"
 if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
   gh release upload "$TAG" "$ZIP_PATH" "$DMG_PATH" --repo "$GH_REPO" --clobber
@@ -575,11 +582,13 @@ else
   if [[ -f "$RELEASE_NOTES_FILE" ]]; then
     gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" \
       --repo "$GH_REPO" \
+      --target "$RELEASE_COMMIT" \
       --title "Pulse ${VERSION}" \
       --notes-file "$RELEASE_NOTES_FILE"
   else
     gh release create "$TAG" "$ZIP_PATH" "$DMG_PATH" \
       --repo "$GH_REPO" \
+      --target "$RELEASE_COMMIT" \
       --title "Pulse ${VERSION}" \
       --notes "Pulse ${VERSION}
 

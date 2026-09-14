@@ -1,6 +1,7 @@
 import Foundation
 import MCP
 import Network
+import OSLog
 import Synchronization
 
 /// Minimal HTTP/1.1 + SSE loopback adapter for the MCP endpoint. The MCP SDK's
@@ -16,6 +17,15 @@ actor MCPHTTPListener {
 
     private static let maxHeaderBytes = 16 * 1024
     private static let maxBodyBytes = 4 * 1024 * 1024
+    /// A client that connects but never finishes its request would otherwise
+    /// hold the socket (and its fd) forever.
+    private static let requestReadTimeout: Duration = .seconds(30)
+
+    private nonisolated let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "app.pulse.mac",
+        category: "MCPHTTP"
+    )
+    private var nextConnectionID: UInt64 = 0
 
     private let port: UInt16
     private let token: String
@@ -79,16 +89,106 @@ actor MCPHTTPListener {
 
     // MARK: - Connection handling
 
+    /// Every path out of here — normal completion, error, timeout, peer
+    /// disconnect, task cancellation — must release the socket, or the fd
+    /// leaks for the life of the process. The SSE case is the dangerous one:
+    /// the transport's stream only ends when the session does, so a client
+    /// that drops its GET stream would otherwise leave this task (and the
+    /// connection it retains) suspended forever.
     private func serve(_ connection: NWConnection) async {
-        connection.start(queue: queue)
-        do {
-            let request = try await readRequest(connection)
-            let response = await gate(request)
-            try await write(response, to: connection)
-        } catch {
-            // Half-open sockets and malformed requests just drop the connection.
+        nextConnectionID += 1
+        let id = nextConnectionID
+        let startedAt = ContinuousClock.now
+        var outcome = "completed"
+        var requestLine = "-"
+        logger.debug("Connection #\(id, privacy: .public) accepted")
+        defer {
+            connection.stateUpdateHandler = nil
+            connection.cancel()
+            let elapsed = ContinuousClock.now - startedAt
+            logger.info("""
+                Connection #\(id, privacy: .public) closed after \(elapsed, privacy: .public): \
+                \(outcome, privacy: .public) [\(requestLine, privacy: .public)]
+                """)
         }
-        connection.cancel()
+
+        // A failed connection keeps its resources until cancelled, and
+        // cancelling is also what makes any pending send/receive complete
+        // (with an error) so a suspended continuation can resume.
+        connection.stateUpdateHandler = { [weak connection, logger] state in
+            switch state {
+            case .failed(let error):
+                logger.debug("Connection #\(id, privacy: .public) failed: \(error, privacy: .public)")
+                connection?.cancel()
+            case .setup, .preparing, .waiting, .ready, .cancelled:
+                break
+            @unknown default:
+                break
+            }
+        }
+        connection.start(queue: queue)
+
+        do {
+            let request = try await Self.racing {
+                try await self.readRequest(connection)
+            } against: {
+                try await Task.sleep(for: Self.requestReadTimeout)
+                throw ListenerFailure(description: "Timed out waiting for the request")
+            }
+            requestLine = "\(request.method) \(request.path)"
+            let response = await gate(request)
+            switch response {
+            case .stream(let stream, let headers):
+                try await Self.racing {
+                    try await self.writeStream(stream, headers: headers, over: connection)
+                } against: {
+                    try await self.watchPeer(connection)
+                }
+            default:
+                try await write(response, to: connection)
+            }
+        } catch {
+            // Half-open sockets, malformed requests, and peers that went away
+            // all just drop the connection; the reason goes to the log.
+            outcome = String(describing: error)
+        }
+    }
+
+    private struct PeerClosed: Error, CustomStringConvertible {
+        var description: String { "Peer closed the connection" }
+    }
+
+    /// Runs `body` and `watcher` concurrently; the first to finish decides
+    /// the outcome and the other is cancelled. `watcher` never returns
+    /// normally: it either throws (its condition fired) or is cancelled.
+    private nonisolated static func racing<Value: Sendable>(
+        _ body: @escaping @Sendable () async throws -> Value,
+        against watcher: @escaping @Sendable () async throws -> Void
+    ) async throws -> Value {
+        try await withThrowingTaskGroup(of: Value?.self) { group in
+            group.addTask { try await body() }
+            group.addTask {
+                try await watcher()
+                return nil
+            }
+            defer { group.cancelAll() }
+            guard let value = try await group.next() ?? nil else {
+                throw ListenerFailure(description: "Watcher finished without a result")
+            }
+            return value
+        }
+    }
+
+    /// One request per connection means the client has nothing more to send
+    /// once its request is in, so on an SSE stream a completed receive is the
+    /// peer going away: FIN (`isComplete`), RST/ECONNRESET, or a cancelled
+    /// connection. Stray bytes are ignored and the watch continues.
+    private nonisolated func watchPeer(_ connection: NWConnection) async throws {
+        while true {
+            guard try await receiveChunk(connection) != nil else {
+                throw PeerClosed()
+            }
+        }
     }
 
     /// Path, Origin, and bearer checks run here so an unauthenticated request
@@ -208,42 +308,97 @@ actor MCPHTTPListener {
         )
     }
 
-    private func receiveChunk(_ connection: NWConnection) async throws -> Data? {
-        try await withCheckedThrowingContinuation { continuation in
+    private nonisolated func receiveChunk(_ connection: NWConnection) async throws -> Data? {
+        try await Self.awaitingConnection(connection) { resume in
             connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { data, _, isComplete, error in
                 if let error {
-                    continuation.resume(throwing: error)
+                    resume(.failure(error))
                 } else if let data, !data.isEmpty {
-                    continuation.resume(returning: data)
+                    resume(.success(data))
                 } else if isComplete {
-                    continuation.resume(returning: nil)
+                    resume(.success(nil))
                 } else {
-                    continuation.resume(returning: Data())
+                    resume(.success(Data()))
                 }
             }
         }
     }
 
+    /// Bridges one Network.framework completion into async/await so that the
+    /// continuation resumes exactly once, and so that cancelling the awaiting
+    /// task cannot strand it: the cancellation handler both resumes with
+    /// `CancellationError` and cancels the connection, which makes Network
+    /// complete the pending operation (with an error) as well. Whichever
+    /// arrives first wins; the other is ignored.
+    private nonisolated static func awaitingConnection<Value: Sendable>(
+        _ connection: NWConnection,
+        _ start: (@escaping @Sendable (Result<Value, any Error>) -> Void) -> Void
+    ) async throws -> Value {
+        let slot = OneShotContinuation<Value>()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                slot.arm(continuation)
+                if Task.isCancelled {
+                    slot.resume(with: .failure(CancellationError()))
+                    return
+                }
+                start { result in slot.resume(with: result) }
+            }
+        } onCancel: {
+            slot.resume(with: .failure(CancellationError()))
+            connection.cancel()
+        }
+    }
+
+    private final class OneShotContinuation<Value: Sendable>: Sendable {
+        private let pending = Mutex<CheckedContinuation<Value, any Error>?>(nil)
+
+        func arm(_ continuation: CheckedContinuation<Value, any Error>) {
+            pending.withLock { $0 = continuation }
+        }
+
+        func resume(with result: Result<Value, any Error>) {
+            let continuation = pending.withLock { slot in
+                defer { slot = nil }
+                return slot
+            }
+            continuation?.resume(with: result)
+        }
+    }
+
     // MARK: - HTTP writing
 
-    private func write(_ response: HTTPResponse, to connection: NWConnection) async throws {
+    private nonisolated func write(_ response: HTTPResponse, to connection: NWConnection) async throws {
         switch response {
         case .stream(let stream, let headers):
-            try await send(Self.head(status: 200, headers: headers, streaming: true), over: connection)
-            do {
-                for try await chunk in stream {
-                    try await send(Self.chunkFrame(chunk), over: connection)
-                }
-            } catch {
-                // The transport ended the stream abnormally; terminate below either way.
-            }
-            try await send(Data("0\r\n\r\n".utf8), over: connection)
+            try await writeStream(stream, headers: headers, over: connection)
         default:
             let body = response.bodyData ?? Data()
             var head = Self.head(status: response.statusCode, headers: response.headers, streaming: false, bodyCount: body.count)
             head.append(body)
             try await send(head, over: connection)
         }
+    }
+
+    /// Chunked SSE. The transport's stream ends only when it closes the
+    /// stream itself (final response, session end); peer disconnects are
+    /// detected by `watchPeer`, which cancels this task. Iterating an
+    /// `AsyncThrowingStream` honours cancellation by ending the loop.
+    private nonisolated func writeStream(
+        _ stream: AsyncThrowingStream<Data, any Error>,
+        headers: [String: String],
+        over connection: NWConnection
+    ) async throws {
+        try await send(Self.head(status: 200, headers: headers, streaming: true), over: connection)
+        do {
+            for try await chunk in stream {
+                try await send(Self.chunkFrame(chunk), over: connection)
+            }
+        } catch {
+            // The transport ended the stream abnormally; terminate below either way.
+        }
+        try Task.checkCancellation()
+        try await send(Data("0\r\n\r\n".utf8), over: connection)
     }
 
     private static func head(status: Int, headers: [String: String], streaming: Bool, bodyCount: Int = 0) -> Data {
@@ -287,13 +442,13 @@ actor MCPHTTPListener {
         }
     }
 
-    private func send(_ data: Data, over connection: NWConnection) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+    private nonisolated func send(_ data: Data, over connection: NWConnection) async throws {
+        try await Self.awaitingConnection(connection) { (resume: @escaping @Sendable (Result<Void, any Error>) -> Void) in
             connection.send(content: data, completion: .contentProcessed { error in
                 if let error {
-                    continuation.resume(throwing: error)
+                    resume(.failure(error))
                 } else {
-                    continuation.resume()
+                    resume(.success(()))
                 }
             })
         }

@@ -12,6 +12,25 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.15.6",
+    date: "2026-09-14",
+    kind: "fix",
+    highlights: {
+      zh: [
+        "开启 Agent access 几天后行情不再冻结。此前只要有 MCP 客户端（比如 Cursor）连着，它每次断开或重新打开事件流，Pulse 都会把已经失效的连接留在手里。这些连接大约每两分钟多一个，累积约三天后 App 触到系统的打开文件上限，所有网络请求随之失败：行情不再更新，窗口却看起来一切正常，只有重启才能恢复。现在客户端一离开，Pulse 立刻察觉并释放连接；连上后一直不发请求的连接也会在三十秒后被断开。",
+      ],
+      en: [
+        "Quotes no longer freeze after a few days with Agent access turned on. Each time a connected MCP client (Cursor, for instance) dropped or reopened its event stream, Pulse kept the dead connection open. They piled up at roughly one every couple of minutes until, after about three days, the app hit the system's open-file limit and every network request failed: quotes stopped updating while the window looked perfectly normal, and only a restart brought them back. Pulse now notices the moment a client goes away and releases the connection immediately, and a connection that never sends a request is dropped after thirty seconds.",
+      ],
+      ja: [
+        "Agent access をオンにして数日経っても、相場が止まらなくなりました。接続中の MCP クライアント（たとえば Cursor）がイベントストリームを切断したり開き直したりするたびに、Pulse は失効した接続を手放さずに抱えていました。それがおよそ 2 分に 1 つずつ積み上がり、3 日ほどでアプリはシステムのオープンファイル上限に達して、あらゆるネットワーク要求が失敗していました。相場は更新されないのにウィンドウは正常に見え、再起動しないと戻りませんでした。今はクライアントが離れた瞬間に検知して接続を即座に解放し、接続したまま要求を送ってこない接続も 30 秒で切断します。",
+      ],
+      ko: [
+        "Agent access를 켜 둔 채 며칠이 지나도 시세가 멈추지 않습니다. 연결된 MCP 클라이언트(예: Cursor)가 이벤트 스트림을 끊거나 다시 열 때마다 Pulse는 이미 죽은 연결을 그대로 붙들고 있었습니다. 이런 연결이 약 2분에 하나씩 쌓여 사흘쯤 지나면 앱이 시스템의 열린 파일 한도에 닿아 모든 네트워크 요청이 실패했습니다. 시세는 갱신되지 않는데 창은 멀쩡해 보였고, 재시작해야만 돌아왔습니다. 이제 클라이언트가 떠나는 순간 바로 감지해 연결을 해제하고, 연결만 하고 요청을 보내지 않는 연결도 30초 뒤 끊습니다.",
+      ],
+    },
+  },
+  {
     version: "0.15.5",
     date: "2026-09-10",
     kind: "fix",

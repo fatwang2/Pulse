@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const publishedDownloadVersion = "0.15.4";
+// The release workflow rewrites download.ts after every release, so the
+// version under test is read from there rather than pinned here.
+const downloadSource = await readFile(
+  new URL("../src/download.ts", import.meta.url),
+  "utf8",
+);
+const publishedDownloadVersion = downloadSource.match(
+  /^\s*version: "(\d+\.\d+\.\d+)",$/m,
+)?.[1];
+assert.ok(publishedDownloadVersion, "download.ts declares no latestDownload.version");
 
 async function loadWorker(tag) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);

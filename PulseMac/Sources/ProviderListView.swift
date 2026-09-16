@@ -30,7 +30,7 @@ struct ProviderListView: View {
             .formStyle(.grouped)
             .controlSize(.small)
             .scrollContentBackground(.hidden)
-            .scrollEdgeEffectStyle(.soft, for: .all)
+            .softScrollEdgeEffect(for: .all)
         }
     }
 

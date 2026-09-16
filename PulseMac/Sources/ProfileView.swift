@@ -112,7 +112,7 @@ struct ProfileView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
         }
-        .scrollEdgeEffectStyle(.soft, for: .all)
+            .softScrollEdgeEffect(for: .all)
     }
 
     /// Nothing was reached, which is not the same as nothing being there — so

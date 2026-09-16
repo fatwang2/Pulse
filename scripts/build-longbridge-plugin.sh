@@ -89,9 +89,9 @@ PATCH_SHA="$(/usr/bin/shasum -a 256 "$OAUTH_TOKEN_PATCH" | /usr/bin/awk '{print 
 SDK_LIBRARIES=()
 RUST_TARGETS=()
 
-# Do not inherit Pulse's macOS 26 deployment target here. With Xcode 27 beta,
+# Do not inherit Pulse's macOS 14 deployment target here. With Xcode 27 beta,
 # Rust proc-macro dylibs linked at 26 can get malformed chained-fixup metadata.
-# The SDK is embedded in a macOS 26 app but can safely target an older runtime.
+# The SDK is embedded in a macOS 14 app but can safely target an older runtime.
 for build_arch in "${BUILD_ARCHS[@]}"; do
   rust_target="$(rust_target_for_arch "$build_arch")"
   if ! rustup target list --installed | /usr/bin/grep -qx "$rust_target"; then

@@ -40,7 +40,7 @@ struct DetailView: View {
             positionArea
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .scrollEdgeEffectStyle(.soft, for: .all)
+        .softScrollEdgeEffect(for: .all)
         // Navigation and instrument identity belong to the page, not the window.
         // Keeping this row inline also aligns it with the pinned watchlist's first
         // content row instead of squeezing a long name between the traffic lights
@@ -48,7 +48,7 @@ struct DetailView: View {
         .safeAreaInset(edge: .top, spacing: 0) { header }
         .toolbar {
             if host == .pinnedWindow {
-                ToolbarSpacer(.flexible)
+                FlexibleToolbarSpacer()
                 ToolbarItemGroup(placement: .primaryAction) {
                     toolbarActions
                 }

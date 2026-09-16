@@ -82,7 +82,7 @@ struct WatchlistView: View {
             .animation(.easeOut(duration: 0.15), value: searchSession.isActive)
             .animation(.easeOut(duration: 0.15), value: searchSession.text.isEmpty)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .scrollEdgeEffectStyle(.soft, for: .all)
+            .softScrollEdgeEffect(for: .all)
 
             bottomBar
                 .frame(height: 30)
@@ -459,7 +459,7 @@ struct WatchlistView: View {
         // outgoing list jump upward before its horizontal exit begins.
         .toolbar {
             if host == .pinnedWindow {
-                ToolbarSpacer(.flexible)
+                FlexibleToolbarSpacer()
                 if route == .list {
                     ToolbarItemGroup(placement: .primaryAction) {
                         toolbarActions
@@ -763,7 +763,7 @@ struct WatchlistView: View {
                     Label(PulseLocalization.localizedString("action.done"), systemImage: "checkmark")
                         .font(.system(size: 11, weight: .semibold))
                 }
-                .buttonStyle(.glassProminent)
+                .prominentButtonStyle()
                 .controlSize(.small)
                 .padding(.trailing, 12)
                 .padding(.bottom, 4)
@@ -949,7 +949,7 @@ struct WatchlistView: View {
             .padding(.vertical, 4)
         }
         .scrollIndicators(.never, axes: .vertical)
-        .scrollEdgeEffectStyle(.soft, for: .vertical)
+        .softScrollEdgeEffect(for: .vertical)
         .overlay {
             switch searchTerminalState {
             case .failure(let searchError):
@@ -1158,7 +1158,7 @@ struct WatchlistView: View {
                 )
                 .font(.system(size: 12, weight: .semibold))
             }
-            .buttonStyle(.glassProminent)
+        .prominentButtonStyle()
             .padding(.top, 6)
             .opacity(shouldAnimateEntrance ? (emptyStateShown ? 1 : 0) : 1)
             .offset(y: shouldAnimateEntrance && !emptyStateShown && !reduceMotion ? 6 : 0)
@@ -1276,7 +1276,7 @@ struct WatchlistView: View {
         // A persistent AppKit scroller becomes a heavy dark rail in this compact
         // glass popover. The system soft edge effect communicates overflow instead.
         .scrollIndicators(.never, axes: .vertical)
-        .scrollEdgeEffectStyle(.soft, for: .vertical)
+        .softScrollEdgeEffect(for: .vertical)
         .animation(.snappy(duration: 0.16), value: items.map(\.symbol))
         .onChange(of: isReordering) { _, active in
             if !active { reorderDrag = nil }

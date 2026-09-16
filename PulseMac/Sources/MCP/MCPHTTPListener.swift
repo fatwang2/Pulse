@@ -2,7 +2,6 @@ import Foundation
 import MCP
 import Network
 import OSLog
-import Synchronization
 
 /// Minimal HTTP/1.1 + SSE loopback adapter for the MCP endpoint. The MCP SDK's
 /// HTTP transport is a request adapter, not a listener, so PulseMac owns the
@@ -59,7 +58,7 @@ actor MCPHTTPListener {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             // The state handler keeps firing after ready (e.g. on cancel); the
             // continuation must resume exactly once.
-            let resumed = Mutex(false)
+            let resumed = LockedValue(false)
             listener.stateUpdateHandler = { state in
                 let outcome: Result<Void, Error>? = switch state {
                 case .ready: .success(())
@@ -351,7 +350,7 @@ actor MCPHTTPListener {
     }
 
     private final class OneShotContinuation<Value: Sendable>: Sendable {
-        private let pending = Mutex<CheckedContinuation<Value, any Error>?>(nil)
+        private let pending = LockedValue<CheckedContinuation<Value, any Error>?>(nil)
 
         func arm(_ continuation: CheckedContinuation<Value, any Error>) {
             pending.withLock { $0 = continuation }

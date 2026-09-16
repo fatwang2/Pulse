@@ -56,6 +56,10 @@ struct PulseMacApp: App {
         }
         .menuBarExtraStyle(.window)
 
+        pinnedWindowBase
+    }
+
+    private var pinnedWindowBase: some Scene {
         // The pinned host: the same view tree in a floating window that outlives losing
         // focus. Sized by its content, so route pushes resize the window exactly the way
         // they resize the panel.
@@ -70,7 +74,7 @@ struct PulseMacApp: App {
                     .environment(appState)
                     .environment(\.locale, appState.settings.locale)
                     .environment(\.pulseHost, .pinnedWindow)
-                    .containerBackground(.thickMaterial, for: .window)
+                    .windowContainerBackgroundCompat()
                     .onAppear {
                         appState.settings.pinnedWindowVisible = true
                         if appState.onboarding.welcomeSessionActive {
@@ -99,21 +103,14 @@ struct PulseMacApp: App {
         // regardless. The strip stays; it is also the drag handle and close button.
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
-        .windowLevel(.floating)
-        // Presentation at launch is decided by the persisted pin state, plus exactly one
-        // exception: the very first launch presents the window so the app visibly exists.
-        // SwiftUI's own restoration is disabled to keep this the single source of truth.
-        .defaultLaunchBehavior(
-            appState.settings.pinnedWindowVisible || appState.onboarding.welcomeSessionActive
-                ? .presented : .suppressed
-        )
-        .restorationBehavior(.disabled)
     }
+
 }
 
 struct MenuBarLabel: View {
     let appState: AppState
     @Environment(\.openWindow) private var openWindow
+    @State private var didApplyInitialWindowPresentation = false
 
     private var templateIcon: NSImage {
         let canvasSize = NSSize(width: 16, height: 16)
@@ -163,6 +160,15 @@ struct MenuBarLabel: View {
         .onAppear {
             AppDelegate.reopenHandler = {
                 openWindow(id: PinnedWindow.id)
+                PinnedWindow.activate()
+            }
+            guard !didApplyInitialWindowPresentation else { return }
+            didApplyInitialWindowPresentation = true
+            guard appState.settings.pinnedWindowVisible || appState.onboarding.welcomeSessionActive else {
+                return
+            }
+            openWindow(id: PinnedWindow.id)
+            if appState.onboarding.welcomeSessionActive {
                 PinnedWindow.activate()
             }
         }

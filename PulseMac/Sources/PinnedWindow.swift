@@ -50,6 +50,8 @@ extension PinnedWindow {
     /// `setContentSize` pins that corner, so a taller page extends downward instead of
     /// drifting the header out from under the pointer.
     static func configure(_ window: NSWindow, settings: AppSettings) {
+        window.level = .floating
+        window.isRestorable = false
         window.collectionBehavior.insert(.canJoinAllSpaces)
         window.collectionBehavior.insert(.fullScreenAuxiliary)
         // A remembered position always wins: once the user has placed this window, every

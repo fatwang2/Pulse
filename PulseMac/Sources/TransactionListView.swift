@@ -49,7 +49,7 @@ struct TransactionListView: View {
                 .padding(.horizontal, 12)
                 .padding(.bottom, 12)
             }
-            .scrollEdgeEffectStyle(.soft, for: .all)
+            .softScrollEdgeEffect(for: .all)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onChange(of: entries.isEmpty) { _, isEmpty in

@@ -141,7 +141,7 @@ test("server-renders the full bilingual release timeline", async () => {
   assert.doesNotMatch(html, /class="release-link"/);
 
   const releaseEntries = html.match(/class="release-entry"/g) ?? [];
-  assert.equal(releaseEntries.length, 44);
+  assert.equal(releaseEntries.length, 45);
   assert.ok(html.indexOf("0.14.0") < html.indexOf("0.13.0"));
 });
 
@@ -298,6 +298,8 @@ test("presents a reconstructed macOS popover and dedicated Omarchy section", asy
     assert.match(html, /data-testid="hero-omarchy-cta"/);
     assert.match(html, /data-testid="header-github"/);
     assert.match(html, /github\.com\/fatwang2\/Pulse/);
+    assert.match(html, /data-testid="header-x"/);
+    assert.match(html, /x\.com\/pulseticker_app/);
     assert.match(html, /href="#omarchy"/);
     assert.match(html, /omarchy plugin add/);
     assert.match(html, /omarchy-pulse\.git/);

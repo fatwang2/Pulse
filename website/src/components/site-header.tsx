@@ -11,10 +11,11 @@ import {
 } from "../i18n";
 
 const repositoryUrl = "https://github.com/fatwang2/Pulse";
+const xUrl = "https://x.com/pulseticker_app";
 
 const headerCopy: Record<
   Language,
-  { homeLabel: string; navigationLabel: string; home: string; changelog: string; contact: string; githubLabel: string; languageLabel: string }
+  { homeLabel: string; navigationLabel: string; home: string; changelog: string; contact: string; githubLabel: string; xLabel: string; languageLabel: string }
 > = {
   zh: {
     homeLabel: "Pulse 首页",
@@ -23,6 +24,7 @@ const headerCopy: Record<
     changelog: "更新日志",
     contact: "联系我们",
     githubLabel: "在 GitHub 查看 Pulse 源码",
+    xLabel: "在 X 上关注 Pulse",
     languageLabel: "切换网站语言",
   },
   en: {
@@ -32,6 +34,7 @@ const headerCopy: Record<
     changelog: "Changelog",
     contact: "Contact",
     githubLabel: "View Pulse source on GitHub",
+    xLabel: "Follow Pulse on X",
     languageLabel: "Change website language",
   },
   ja: {
@@ -41,6 +44,7 @@ const headerCopy: Record<
     changelog: "更新履歴",
     contact: "お問い合わせ",
     githubLabel: "GitHub で Pulse のソースを見る",
+    xLabel: "X で Pulse をフォロー",
     languageLabel: "サイトの言語を切り替え",
   },
   ko: {
@@ -50,6 +54,7 @@ const headerCopy: Record<
     changelog: "업데이트 내역",
     contact: "문의",
     githubLabel: "GitHub에서 Pulse 소스 보기",
+    xLabel: "X에서 Pulse 팔로우",
     languageLabel: "사이트 언어 변경",
   },
 };
@@ -102,20 +107,34 @@ export function SiteHeader({
             {copy.contact}
           </Link>
         </nav>
-        <a
-          className="header-github"
-          href={repositoryUrl}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={copy.githubLabel}
-          title="GitHub"
-          data-testid="header-github"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 2.6a9.6 9.6 0 0 0-3 18.7c.5.1.7-.2.7-.5v-1.9c-2.8.6-3.4-1.2-3.4-1.2-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 0 1.6 1.1 1.6 1.1.9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.7-1.4-2.3-.3-4.6-1.1-4.6-4.8 0-1.1.4-1.9 1-2.6-.1-.3-.4-1.3.1-2.6 0 0 .8-.3 2.7 1a9.2 9.2 0 0 1 4.9 0c1.9-1.3 2.7-1 2.7-1 .5 1.3.2 2.3.1 2.6.6.7 1 1.5 1 2.6 0 3.7-2.3 4.5-4.6 4.8.4.3.7.9.7 1.8v2.8c0 .4.2.6.7.5A9.6 9.6 0 0 0 12 2.6Z" />
-          </svg>
-          <span>GitHub</span>
-        </a>
+        <div className="header-icons">
+          <a
+            className="header-icon"
+            href={repositoryUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={copy.githubLabel}
+            title="GitHub"
+            data-testid="header-github"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2.6a9.6 9.6 0 0 0-3 18.7c.5.1.7-.2.7-.5v-1.9c-2.8.6-3.4-1.2-3.4-1.2-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 0 1.6 1.1 1.6 1.1.9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.7-1.4-2.3-.3-4.6-1.1-4.6-4.8 0-1.1.4-1.9 1-2.6-.1-.3-.4-1.3.1-2.6 0 0 .8-.3 2.7 1a9.2 9.2 0 0 1 4.9 0c1.9-1.3 2.7-1 2.7-1 .5 1.3.2 2.3.1 2.6.6.7 1 1.5 1 2.6 0 3.7-2.3 4.5-4.6 4.8.4.3.7.9.7 1.8v2.8c0 .4.2.6.7.5A9.6 9.6 0 0 0 12 2.6Z" />
+            </svg>
+          </a>
+          <a
+            className="header-icon"
+            href={xUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={copy.xLabel}
+            title="X"
+            data-testid="header-x"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+            </svg>
+          </a>
+        </div>
         <LanguageSwitcher language={language} page={page} label={copy.languageLabel} />
       </div>
     </header>

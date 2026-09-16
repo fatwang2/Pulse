@@ -33,7 +33,13 @@ enum PinnedWindow {
     /// newly opened window would come up behind whatever the user was working in.
     /// Activating also resigns the panel's key status, which is what closes it.
     static func activate() {
-        NSApp.activate()
+        // Plain `activate()` is cooperative and is refused for an accessory app that has
+        // not been activated by the user yet, which is exactly the first-launch case.
+        NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+            NSApp.windows.first { $0.identifier?.rawValue.hasPrefix(id) == true }?.makeKeyAndOrderFront(nil)
+        }
     }
 }
 
@@ -50,6 +56,8 @@ extension PinnedWindow {
     /// `setContentSize` pins that corner, so a taller page extends downward instead of
     /// drifting the header out from under the pointer.
     static func configure(_ window: NSWindow, settings: AppSettings) {
+        window.level = .floating
+        window.isRestorable = false
         window.collectionBehavior.insert(.canJoinAllSpaces)
         window.collectionBehavior.insert(.fullScreenAuxiliary)
         // A remembered position always wins: once the user has placed this window, every

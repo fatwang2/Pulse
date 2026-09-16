@@ -57,7 +57,7 @@ struct OnboardingTourBubble: View {
                         appState.onboarding.advanceTour()
                     }
                 }
-                .buttonStyle(.glassProminent)
+                .prominentButtonStyle()
                 .controlSize(.small)
                 .font(.system(size: 11, weight: .semibold))
             }

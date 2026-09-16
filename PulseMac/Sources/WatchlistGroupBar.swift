@@ -43,7 +43,7 @@ struct WatchlistGroupBar: View {
                                 onSelect(group.id)
                             }
                             .id(group.id)
-                            .onScrollVisibilityChange(threshold: 0.9) { isVisible in
+                            .onScrollVisibilityChangeCompat(threshold: 0.9) { isVisible in
                                 if isVisible {
                                     visibleGroupIDs.insert(group.id)
                                 } else {

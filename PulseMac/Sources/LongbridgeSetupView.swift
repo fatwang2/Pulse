@@ -62,7 +62,7 @@ struct LongbridgeSetupView: View {
         .animation(.snappy(duration: 0.22), value: showManualFields)
         .animation(.snappy(duration: 0.25), value: configured)
         .animation(.snappy(duration: 0.25), value: enabled)
-        .scrollEdgeEffectStyle(.soft, for: .all)
+        .softScrollEdgeEffect(for: .all)
         .safeAreaInset(edge: .top, spacing: 0) { header }
     }
 

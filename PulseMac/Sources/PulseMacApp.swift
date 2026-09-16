@@ -9,6 +9,7 @@ import PulseUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static var urlHandler: ((URL) -> Void)?
+    static private(set) var isTerminating = false
     /// Launching the already-running app again (Applications double-click, Spotlight)
     /// is the one gesture an accessory app can answer visibly. Presenting the floating
     /// window is that answer; silence here reads as "the app didn't start".
@@ -18,6 +19,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for url in urls {
             Self.urlHandler?(url)
         }
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Self.isTerminating = true
+        return .terminateNow
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -56,6 +62,10 @@ struct PulseMacApp: App {
         }
         .menuBarExtraStyle(.window)
 
+        pinnedWindowBase
+    }
+
+    private var pinnedWindowBase: some Scene {
         // The pinned host: the same view tree in a floating window that outlives losing
         // focus. Sized by its content, so route pushes resize the window exactly the way
         // they resize the panel.
@@ -70,7 +80,7 @@ struct PulseMacApp: App {
                     .environment(appState)
                     .environment(\.locale, appState.settings.locale)
                     .environment(\.pulseHost, .pinnedWindow)
-                    .containerBackground(.thickMaterial, for: .window)
+                    .windowContainerBackgroundCompat()
                     .onAppear {
                         appState.settings.pinnedWindowVisible = true
                         if appState.onboarding.welcomeSessionActive {
@@ -82,6 +92,10 @@ struct PulseMacApp: App {
                         }
                     }
                     .onDisappear {
+                        guard !AppDelegate.isTerminating else {
+                            // Quit is not a close: the pin survives to the next launch.
+                            return
+                        }
                         appState.settings.pinnedWindowVisible = false
                         appState.onboarding.welcomeSessionActive = false
                         // A tour interrupted by the window closing resumes at the
@@ -99,21 +113,14 @@ struct PulseMacApp: App {
         // regardless. The strip stays; it is also the drag handle and close button.
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
-        .windowLevel(.floating)
-        // Presentation at launch is decided by the persisted pin state, plus exactly one
-        // exception: the very first launch presents the window so the app visibly exists.
-        // SwiftUI's own restoration is disabled to keep this the single source of truth.
-        .defaultLaunchBehavior(
-            appState.settings.pinnedWindowVisible || appState.onboarding.welcomeSessionActive
-                ? .presented : .suppressed
-        )
-        .restorationBehavior(.disabled)
     }
+
 }
 
 struct MenuBarLabel: View {
     let appState: AppState
     @Environment(\.openWindow) private var openWindow
+    @State private var didApplyInitialWindowPresentation = false
 
     private var templateIcon: NSImage {
         let canvasSize = NSSize(width: 16, height: 16)
@@ -163,6 +170,15 @@ struct MenuBarLabel: View {
         .onAppear {
             AppDelegate.reopenHandler = {
                 openWindow(id: PinnedWindow.id)
+                PinnedWindow.activate()
+            }
+            guard !didApplyInitialWindowPresentation else { return }
+            didApplyInitialWindowPresentation = true
+            guard appState.settings.pinnedWindowVisible || appState.onboarding.welcomeSessionActive else {
+                return
+            }
+            openWindow(id: PinnedWindow.id)
+            if appState.onboarding.welcomeSessionActive {
                 PinnedWindow.activate()
             }
         }

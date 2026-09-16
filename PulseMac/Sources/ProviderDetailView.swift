@@ -52,7 +52,7 @@ struct ProviderDetailView: View {
             .padding(.bottom, 16)
             .frame(maxWidth: .infinity)
         }
-        .scrollEdgeEffectStyle(.soft, for: .all)
+        .softScrollEdgeEffect(for: .all)
         .safeAreaInset(edge: .top, spacing: 0) { header }
     }
 

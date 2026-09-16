@@ -44,7 +44,7 @@ struct FuyaoSetupView: View {
         .animation(.snappy(duration: 0.22), value: showReplaceField)
         .animation(.snappy(duration: 0.25), value: configured)
         .animation(.snappy(duration: 0.25), value: enabled)
-        .scrollEdgeEffectStyle(.soft, for: .all)
+        .softScrollEdgeEffect(for: .all)
         .safeAreaInset(edge: .top, spacing: 0) { header }
     }
 

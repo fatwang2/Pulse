@@ -46,7 +46,7 @@ struct MCPSettingsView: View {
         }
         .animation(.snappy(duration: 0.22), value: isEnabled)
         .animation(.snappy(duration: 0.22), value: statusAnimationToken)
-        .scrollEdgeEffectStyle(.soft, for: .all)
+            .softScrollEdgeEffect(for: .all)
         .safeAreaInset(edge: .top, spacing: 0) { header }
         .alert(
             PulseLocalization.localizedString("settings.mcp.regenerateConfirmTitle"),

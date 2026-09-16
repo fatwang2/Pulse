@@ -2,7 +2,7 @@ name: Pulse
 options:
   bundleIdPrefix: app.pulse
   deploymentTarget:
-    macOS: "26.0"
+    macOS: "14.0"
   createIntermediateGroups: true
 
 packages:
@@ -44,7 +44,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
-        LSMinimumSystemVersion: "26.0"
+        LSMinimumSystemVersion: "14.0"
         NSHumanReadableCopyright: "© 2026 Pulse"
         SUEnableAutomaticChecks: true
         SUEnableInstallerLauncherService: true

@@ -21,7 +21,7 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>26.0</string>
+	<string>14.0</string>
 	<key>LongbridgeSDKCommit</key>
 	<string>bc33287274d69a4617ab7a78167625e44ad83eb2</string>
 	<key>LongbridgeSDKVersion</key>

@@ -199,7 +199,7 @@ struct SettingsView: View {
             .formStyle(.grouped)
             .controlSize(.small)
             .scrollContentBackground(.hidden)
-            .scrollEdgeEffectStyle(.soft, for: .all)
+            .softScrollEdgeEffect(for: .all)
         }
         .onAppear { PulseTelemetry.signal(.settingsOpened) }
     }

@@ -211,7 +211,7 @@ struct PopoverRootView: View {
         // no longer collapses the bar from 52pt to the empty 32pt window strip.
         .toolbar {
             if host == .pinnedWindow {
-                ToolbarSpacer(.flexible)
+                FlexibleToolbarSpacer()
             }
         }
         .background {

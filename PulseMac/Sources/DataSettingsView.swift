@@ -44,7 +44,7 @@ struct DataSettingsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .controlSize(.small)
-        .scrollEdgeEffectStyle(.soft, for: .all)
+            .softScrollEdgeEffect(for: .all)
         .safeAreaInset(edge: .top, spacing: 0) { header }
         .safeAreaInset(edge: .bottom, spacing: 0) { actionBar }
         .animation(.snappy(duration: 0.24), value: phase)

@@ -121,10 +121,24 @@ builds and verifies the identical artifacts, then stops before publishing.
 Version-specific GitHub Release copy lives in `.github/release-notes/<version>.md`,
 tracked so a release can be reproduced from the repository.
 
+The version's entry in `website/src/data/releases.ts` is the authored source
+for everything a release says: the site's changelog page, the localized
+descriptions inlined into the appcast, and — generated from its English
+highlights — the release notes file itself. Write the entry in all four
+languages, then produce the notes file:
+
+```bash
+node scripts/release-notes-from-changelog.mjs <version>
+```
+
+The run refuses to publish a version that has no changelog entry, so a missing
+entry fails the build instead of silently shipping English-only notes.
+
 To ship a version:
 
-1. Bump `MARKETING_VERSION` in `project.yml`, write
-   `.github/release-notes/<version>.md`, and merge to `main`.
+1. Write the version's entry in `website/src/data/releases.ts`, bump
+   `MARKETING_VERSION` in `project.yml`, run the generator above, and merge to
+   `main`.
 2. Actions → *Release Pulse* → *Run workflow*.
 3. Approve the deployment when the run asks.
 

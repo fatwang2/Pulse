@@ -88,6 +88,19 @@ if [[ ! -f "$RELEASE_NOTES_FILE" && "${ALLOW_MISSING_RELEASE_NOTES:-0}" != "1" ]
   exit 1
 fi
 
+# The changelog entry is the authored source for the localized appcast notes
+# and the website changelog: a version missing from releases.ts would ship
+# English-only notes and never appear on the site. Same escape hatch as the
+# notes file above.
+if ! /usr/bin/grep -q "version: \"$VERSION\"" "$ROOT/website/src/data/releases.ts" \
+  && [[ "${ALLOW_MISSING_RELEASE_NOTES:-0}" != "1" ]]; then
+  echo "error: website/src/data/releases.ts has no entry for $VERSION" >&2
+  echo "Write it first — it feeds the appcast and the changelog page — then regenerate the notes with" >&2
+  echo "  node scripts/release-notes-from-changelog.mjs $VERSION" >&2
+  echo "or set ALLOW_MISSING_RELEASE_NOTES=1 to publish without them." >&2
+  exit 1
+fi
+
 # Publishing is a property of the runner, not of the operator. Uploads happen
 # only when a real Actions run asked for them: GITHUB_ACTIONS and the run id
 # are the runner's to set, so exporting PULSE_RELEASE_UPLOAD on a laptop that

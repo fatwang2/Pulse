@@ -2,6 +2,9 @@ export type Release = {
   version: string;
   date: string;
   kind: "release" | "improvement" | "fix";
+  // Optional English paragraph between the bullets and the install footer of
+  // the generated release notes; defaults to the standard no-setup line.
+  setupNoteEn?: string;
   highlights: {
     zh: readonly string[];
     en: readonly string[];

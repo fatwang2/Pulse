@@ -48,6 +48,20 @@ struct WatchlistView: View {
     @State private var reorderRowHeight: CGFloat = 46
     @State private var shareFeedback: ShareFeedback?
     @State private var hostWindow: NSWindow?
+    /// Widest metric column seen for the current list and metric mode. Prices
+    /// print only the decimals the tick needs, so one quote can gain or lose a
+    /// digit between refreshes; sizing the column from the live text alone
+    /// would let it breathe on every tick and shove every sparkline with it.
+    /// Within one membership/mode the column only widens. A new key starts
+    /// the measurement over, since a switched metric can legitimately be
+    /// narrower.
+    @State private var metricColumnHighWater: MetricColumnMeasurement?
+
+    private struct MetricColumnMeasurement: Equatable {
+        var mode: WatchRowMetricMode
+        var symbols: Set<SymbolID>
+        var width: CGFloat
+    }
     @AppStorage("pulse.watchlist.orderMode.v1") private var listOrderMode = WatchlistOrderMode.manual.rawValue
     @AppStorage("pulse.watchlist.sortOption.v1") private var listSortOption = WatchlistSortOption.changePercent.rawValue
 
@@ -661,6 +675,26 @@ struct WatchlistView: View {
         }
     }
 
+    /// The column width to lay rows out with: the recorded high-water mark
+    /// when it belongs to this list and mode, otherwise the fresh measurement.
+    private func stableMetricColumnWidth(for measurement: MetricColumnMeasurement) -> CGFloat {
+        guard let mark = metricColumnHighWater,
+              mark.mode == measurement.mode, mark.symbols == measurement.symbols else {
+            return measurement.width
+        }
+        return max(mark.width, measurement.width)
+    }
+
+    /// Advances the high-water mark, or restarts it when the list or mode
+    /// changed. Called from `onChange` so state never mutates mid-render.
+    private func recordMetricColumn(_ measurement: MetricColumnMeasurement) {
+        if let mark = metricColumnHighWater,
+           mark.mode == measurement.mode, mark.symbols == measurement.symbols {
+            guard measurement.width > mark.width else { return }
+        }
+        metricColumnHighWater = measurement
+    }
+
     private var watchRowMetricColumnWidth: CGFloat {
         let mode = appState.settings.watchRowMetricMode
         let widths = displayedItems().map { item -> CGFloat in
@@ -1181,7 +1215,12 @@ struct WatchlistView: View {
     private func watchList(at date: Date) -> some View {
         let items = displayedItems(at: date)
         let titleColumnWidth = watchRowTitleColumnWidth
-        let metricColumnWidth = watchRowMetricColumnWidth
+        let measurement = MetricColumnMeasurement(
+            mode: appState.settings.watchRowMetricMode,
+            symbols: Set(items.map(\.symbol)),
+            width: watchRowMetricColumnWidth
+        )
+        let metricColumnWidth = stableMetricColumnWidth(for: measurement)
         return ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
@@ -1280,6 +1319,9 @@ struct WatchlistView: View {
         .animation(.snappy(duration: 0.16), value: items.map(\.symbol))
         .onChange(of: isReordering) { _, active in
             if !active { reorderDrag = nil }
+        }
+        .onChange(of: measurement, initial: true) { _, measurement in
+            recordMetricColumn(measurement)
         }
     }
 

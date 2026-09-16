@@ -15,6 +15,37 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.15.8",
+    date: "2026-09-17",
+    kind: "improvement",
+    highlights: {
+      zh: [
+        "交易记录可以修改了。在交易记录列表或持仓页的「最近交易」里点击任意一笔，就能打开这笔交易的编辑页，修改价格、数量和日期，或者在左下角直接删除。此前只能通过右键菜单删除，改一个数字要删掉重录。改完后持仓和盈亏自动重算。Agent access 也新增了对应的 update_trade 工具。",
+        "落在周末或节假日的交易，K 线图上不再看不到。以前交易日期那天没有 K 线，标记就直接消失；现在会吸附到最近的交易日，录入时也会提前告诉你标记将落在哪一天。这个提示只在 K 线历史里确实没有那一天时才出现，盘中录入不会再被误报休市。",
+        "录入交易时的「今天」按市场当地日期来算。凌晨录一笔美股，属于还在进行中的纽约当天交易；以前按本地日期记成第二天，标记会落到一根还不存在的 K 线上，等它出现后又偏了一天。",
+        "首页右侧的价格列不再随着报价的小数位数来回伸缩，中间的走势图区域也跟着稳定下来。",
+      ],
+      en: [
+        "Recorded trades can be edited. Click any entry in the trade log, or in the position page's recent trades, to open it in the trade form: change the price, quantity or date, or delete it from the bottom-left button. Before, the only option was a context-menu delete, so fixing one digit meant deleting and re-entering. Position and P&L are recalculated after the change. Agent access gains a matching update_trade tool.",
+        "Trades dated on a weekend or holiday no longer disappear from the chart. A trade on a day with no candle used to have nowhere to go; it now snaps to the nearest trading day, and the form tells you which day the marker will land on before you save. The hint only appears when the loaded history really has no candle for that day, so recording a trade mid-session no longer claims the market is closed.",
+        "\"Today\" in the trade form is the market's own date. A US trade recorded from Asia at 1 a.m. belongs to the New York session still running; dating it by the local clock put the marker on a candle that didn't exist yet, and one day late once it did.",
+        "The price column on the watchlist no longer grows and shrinks as quotes change their number of decimals, so the sparkline between the name and the price stays put.",
+      ],
+      ja: [
+        "記録した取引を編集できるようになりました。取引履歴の一覧、またはポジション画面の「最近の取引」で任意の取引をクリックすると編集画面が開き、価格・数量・日付を変更したり、左下のボタンで削除したりできます。これまではコンテキストメニューから削除するしかなく、数字をひとつ直すにも削除して入れ直す必要がありました。変更後はポジションと損益が自動で再計算されます。Agent access にも対応する update_trade ツールが加わりました。",
+        "週末や休場日の日付の取引が、チャートから消えなくなりました。ローソク足のない日の取引はこれまで表示する場所がありませんでしたが、直近の取引日に寄せて表示されるようになり、保存前にマーカーがどの日に置かれるかを入力画面が教えてくれます。この案内は読み込み済みの履歴にその日のローソク足が本当にない場合にだけ表示されるため、取引時間中の入力で休場と誤って案内されることはありません。",
+        "取引入力の「今日」は市場の現地日付で決まります。アジアから深夜 1 時に米国株の取引を記録すると、それはまだ続いているニューヨークのその日のセッションに属します。以前はローカルの日付で翌日として記録され、マーカーはまだ存在しないローソク足に置かれ、足ができると 1 日ずれていました。",
+        "ウォッチリスト右側の価格列が、気配値の小数点以下の桁数に合わせて伸び縮みしなくなり、名前と価格のあいだのスパークラインも動かなくなりました。",
+      ],
+      ko: [
+        "기록한 거래를 수정할 수 있습니다. 거래 기록 목록이나 포지션 페이지의 ‘최근 거래’에서 아무 거래나 클릭하면 편집 화면이 열리며, 가격·수량·날짜를 바꾸거나 왼쪽 아래 버튼으로 삭제할 수 있습니다. 이전에는 콘텍스트 메뉴로 삭제만 가능해 숫자 하나를 고치려 해도 지우고 다시 입력해야 했습니다. 변경 후에는 포지션과 손익이 자동으로 다시 계산됩니다. Agent access에도 대응하는 update_trade 도구가 추가되었습니다.",
+        "주말이나 휴장일 날짜의 거래가 차트에서 사라지지 않습니다. 캔들이 없는 날의 거래는 이전에는 표시할 곳이 없었지만, 이제 가장 가까운 거래일에 붙어 표시되고 저장 전에 입력 화면이 마커가 어느 날에 놓일지 알려 줍니다. 이 안내는 불러온 기록에 그날의 캔들이 정말 없을 때만 나타나므로, 장중에 거래를 입력할 때 휴장이라고 잘못 안내하지 않습니다.",
+        "거래 입력의 ‘오늘’은 시장 현지 날짜를 기준으로 합니다. 아시아에서 새벽 1시에 기록한 미국 주식 거래는 아직 진행 중인 뉴욕의 그날 세션에 속합니다. 이전에는 현지 날짜로 다음 날로 기록되어 마커가 아직 없는 캔들에 놓였고, 캔들이 생기면 하루 어긋났습니다.",
+        "관심목록 오른쪽 가격 열이 시세의 소수 자릿수에 따라 늘었다 줄었다 하지 않아, 이름과 가격 사이의 스파크라인도 제자리를 지킵니다.",
+      ],
+    },
+  },
+  {
     version: "0.15.7",
     date: "2026-09-16",
     kind: "release",

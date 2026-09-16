@@ -9,6 +9,7 @@ import PulseUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static var urlHandler: ((URL) -> Void)?
+    static private(set) var isTerminating = false
     /// Launching the already-running app again (Applications double-click, Spotlight)
     /// is the one gesture an accessory app can answer visibly. Presenting the floating
     /// window is that answer; silence here reads as "the app didn't start".
@@ -18,6 +19,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for url in urls {
             Self.urlHandler?(url)
         }
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Self.isTerminating = true
+        return .terminateNow
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -86,6 +92,10 @@ struct PulseMacApp: App {
                         }
                     }
                     .onDisappear {
+                        guard !AppDelegate.isTerminating else {
+                            // Quit is not a close: the pin survives to the next launch.
+                            return
+                        }
                         appState.settings.pinnedWindowVisible = false
                         appState.onboarding.welcomeSessionActive = false
                         // A tour interrupted by the window closing resumes at the

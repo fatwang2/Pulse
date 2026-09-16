@@ -12,6 +12,29 @@ export type Release = {
 
 export const releases: readonly Release[] = [
   {
+    version: "0.15.7",
+    date: "2026-09-16",
+    kind: "release",
+    highlights: {
+      zh: [
+        "Pulse 现在支持 macOS 14 Sonoma 及以后的系统——最低系统要求从 macOS 26 降了下来。在 macOS 14 和 15 上，界面在新设计没有对应物的位置自动退回经典样式；macOS 26 上没有任何变化。",
+        "钉住的窗口现在能记住自己的状态：退出时开着，下次启动就会回来，不再被遗忘。同时 Pulse 在启动时恢复钉住窗口会正确地把自己带到前面，不再让窗口落在其他 App 后面。",
+      ],
+      en: [
+        "Pulse now runs on macOS 14 Sonoma and later, down from macOS 26. On macOS 14 and 15 the interface falls back to the classic style where the new design has no equivalent; on macOS 26 nothing changes.",
+        "The pinned window now survives quitting: if it was open when you quit Pulse, it comes back on the next launch instead of being forgotten. Pulse also brings itself forward properly when presenting the pinned window at launch, instead of leaving it behind whatever app was in front.",
+      ],
+      ja: [
+        "Pulse は macOS 14 Sonoma 以降で動作するようになりました。これまでは macOS 26 が必要でした。macOS 14 と 15 では、新しいデザインに相当するものがない部分はクラシックなスタイルに自動的に切り替わります。macOS 26 では変わりません。",
+        "ピン留めウインドウの状態が終了後も保持されるようになりました。終了時に開いていれば、次回起動時にそのまま復元され、忘れられることはありません。また、起動時にピン留めウインドウを表示するとき、ほかの App の後ろに隠れたままにならず、Pulse が正しく前面に出ます。",
+      ],
+      ko: [
+        "이제 Pulse가 macOS 14 Sonoma 이상에서 동작합니다. 이전에는 macOS 26이 필요했습니다. macOS 14와 15에서는 새 디자인에 대응되는 요소가 없는 부분이 자동으로 클래식 스타일로 표시되며, macOS 26에서는 달라지는 것이 없습니다.",
+        "고정 창의 상태가 종료 후에도 유지됩니다. 종료할 때 열려 있었다면 다음 실행 때 그대로 돌아와 더는 잊히지 않습니다. 또한 실행 시 고정 창을 표시할 때 다른 앱 뒤에 숨지 않고 Pulse가 제대로 앞으로 나옵니다.",
+      ],
+    },
+  },
+  {
     version: "0.15.6",
     date: "2026-09-14",
     kind: "fix",

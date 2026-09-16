@@ -337,8 +337,11 @@
 "trade.confirmSell" = "매도 확인";
 "trade.confirmSellHelp" = "매도 확인 (Return)";
 "trade.price" = "체결가";
+"trade.editTitle" = "거래 편집";
 "trade.date" = "날짜";
 "trade.dateToday" = "오늘";
+"trade.closedDay" = "해당일은 휴장일입니다. 마커가 가장 가까운 거래일에 표시됩니다";
+"trade.closedDay.snap" = "해당일은 휴장일입니다. 마커가 %@에 표시됩니다";
 "trade.currentPrice" = "현재가 %@";
 "trade.fillCurrentPriceHelp" = "클릭하여 현재가 입력";
 "trade.availableToSell" = "매도 가능: %@";

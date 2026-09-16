@@ -337,8 +337,11 @@
 "trade.confirmSell" = "确认卖出";
 "trade.confirmSellHelp" = "确认卖出（回车）";
 "trade.price" = "价格";
+"trade.editTitle" = "编辑交易";
 "trade.date" = "日期";
 "trade.dateToday" = "今天";
+"trade.closedDay" = "该日休市，标记将落在最近交易日";
+"trade.closedDay.snap" = "该日休市，标记将落在 %@";
 "trade.currentPrice" = "现价 %@";
 "trade.fillCurrentPriceHelp" = "点击填入当前价格";
 "trade.availableToSell" = "可卖 %@";

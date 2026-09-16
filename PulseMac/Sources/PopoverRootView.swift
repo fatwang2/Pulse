@@ -9,6 +9,8 @@ enum PopoverRoute: Hashable {
     case position(SymbolID, PositionReturnRoute)
     /// Single-trade entry form; the side is fixed by the entry point.
     case trade(SymbolID, TradeSide, PositionReturnRoute)
+    /// Edit form for one recorded transaction, reached from the trade log.
+    case editTrade(SymbolID, UUID, PositionReturnRoute)
     /// Full transaction log.
     case transactions(SymbolID, PositionReturnRoute)
     /// Quick set: overwrite quantity + average cost as one calibration entry.
@@ -93,9 +95,16 @@ struct PopoverRootView: View {
         switch route {
         case .position(let symbol, _), .trade(let symbol, _, _),
              .transactions(let symbol, _), .calibrate(let symbol, _):
-            appState.watchlist.item(for: symbol) == nil ? .list : route
+            return appState.watchlist.item(for: symbol) == nil ? .list : route
+        case .editTrade(let symbol, let id, let returnRoute):
+            // A transaction deleted out from under the edit page (or a symbol
+            // leaving the watchlist) falls back to the log it came from.
+            guard let item = appState.watchlist.item(for: symbol) else { return .list }
+            return item.transactions.contains(where: { $0.id == id })
+                ? route
+                : .transactions(symbol, returnRoute)
         default:
-            route
+            return route
         }
     }
 
@@ -132,6 +141,18 @@ struct PopoverRootView: View {
                 TradeEntryView(symbol: symbol, side: side, returnRoute: returnRoute, route: $route)
                     .frame(height: height(for: displayRoute))
                     .transition(pushTransition)
+            case .editTrade(let symbol, let id, let returnRoute):
+                if let transaction = appState.watchlist.item(for: symbol)?
+                    .transactions.first(where: { $0.id == id }) {
+                    TradeEntryView(
+                        symbol: symbol,
+                        editing: transaction,
+                        returnRoute: returnRoute,
+                        route: $route
+                    )
+                    .frame(height: height(for: displayRoute))
+                    .transition(pushTransition)
+                }
             case .transactions(let symbol, let returnRoute):
                 TransactionListView(symbol: symbol, returnRoute: returnRoute, route: $route)
                     .frame(height: height(for: displayRoute))
@@ -302,6 +323,9 @@ struct PopoverRootView: View {
              .transactions(let symbol, let returnRoute),
              .calibrate(let symbol, let returnRoute):
             .position(symbol, returnRoute)
+        case .editTrade(let symbol, _, let returnRoute):
+            // Editing is launched from the trade log, so Escape goes back to it.
+            .transactions(symbol, returnRoute)
         case .profile(let symbol):
             .detail(symbol)
         case .settings:
@@ -334,7 +358,7 @@ struct PopoverRootView: View {
             guard let item = appState.watchlist.item(for: symbol) else { return 360 }
             if item.hasPosition { return 420 }
             return item.transactions.isEmpty ? 300 : 380
-        case .trade:
+        case .trade, .editTrade:
             return 330
         case .transactions:
             return 500

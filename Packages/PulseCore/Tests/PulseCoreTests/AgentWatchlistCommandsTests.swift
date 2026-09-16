@@ -99,6 +99,53 @@ struct AgentWatchlistCommandsTests {
     }
 
     @Test
+    func updateTradeRewritesFieldsAndKeepsOrder() throws {
+        let (store, defaults, suiteName) = try makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let groupID = try #require(store.selectedGroupID)
+        let commands = AgentWatchlistCommands(store: store)
+        let ref = AgentSymbolRef(market: "us", code: "NVDA")
+        _ = try commands.addSymbol(ref, name: "NVIDIA", to: groupID).get()
+        let calendar = Calendar.current
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 2)))
+        let nextDay = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 3)))
+        _ = try commands.recordTrade(AgentTradeDraft(
+            symbol: ref, kind: .buy, quantity: 10, price: 120, date: day
+        )).get()
+        let id = try #require(store.item(for: SymbolID(market: .us, code: "NVDA"))?.transactions.first?.id)
+
+        let edited = try commands.updateTrade(
+            symbol: ref, id: id, kind: .sell, quantity: 4, price: 130, date: nextDay
+        ).get()
+        let transaction = try #require(edited.value.transactions.first)
+
+        #expect(!edited.alreadyApplied)
+        #expect(transaction.kind == "sell")
+        #expect(transaction.quantity == 4)
+        #expect(transaction.price == 130)
+        #expect(transaction.date == "2026-09-03")
+
+        // Repeating the same edit is a no-op.
+        let repeated = try commands.updateTrade(
+            symbol: ref, id: id, kind: .sell, quantity: 4, price: 130, date: nextDay
+        ).get()
+        #expect(repeated.alreadyApplied)
+
+        switch commands.updateTrade(symbol: ref, id: id, quantity: 0) {
+        case .failure(.invalidQuantity):
+            break
+        default:
+            Issue.record("Expected invalidQuantity")
+        }
+        switch commands.updateTrade(symbol: ref, id: UUID(), price: 1) {
+        case .failure(.transactionNotFound):
+            break
+        default:
+            Issue.record("Expected transactionNotFound")
+        }
+    }
+
+    @Test
     func transactionDatesReadBackAsLocalCalendarDays() throws {
         let (store, defaults, suiteName) = try makeStore()
         defer { defaults.removePersistentDomain(forName: suiteName) }

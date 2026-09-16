@@ -72,8 +72,11 @@ struct PositionEditorView: View {
 
             HStack {
                 if item.hasPosition {
-                    Button(PulseLocalization.localizedString("action.clearPosition"), role: .destructive) {
+                    Button(role: .destructive) {
                         onClear()
+                    } label: {
+                        Text(PulseLocalization.localizedString("action.clearPosition"))
+                            .foregroundStyle(.red)
                     }
                 }
                 Spacer()

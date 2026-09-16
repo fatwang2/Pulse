@@ -337,8 +337,11 @@
 "trade.confirmSell" = "売りを確定";
 "trade.confirmSellHelp" = "売りを確定（Return）";
 "trade.price" = "価格";
+"trade.editTitle" = "取引を編集";
 "trade.date" = "日付";
 "trade.dateToday" = "今日";
+"trade.closedDay" = "この日は休場です。マーカーは直近の取引日に表示されます";
+"trade.closedDay.snap" = "この日は休場です。マーカーは %@ に表示されます";
 "trade.currentPrice" = "現在値 %@";
 "trade.fillCurrentPriceHelp" = "クリックで現在値を入力";
 "trade.availableToSell" = "売却可能: %@";

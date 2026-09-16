@@ -337,8 +337,11 @@
 "trade.confirmSell" = "Confirm Sell";
 "trade.confirmSellHelp" = "Confirm Sell (Return)";
 "trade.price" = "Price";
+"trade.editTitle" = "Edit Trade";
 "trade.date" = "Date";
 "trade.dateToday" = "Today";
+"trade.closedDay" = "Market closed that day — the marker lands on the nearest trading day";
+"trade.closedDay.snap" = "Market closed that day — the marker lands on %@";
 "trade.currentPrice" = "Last %@";
 "trade.fillCurrentPriceHelp" = "Click to fill in the current price";
 "trade.availableToSell" = "Available: %@";

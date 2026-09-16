@@ -7,39 +7,119 @@ import PulseUI
 /// position. Price and quantity share a compact two-cell row (see
 /// `PositionInputCell`); the date rests in the app's own chrome and opens a
 /// system calendar only on demand.
+///
+/// With `editing` set the same form edits an existing transaction instead of
+/// recording a new one: fields arrive prefilled and saving rewrites the entry
+/// in place, preserving its id, kind, and insertion timestamp. Deleting the
+/// entry lives here too, bottom-left like the quick-set sheet's clear action,
+/// so a recorded trade has one page for everything that can happen to it.
 struct TradeEntryView: View {
     @Environment(AppState.self) private var appState
     let symbol: SymbolID
-    let side: TradeSide
+    private let recordSide: TradeSide
+    /// The transaction being edited; nil in record mode.
+    private let editing: PositionTransaction?
     let returnRoute: PositionReturnRoute
     @Binding var route: PopoverRoute
 
-    @State private var priceText = ""
-    @State private var quantityText = ""
-    @State private var date = Calendar.current.startOfDay(for: .now)
+    @State private var priceText: String
+    @State private var quantityText: String
+    @State private var date: Date
     @State private var showsCalendar = false
+    /// Daily candles backing the market-closed hint — whatever the detail
+    /// chart already cached, or one fetch on first open.
+    @State private var dailyCandles: [Candle] = []
     /// Return can reach `save()` twice in one keypress (field submit + default
     /// action); the first write wins so a trade is never recorded twice.
     @State private var didSave = false
+
+    init(
+        symbol: SymbolID,
+        side: TradeSide,
+        returnRoute: PositionReturnRoute,
+        route: Binding<PopoverRoute>
+    ) {
+        self.symbol = symbol
+        self.recordSide = side
+        self.editing = nil
+        self.returnRoute = returnRoute
+        self._route = route
+        _priceText = State(initialValue: "")
+        _quantityText = State(initialValue: "")
+        _date = State(initialValue: Self.marketToday(for: symbol.market))
+    }
+
+    init(
+        symbol: SymbolID,
+        editing transaction: PositionTransaction,
+        returnRoute: PositionReturnRoute,
+        route: Binding<PopoverRoute>
+    ) {
+        self.symbol = symbol
+        self.recordSide = transaction.kind == .sell ? .sell : .buy
+        self.editing = transaction
+        self.returnRoute = returnRoute
+        self._route = route
+        _priceText = State(initialValue: Self.fieldText(transaction.price))
+        _quantityText = State(initialValue: Self.fieldText(transaction.quantity))
+        _date = State(initialValue: Calendar.current.startOfDay(for: transaction.date))
+    }
+
+    /// "Today" for this form is the market's own calendar date, not the
+    /// user's. A US fill recorded from China at 1 a.m. belongs to the New York
+    /// session still running, which is yesterday's date locally; dating it by
+    /// the local clock would put the marker on a candle that doesn't exist
+    /// yet and land it one day late once it does. The value is the local
+    /// start-of-day instant for that calendar date, the form the ledger
+    /// stores and `CandleTradeMarker` maps back through the local calendar.
+    private static func marketToday(for market: Market) -> Date {
+        var marketCalendar = Calendar(identifier: .gregorian)
+        marketCalendar.timeZone = market.timeZone
+        let components = marketCalendar.dateComponents([.year, .month, .day], from: .now)
+        return Calendar.current.date(from: components) ?? Calendar.current.startOfDay(for: .now)
+    }
+
+    private var marketToday: Date { Self.marketToday(for: symbol.market) }
 
     private var item: WatchItem? { appState.watchlist.item(for: symbol) }
     private var quote: Quote? { appState.market.quote(for: symbol) }
     private var currencyCode: String? { quote?.currencyCode ?? symbol.currencyCode }
 
-    private var sideColor: Color {
-        appState.palette.color(isUp: side == .buy)
+    /// The effective entry kind: the form's side in record mode, the stored
+    /// kind (including adjustments) in edit mode.
+    private var kind: PositionTransaction.Kind {
+        editing?.kind ?? (recordSide == .buy ? .buy : .sell)
     }
 
-    private var sideTitle: String {
-        PulseLocalization.localizedString(side == .buy ? "trade.buy" : "trade.sell")
+    private var sideColor: Color {
+        switch kind {
+        case .buy: appState.palette.color(isUp: true)
+        case .sell: appState.palette.color(isUp: false)
+        case .adjustment: .secondary
+        }
+    }
+
+    private var title: String {
+        PulseLocalization.localizedString(
+            editing != nil
+                ? "trade.editTitle"
+                : (recordSide == .buy ? "trade.buy" : "trade.sell")
+        )
+    }
+
+    /// Where the page dismisses to: the trade log for edits, the hub for records.
+    private var dismissRoute: PopoverRoute {
+        editing != nil
+            ? .transactions(symbol, returnRoute)
+            : .position(symbol, returnRoute)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             PositionPageHeader(
                 symbol: symbol,
-                title: (sideTitle, sideColor),
-                onBack: { route = .position(symbol, returnRoute) }
+                title: (title, sideColor),
+                onBack: { route = dismissRoute }
             )
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
@@ -56,17 +136,34 @@ struct TradeEntryView: View {
                     )
                 }
                 dateRow
+                if let closedDayHint {
+                    Text(closedDayHint)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 preview
                     .padding(.top, 2)
             }
             .padding(.horizontal, 12)
             .padding(.top, 2)
+            .animation(.snappy(duration: 0.2), value: closedDayHint)
 
             Spacer(minLength: 0)
             HStack {
+                if editing != nil {
+                    // `.destructive` alone doesn't color a bordered macOS
+                    // button; the label carries the red itself.
+                    Button(role: .destructive) {
+                        deleteEditedTransaction()
+                    } label: {
+                        Text(PulseLocalization.localizedString("action.delete"))
+                            .foregroundStyle(.red)
+                    }
+                }
                 Spacer()
                 Button(PulseLocalization.localizedString("action.cancel")) {
-                    route = .position(symbol, returnRoute)
+                    route = dismissRoute
                 }
                 confirmButton
             }
@@ -77,6 +174,19 @@ struct TradeEntryView: View {
         // The whole form is keyboard-first; Return from either field confirms
         // (the button's default action covers Return when no field has focus).
         .onSubmit { save() }
+        .task(id: symbol) { await loadDailyCandles() }
+    }
+
+    /// Reuses the detail chart's 250-bar daily cache when it's already warm;
+    /// one fetch otherwise, so the closed-day hint can name the exact trading
+    /// day a marker would snap to.
+    private func loadDailyCandles() async {
+        let key = CandleCacheKey(symbol: symbol, period: .day)
+        if let cached = appState.market.cachedCandles(for: key, maxAge: .infinity) {
+            dailyCandles = cached
+            return
+        }
+        dailyCandles = await appState.engine.loadCandles(for: symbol, period: .day, count: 250)
     }
 
     // MARK: - Form rows
@@ -95,9 +205,11 @@ struct TradeEntryView: View {
     }
 
     /// Selling against a long offers what's sellable. Shorts stay unadorned —
-    /// negative quantities speak for themselves to anyone shorting.
+    /// negative quantities speak for themselves to anyone shorting. Edit mode
+    /// drops the chip: the sellable count already includes the entry being
+    /// edited, so offering it would double-count.
     private var availableToSellSuggestion: PositionInputCell.Suggestion? {
-        guard side == .sell, let item, item.positionQuantity > 0 else { return nil }
+        guard editing == nil, kind == .sell, let item, item.positionQuantity > 0 else { return nil }
         let quantity = PriceFormatter.quantity(item.positionQuantity)
         return PositionInputCell.Suggestion(
             label: PulseLocalization.localizedString("trade.availableToSell", quantity),
@@ -108,7 +220,8 @@ struct TradeEntryView: View {
 
     /// Resting state stays in the app's own chrome: arrows step ±1 day for
     /// the common "today/yesterday" records, and clicking the date opens a
-    /// system calendar popover for anything older.
+    /// system calendar popover for anything older. Nothing can be dated past
+    /// the market's current trading day.
     private var dateRow: some View {
         HStack(spacing: 8) {
             Text(PulseLocalization.localizedString("trade.date"))
@@ -129,7 +242,7 @@ struct TradeEntryView: View {
             }
             .buttonStyle(.pressable)
             .popover(isPresented: $showsCalendar, arrowEdge: .bottom) {
-                CalendarDatePicker(date: $date, maximumDate: .now)
+                CalendarDatePicker(date: $date, maximumDate: marketToday)
                     .padding(10)
                     .onChange(of: date) { _, _ in
                         showsCalendar = false
@@ -144,15 +257,19 @@ struct TradeEntryView: View {
     }
 
     private var isToday: Bool {
-        Calendar.current.isDateInToday(date)
+        Calendar.current.isDate(date, inSameDayAs: marketToday)
     }
 
+    /// "Today"/"Yesterday" count from the market's trading date (see
+    /// `marketToday`), so the default date always reads as today even when
+    /// the local clock has already rolled past midnight.
     private var dateLabel: String {
         let calendar = Calendar.current
-        if calendar.isDateInToday(date) {
+        if isToday {
             return PulseLocalization.localizedString("trade.dateToday")
         }
-        if calendar.isDateInYesterday(date) {
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: marketToday),
+           calendar.isDate(date, inSameDayAs: yesterday) {
             return PulseLocalization.localizedString("trade.dateYesterday")
         }
         let formatter = DateFormatter()
@@ -164,8 +281,58 @@ struct TradeEntryView: View {
 
     private func step(_ days: Int) {
         guard let next = Calendar.current.date(byAdding: .day, value: days, to: date) else { return }
-        guard next <= Date.now else { return }
+        guard next <= marketToday else { return }
         date = next
+    }
+
+    /// A picked day with no session of its own — weekend, holiday, or the
+    /// local day a late-session fill landed on. The record keeps the entered
+    /// date; the hint only says where the chart marker will land. Adjustments
+    /// never draw markers, so they never draw this hint either.
+    ///
+    /// Only a gap inside the loaded history counts as a closure. A day the
+    /// candles don't reach — today while the session is still running and
+    /// its bar isn't published, a stale cache, a future pick — tells us
+    /// nothing, so it falls back to the weekend check rather than calling an
+    /// open market closed.
+    private var closedDayHint: String? {
+        guard kind != .adjustment else { return nil }
+        switch CandleTradeMarker.markerDay(for: date, candles: dailyCandles, market: symbol.market) {
+        case .tradingDay:
+            return nil
+        case .closedDay(let candleDay):
+            return PulseLocalization.localizedString(
+                "trade.closedDay.snap",
+                shortDayLabel(candleDay)
+            )
+        case .outsideHistory:
+            guard isMarketWeekend(date) else { return nil }
+            return PulseLocalization.localizedString("trade.closedDay")
+        }
+    }
+
+    /// Saturday/Sunday in the market's own timezone. Crypto trades through
+    /// weekends, so its "weekend" is never a closure.
+    private func isMarketWeekend(_ day: Date) -> Bool {
+        guard symbol.market != .crypto else { return false }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = symbol.market.timeZone
+        let weekday = calendar.component(.weekday, from: day)
+        return weekday == 1 || weekday == 7
+    }
+
+    /// The candle day in the market's timezone — the same label the chart's
+    /// axis shows — in the compact form the date row uses.
+    private func shortDayLabel(_ day: Date) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = symbol.market.timeZone
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = PulseLocalization.currentLocale
+        let sameYear = calendar.component(.year, from: day) == calendar.component(.year, from: .now)
+        formatter.dateFormat = sameYear ? "MM-dd" : "yyyy-MM-dd"
+        return formatter.string(from: day)
     }
 
     // MARK: - Preview (same row styling as the quick-set editor)
@@ -179,9 +346,9 @@ struct TradeEntryView: View {
         // or extends a side. Before input parses, fall back to what the
         // current position implies so rows don't pop in mid-typing.
         let showsRealized = simulated.map { $0.realized != nil }
-            ?? (side == .sell ? held > 0 : held < 0)
+            ?? (kind == .sell ? held > 0 : kind == .buy ? held < 0 : false)
         let showsAverageCost = simulated.map { $0.quantity != 0 }
-            ?? (side == .buy ? held >= 0 : held <= 0)
+            ?? (kind == .sell ? held <= 0 : kind == .buy ? held >= 0 : held != 0)
         VStack(spacing: 6) {
             previewRow(
                 PulseLocalization.localizedString("trade.amount"),
@@ -237,7 +404,11 @@ struct TradeEntryView: View {
         Button {
             save()
         } label: {
-            Text(PulseLocalization.localizedString(side == .buy ? "trade.confirmBuy" : "trade.confirmSell"))
+            Text(PulseLocalization.localizedString(
+                editing != nil
+                    ? "action.save"
+                    : (recordSide == .buy ? "trade.confirmBuy" : "trade.confirmSell")
+            ))
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 12)
@@ -247,7 +418,9 @@ struct TradeEntryView: View {
         .buttonStyle(.pressable)
         .keyboardShortcut(.defaultAction)
         .help(PulseLocalization.localizedString(
-            side == .buy ? "trade.confirmBuyHelp" : "trade.confirmSellHelp"
+            editing != nil
+                ? "action.saveHelp"
+                : (recordSide == .buy ? "trade.confirmBuyHelp" : "trade.confirmSellHelp")
         ))
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -259,12 +432,18 @@ struct TradeEntryView: View {
 
     // MARK: - Parsing & simulation
 
+    /// An adjustment writes a target state, so zero is a legitimate input there
+    /// ("flat, no cost"); real trades keep the strictly-positive contract.
     private var parsedPrice: Double? {
-        parseDecimal(priceText).flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
+        parseDecimal(priceText).flatMap {
+            $0.isFinite && (kind == .adjustment ? $0 >= 0 : $0 > 0) ? $0 : nil
+        }
     }
 
     private var parsedQuantity: Double? {
-        parseDecimal(quantityText).flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
+        parseDecimal(quantityText).flatMap {
+            $0.isFinite && (kind == .adjustment ? $0 >= 0 : $0 > 0) ? $0 : nil
+        }
     }
 
     private var isValid: Bool {
@@ -279,20 +458,35 @@ struct TradeEntryView: View {
     }
 
     /// Replays the would-be ledger (folding legacy lots in, exactly like the
-    /// store will on save) so the preview matches the post-save state.
+    /// store will on save) so the preview matches the post-save state. In edit
+    /// mode the existing entry is replaced in the replay rather than appended.
     private var simulatedOutcome: SimulatedOutcome? {
         guard let item, let price = parsedPrice, let quantity = parsedQuantity else { return nil }
         var transactions = item.materializedTransactions()
-        transactions.append(PositionTransaction(
-            kind: side == .buy ? .buy : .sell,
-            price: price,
-            quantity: quantity,
-            date: date
-        ))
+        if let editing {
+            guard let existing = transactions.firstIndex(where: { $0.id == editing.id }) else {
+                return nil
+            }
+            var updated = editing
+            updated.price = price
+            updated.quantity = quantity
+            updated.date = date
+            transactions[existing] = updated
+        } else {
+            transactions.append(PositionTransaction(
+                kind: recordSide == .buy ? .buy : .sell,
+                price: price,
+                quantity: quantity,
+                date: date
+            ))
+        }
         let ledger = PositionLedger(transactions: transactions)
+        let realized = editing.flatMap { target in
+            ledger.entries.first { $0.transaction.id == target.id }?.realizedPnL
+        } ?? ledger.entries.last?.realizedPnL
         return SimulatedOutcome(
             amount: price * quantity,
-            realized: ledger.entries.last?.realizedPnL,
+            realized: realized,
             quantity: ledger.quantity,
             averageCost: ledger.averageCost
         )
@@ -301,19 +495,44 @@ struct TradeEntryView: View {
     private func save() {
         guard !didSave, let item, let price = parsedPrice, let quantity = parsedQuantity, isValid else { return }
         didSave = true
-        appState.watchlist.addTransaction(item.symbol, PositionTransaction(
-            kind: side == .buy ? .buy : .sell,
-            price: price,
-            quantity: quantity,
-            date: date
-        ))
-        route = .position(symbol, returnRoute)
+        if var updated = editing {
+            updated.price = price
+            updated.quantity = quantity
+            updated.date = date
+            appState.watchlist.updateTransaction(item.symbol, updated)
+        } else {
+            appState.watchlist.addTransaction(item.symbol, PositionTransaction(
+                kind: recordSide == .buy ? .buy : .sell,
+                price: price,
+                quantity: quantity,
+                date: date
+            ))
+        }
+        route = dismissRoute
+    }
+
+    /// Removes the entry being edited and returns to the log it came from —
+    /// or straight to the hub when this was the last entry, since an empty
+    /// log has nothing to show.
+    private func deleteEditedTransaction() {
+        guard !didSave, let editing else { return }
+        didSave = true
+        appState.watchlist.deleteTransaction(symbol, id: editing.id)
+        let remaining = appState.watchlist.item(for: symbol)?.transactions ?? []
+        route = remaining.isEmpty ? .position(symbol, returnRoute) : dismissRoute
     }
 
     private func parseDecimal(_ text: String) -> Double? {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: ",", with: "")
         return Double(normalized)
+    }
+
+    /// Field prefill that keeps full precision instead of the display rounding
+    /// `PriceFormatter` applies — editing then saving without touching a field
+    /// must never silently re-round a price.
+    private static func fieldText(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0...10)).grouping(.never))
     }
 }
 

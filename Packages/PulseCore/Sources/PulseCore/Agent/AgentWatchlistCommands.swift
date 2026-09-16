@@ -291,6 +291,68 @@ public struct AgentWatchlistCommands {
         ))
     }
 
+    /// Rewrites fields on an existing transaction. Omitted parameters keep their
+    /// recorded values; the entry's id and insertion timestamp always survive the
+    /// edit. `kind` applies only to buy/sell entries — a calibration entry never
+    /// becomes a trade.
+    public func updateTrade(
+        symbol ref: AgentSymbolRef,
+        id: UUID,
+        kind: AgentTradeKind? = nil,
+        quantity: Double? = nil,
+        price: Double? = nil,
+        date: Date? = nil
+    ) -> Result<AgentMutation<AgentPositionSnapshot>, AgentWatchlistError> {
+        guard let symbol = symbol(from: ref) else {
+            return .failure(.invalidSymbol(ref))
+        }
+        guard let item = store.item(for: symbol) else {
+            return .failure(.itemNotOnWatchlist)
+        }
+        guard let existing = item.transactions.first(where: { $0.id == id }) else {
+            return .failure(.transactionNotFound(id))
+        }
+
+        var updated = existing
+        if existing.kind != .adjustment, let kind {
+            updated.kind = kind.positionKind
+        }
+        if let quantity { updated.quantity = quantity }
+        if let price { updated.price = price }
+        if let date { updated.date = date }
+
+        switch updated.kind {
+        case .buy, .sell:
+            guard updated.quantity.isFinite, updated.quantity > 0 else {
+                return .failure(.invalidQuantity)
+            }
+            guard updated.price.isFinite, updated.price > 0 else {
+                return .failure(.invalidPrice)
+            }
+        case .adjustment:
+            guard updated.quantity.isFinite else {
+                return .failure(.invalidQuantity)
+            }
+            guard updated.price.isFinite, updated.price >= 0 else {
+                return .failure(.invalidPrice)
+            }
+        }
+
+        let before = Set(store.symbols)
+        let alreadyApplied = updated == existing
+        if !alreadyApplied {
+            store.updateTransaction(symbol, updated)
+        }
+        guard let updatedItem = store.item(for: symbol) else {
+            return .failure(.itemNotOnWatchlist)
+        }
+        return .success(mutation(
+            positionSnapshot(updatedItem),
+            before: before,
+            alreadyApplied: alreadyApplied
+        ))
+    }
+
     public func deleteTrade(
         symbol ref: AgentSymbolRef,
         id: UUID

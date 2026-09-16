@@ -2,9 +2,9 @@ import SwiftUI
 import PulseCore
 import PulseUI
 
-/// Full transaction log, newest first and grouped by month. V1 deliberately
-/// supports delete-only (no per-entry editing): a mistaken entry is deleted
-/// and re-recorded, which keeps replay semantics unambiguous.
+/// Full transaction log, newest first and grouped by month. Clicking a row
+/// opens the trade form prefilled with that entry, where it can be changed
+/// or deleted.
 struct TransactionListView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.pulseHost) private var host
@@ -36,11 +36,8 @@ struct TransactionListView: View {
                                 entry: entry,
                                 palette: appState.palette,
                                 currencyCode: currencyCode,
-                                onDelete: {
-                                    appState.watchlist.deleteTransaction(
-                                        symbol,
-                                        id: entry.transaction.id
-                                    )
+                                onOpen: {
+                                    route = .editTrade(symbol, entry.transaction.id, returnRoute)
                                 }
                             )
                         }

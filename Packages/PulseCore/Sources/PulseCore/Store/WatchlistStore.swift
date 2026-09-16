@@ -439,6 +439,29 @@ public final class WatchlistStore {
         commitTransactions(transactions, at: index)
     }
 
+    /// Replaces the transaction carrying `transaction.id`, keeping its
+    /// `createdAt` so an edit never reshuffles same-day replay order. Buy/sell
+    /// entries need a positive price and quantity; an adjustment keeps the
+    /// calibrator's looser contract (finite quantity, non-negative cost).
+    public func updateTransaction(_ symbol: SymbolID, _ transaction: PositionTransaction) {
+        guard let index = allItems.firstIndex(where: { $0.symbol == symbol }),
+              allItems[index].supportsPosition else { return }
+        switch transaction.kind {
+        case .buy, .sell:
+            guard transaction.price.isFinite, transaction.price > 0,
+                  transaction.quantity.isFinite, transaction.quantity > 0 else { return }
+        case .adjustment:
+            guard transaction.quantity.isFinite,
+                  transaction.price.isFinite, transaction.price >= 0 else { return }
+        }
+        var transactions = allItems[index].transactions
+        guard let existing = transactions.firstIndex(where: { $0.id == transaction.id }) else { return }
+        var updated = transaction
+        updated.createdAt = transactions[existing].createdAt
+        transactions[existing] = updated
+        commitTransactions(transactions, at: index)
+    }
+
     /// Overwrites the position with a target quantity and average cost as an
     /// `.adjustment` entry ("quick set" / reconciling with a broker). A
     /// negative quantity calibrates a short. Produces no realized P&L.

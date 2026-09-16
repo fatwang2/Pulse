@@ -231,6 +231,29 @@ final class MCPToolAdapter {
             return try adapter.appliedValue(mutation)
         },
         ToolSpec(
+            name: "update_trade",
+            description: "Edit fields of one recorded transaction by id. Omitted fields keep their recorded values; the entry's id and replay order are preserved. kind applies only to buy/sell entries and is ignored on calibration entries.",
+            properties: [
+                "symbol": symbolSchema,
+                "id": uuidSchema,
+                "kind": .object(["type": "string", "enum": .array([.string("buy"), .string("sell")])]),
+                "quantity": .object(["type": "number"]),
+                "price": .object(["type": "number"]),
+                "date": tradeDateSchema,
+            ],
+            required: ["symbol", "id"]
+        ) { adapter, arguments in
+            let mutation = try MCPToolAdapter.unwrap(adapter.commands.updateTrade(
+                symbol: arguments.symbol("symbol"),
+                id: arguments.uuid("id"),
+                kind: try arguments.optionalTradeKind("kind"),
+                quantity: try arguments.optionalDouble("quantity"),
+                price: try arguments.optionalDouble("price"),
+                date: try arguments.optionalDate("date")
+            ))
+            return try adapter.appliedValue(mutation)
+        },
+        ToolSpec(
             name: "delete_trade",
             description: "Delete one recorded transaction by id; position and P&L are recalculated.",
             properties: ["symbol": symbolSchema, "id": uuidSchema],
@@ -433,6 +456,15 @@ struct ToolArguments {
         }
     }
 
+    func optionalDouble(_ key: String) throws -> Double? {
+        guard let value = values[key] else { return nil }
+        switch value {
+        case .double(let double): return double
+        case .int(let int): return Double(int)
+        default: throw Self.wrongType(key, expected: "number")
+        }
+    }
+
     func uuid(_ key: String) throws -> UUID {
         guard let uuid = UUID(uuidString: try string(key)) else {
             throw Self.wrongType(key, expected: "UUID string")
@@ -458,11 +490,21 @@ struct ToolArguments {
         return date
     }
 
+    func optionalDate(_ key: String) throws -> Date? {
+        guard try optionalString(key) != nil else { return nil }
+        return try date(key)
+    }
+
     func tradeKind(_ key: String) throws -> AgentTradeKind {
         guard let kind = AgentTradeKind(rawValue: try string(key)) else {
             throw Self.wrongType(key, expected: "\"buy\" or \"sell\"")
         }
         return kind
+    }
+
+    func optionalTradeKind(_ key: String) throws -> AgentTradeKind? {
+        guard try optionalString(key) != nil else { return nil }
+        return try tradeKind(key)
     }
 
     func optionalInstrumentType(_ key: String) throws -> InstrumentType? {

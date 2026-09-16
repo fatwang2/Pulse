@@ -126,7 +126,8 @@ struct PositionHubView: View {
                     TransactionRow(
                         entry: entry,
                         palette: appState.palette,
-                        currencyCode: currencyCode
+                        currencyCode: currencyCode,
+                        onOpen: { route = .editTrade(symbol, entry.transaction.id, returnRoute) }
                     )
                 }
             }
@@ -361,23 +362,29 @@ struct PositionPageHeader: View {
 }
 
 /// One transaction line: date, kind badge, quantity @ price (sells append
-/// their realized P&L), and the trade amount.
+/// their realized P&L), and the trade amount. With `onOpen` set the whole
+/// row is a button that opens the entry's edit page, which is also where it
+/// gets deleted — one path for both, no hidden context menu to discover.
 struct TransactionRow: View {
     let entry: PositionLedger.Entry
     let palette: ChangePalette
     let currencyCode: String?
-    /// Deleting is rare and destructive, so it lives in the row's context menu
-    /// (full log page only) rather than in chrome that appears under the
-    /// pointer and displaces what the row was showing.
-    var onDelete: (() -> Void)?
+    var onOpen: (() -> Void)?
+    @State private var hovering = false
 
     var body: some View {
-        if let onDelete {
-            row.contextMenu {
-                Button(PulseLocalization.localizedString("action.delete"), role: .destructive) {
-                    onDelete()
-                }
+        if let onOpen {
+            Button(action: onOpen) {
+                row
+                    .background(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(Color.primary.opacity(hovering ? 0.06 : 0))
+                            .padding(.horizontal, -6)
+                    )
             }
+            .buttonStyle(.pressable)
+            .onHover { hovering = $0 }
+            .help(PulseLocalization.localizedString("trade.editTitle"))
         } else {
             row
         }

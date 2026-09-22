@@ -29,9 +29,11 @@ to build the commercial release. Release notes identify the edition and purchase
 
 ## Existing free users
 
-You can continue using the version you already have. Historical installers remain available for
-reinstallation, and the existing free Sparkle feed remains available. **It will not automatically
-replace your free app with a paid trial.** Moving to a commercial edition is your choice.
+Commercial releases will be delivered through the **existing Sparkle update feed**. You can decline
+the update in Sparkle and continue using your current free version. Upgrading to the commercial
+edition starts a **30-day full-feature trial**, followed by a one-time purchase. Update notes will
+explain these terms and the early-bird offer before you upgrade. Historical free installers remain
+available for reinstallation.
 
 The historical edition will not receive new features. Continued compatibility with third-party
 market-data feeds is not guaranteed. Before choosing to switch editions, back up your local data
@@ -57,6 +59,7 @@ Security reports: [sys@pulseticker.app](mailto:sys@pulseticker.app).
 商业版的发行 tag 与 GitHub 自动生成的源码压缩包指向历史公开代码，不能用于复现商业版安装包。
 请以每次 release 的说明了解版本性质与购买要求。
 
-已有免费版可以继续使用，原 Sparkle 自动更新渠道不会将它自动替换成付费试用版。
-商业直售版正在准备 30 天完整试用与一次性购买，活动日期将在官网公布，是否迁移由你决定。
+商业版将通过现有 Sparkle 更新渠道推送，你可以在更新弹窗中选择不更新，继续使用已有免费版。
+升级商业直售版后可完整试用 30 天，之后需一次性购买。更新说明将提前说明收费规则与早鸟优惠；
+活动日期将在官网公布，历史免费安装包继续保留。
 历史免费版不再增加新功能，也不保证持续兼容第三方行情接口。切换版本前请备份本地数据。

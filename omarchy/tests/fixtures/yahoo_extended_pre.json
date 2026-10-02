@@ -1,0 +1,72 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "USD",
+          "symbol": "TEST",
+          "longName": "Test Corp",
+          "shortName": "TEST",
+          "regularMarketPrice": 100,
+          "previousClose": 100,
+          "chartPreviousClose": 99,
+          "regularMarketDayHigh": 101,
+          "regularMarketDayLow": 98,
+          "regularMarketVolume": 9876,
+          "regularMarketTime": 1787043000,
+          "currentTradingPeriod": {
+            "pre": {
+              "start": 1787000000,
+              "end": 1787019800
+            },
+            "regular": {
+              "start": 1787019800,
+              "end": 1787043200
+            },
+            "post": {
+              "start": 1787043200,
+              "end": 1787057600
+            }
+          }
+        },
+        "timestamp": [
+          1787000100,
+          1787019800,
+          1787030000,
+          1787010000
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "open": [
+                98,
+                100,
+                101,
+                null
+              ],
+              "close": [
+                98.2,
+                100.1,
+                101.5,
+                97.5
+              ],
+              "high": [
+                98.5,
+                null,
+                null,
+                null
+              ],
+              "low": [
+                97.9,
+                null,
+                null,
+                null
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

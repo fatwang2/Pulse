@@ -1,0 +1,29 @@
+{
+  "name": "pulse-cc",
+  "version": "0.2.0",
+  "description": "Yahoo Finance quotes above the prompt, with a compact watchlist management panel.",
+  "author": {
+    "name": "fatwang2",
+    "url": "https://github.com/fatwang2"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/fatwang2/Pulse/tree/main/plugins/claude-code",
+  "repository": "https://github.com/fatwang2/Pulse",
+  "keywords": [
+    "finance",
+    "stocks",
+    "ticker",
+    "yahoo",
+    "mods"
+  ],
+  "userConfig": {
+    "refreshSeconds": {
+      "type": "number",
+      "title": "Refresh interval (seconds)",
+      "description": "Wait between refresh rounds. Yahoo requests are spaced at least one second apart.",
+      "default": 60,
+      "min": 60,
+      "max": 3600
+    }
+  }
+}

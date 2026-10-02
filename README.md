@@ -1,65 +1,86 @@
 # Pulse
 
-**Glanceable market data for the macOS menu bar.**
+**Glanceable market data, wherever you work.**
 
 [Website](https://www.pulseticker.app/) · [Mac App Store](https://apps.apple.com/app/id6812160110) · [Feedback](https://github.com/fatwang2/Pulse/issues)
 
-## Repository status
+Pulse is available for Mac, Claude Code, and Omarchy. The Mac app is closed source;
+this repository maintains the MIT-licensed Claude Code plugin and Omarchy edition.
 
-This repository preserves Pulse's historical open-source edition, through **0.15.8**.
-Future application and website development takes place in a private repository.
-**Only this README, release tags, and downloadable release assets will be updated here.**
+| Edition | Source | Get started |
+| --- | --- | --- |
+| **Pulse for Mac** | Closed source | [Website and downloads](https://www.pulseticker.app/) · [Mac App Store](https://apps.apple.com/app/id6812160110) |
+| **Pulse for Claude Code** | Open-source plugin, MIT | [Installation and commands](plugins/claude-code/README.md) |
+| **Pulse for Omarchy** | Open source, MIT | [Installation and features](omarchy/README.md) |
 
-The existing source and its [MIT license](LICENSE) remain available. We are not removing or
-rewriting that history. See the [0.15.8 documentation](https://github.com/fatwang2/Pulse/blob/v0.15.8/README.md)
-for historical features, build instructions, and architecture.
+## Pulse for Mac
 
-Commercial releases may appear here as signed installation packages. Their tags and GitHub-generated
-“Source code” archives refer to the preserved historical source tree, **not** the private source used
-to build the commercial release. Release notes identify the edition and purchase requirements.
+Market data in your macOS menu bar, with named watchlists, charts, and position
+tracking. Visit [pulseticker.app](https://www.pulseticker.app/) for features,
+downloads, and current purchase terms, or get Pulse from the
+[Mac App Store](https://apps.apple.com/app/id6812160110).
 
-## Get Pulse
+Pulse for Mac is a paid app with a **30-day full-feature trial**, followed by
+a **one-time purchase**. See [pricing and downloads](https://www.pulseticker.app/buy).
 
-- **Mac App Store:** [Pulse — Menu Bar Ticker](https://apps.apple.com/app/id6812160110).
-  See the store for current trial terms and local in-app purchase pricing.
-- **Commercial direct edition:** being prepared. It will offer a 30-day full-feature trial followed
-  by a one-time purchase. Launch-offer dates and availability will be announced on the website.
-- **Historical free edition:** [Pulse 0.15.8 DMG](https://github.com/fatwang2/Pulse/releases/download/v0.15.8/Pulse-0.15.8.dmg)
-  ([release notes and assets](https://github.com/fatwang2/Pulse/releases/tag/v0.15.8)).
+![Pulse for Mac — track stocks and markets from your menu bar](assets/readme/pulse-mac-og-en.png)
 
-## Existing free users
+The current Mac application and website are developed in a private repository.
+Their current source is not included here. The historical Mac edition through
+**0.15.8** retains its original MIT license in Git history and version tags;
+free installers remain available. See [historical Mac source and downloads](docs/history/README.md).
 
-Commercial releases will be delivered through the **existing Sparkle update feed**. You can decline
-the update in Sparkle and continue using your current free version. Upgrading to the commercial
-edition starts a **30-day full-feature trial**, followed by a one-time purchase. Update notes will
-explain these terms and the early-bird offer before you upgrade. Historical free installers remain
-available for reinstallation.
+## Pulse for Claude Code
 
-The historical edition will not receive new features. Continued compatibility with third-party
-market-data feeds is not guaranteed. Before choosing to switch editions, back up your local data
-and read the migration instructions published with the commercial release.
+A Claude Code plugin that shows quotes and signed percentage changes above the
+prompt, with a `/pulse` panel for adding and removing tickers, refreshing prices,
+and pausing updates. Requires Claude Code **2.1.287 or later**, with Mods enabled.
 
-## Feedback
+![Pulse for Claude Code showing three tickers above the prompt](assets/readme/pulse-claude-code.png)
 
-Use [GitHub Issues](https://github.com/fatwang2/Pulse/issues) for bugs and feature requests. Please
-include the app version, distribution channel, and macOS version. Do not include credentials,
-license keys, watched symbols, or private financial records in public reports.
+Install from GitHub:
 
-Support: [hello@pulseticker.app](mailto:hello@pulseticker.app).
-Security reports: [sys@pulseticker.app](mailto:sys@pulseticker.app).
+```sh
+claude plugin marketplace add fatwang2/Pulse
+claude plugin install pulse-cc@pulse
+```
 
----
+Restart Claude Code or run `/reload-plugins`, then add a ticker with
+`/pulse add AAPL` and open `/pulse` to manage your watchlist.
+See the [Claude Code guide](plugins/claude-code/README.md) for commands,
+provider limits, privacy, and local development. The current version uses Yahoo
+Finance, with Mac app integration planned for future versions.
 
-## 仓库与版本说明
+## Pulse for Omarchy
 
-此仓库保留截至 **0.15.8** 的历史开源免费版。后续客户端与官网源码在私有仓库开发；
-这里仅更新 **README、release tags 和发行安装包**，不再更新应用或官网源码。
-已有源码及 MIT 许可保留，历史免费安装包不会下架。
+An independent Pulse edition for Omarchy, with market data in the bar, named
+watchlists, symbol search, quote details, charts, and theme-aware presentation.
+Requires Omarchy 4 and its Quickshell shell.
 
-商业版的发行 tag 与 GitHub 自动生成的源码压缩包指向历史公开代码，不能用于复现商业版安装包。
-请以每次 release 的说明了解版本性质与购买要求。
+<img src="omarchy/preview.png" alt="Pulse for Omarchy panel" width="360">
 
-商业版将通过现有 Sparkle 更新渠道推送，你可以在更新弹窗中选择不更新，继续使用已有免费版。
-升级商业直售版后可完整试用 30 天，之后需一次性购买。更新说明将提前说明收费规则与早鸟优惠；
-活动日期将在官网公布，历史免费安装包继续保留。
-历史免费版不再增加新功能，也不保证持续兼容第三方行情接口。切换版本前请备份本地数据。
+The existing managed installation continues to use the standalone repository
+while its installation and update path is migrated:
+
+```sh
+omarchy plugin add https://github.com/fatwang2/omarchy-pulse.git --enable
+```
+
+The implementation is maintained in [`omarchy/`](omarchy/README.md).
+See the [Omarchy guide](omarchy/README.md) for features and local development,
+and [repository transition notes](docs/repository-transition.md) for migration details.
+
+## Contributing and feedback
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). Each open-source edition has its
+own implementation and tests; development does not require building the Mac app.
+Use [GitHub Issues](https://github.com/fatwang2/Pulse/issues) and identify the edition.
+Mac support is also available at [hello@pulseticker.app](mailto:hello@pulseticker.app).
+Report security issues privately to [sys@pulseticker.app](mailto:sys@pulseticker.app).
+
+## License
+
+The Omarchy edition and Claude Code plugin retain their [MIT license](LICENSE)
+and any component notices. That license does not apply to the current commercial
+Mac binaries or provide rights to third-party market data. Historical Mac source
+retains its original license.

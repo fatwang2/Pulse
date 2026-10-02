@@ -1,0 +1,16 @@
+{
+  "name": "pulse",
+  "owner": {
+    "name": "fatwang2"
+  },
+  "metadata": {
+    "description": "Pulse for Claude Code."
+  },
+  "plugins": [
+    {
+      "name": "pulse-cc",
+      "source": "./plugins/claude-code",
+      "description": "Yahoo Finance quotes and watchlist management in Claude Code."
+    }
+  ]
+}

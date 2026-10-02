@@ -1,14 +1,30 @@
-# macOS metadata
+# Local OS/editor files
 .DS_Store
 .AppleDouble
 .LSOverride
 ._*
+.idea/
+*.swp
+*.swo
+*~
 
-# Local environment and signing material
+# Local dependencies, caches and generated output
+node_modules/
+.cache/
+.build/
+/build/
+/coverage/
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+
+# Credentials and local environment
 .env
 .env.*
 !.env.example
-!.env.release.example
 .envrc
 .direnv/
 *.p8
@@ -19,52 +35,23 @@
 *.mobileprovision
 *.provisionprofile
 
-# Swift, Xcode, and generated app artifacts
-.build/
-/build/
-DerivedData/
-.derivedData/
-.swiftpm/
+# App/build artifacts never belong in this public source checkout
+*.app/
 *.xcodeproj/
 *.xcworkspace/
-xcuserdata/
-*.xcuserstate
+DerivedData/
 *.xcresult
 *.xcarchive
 *.dSYM/
-*.dSYM.zip
-*.profdata
-*.profraw
-/coverage/
-/vendor/Sparkle/
+*.ipa
+*.dmg
 
-# Local iOS app work (not published from this repository)
+# Local-only iOS work and agent scratch state
 /PulseiOS/
 /project.ios.yml
-/scripts/build-longbridge-ios.sh
-*.ipa
-
-# Logs and editor temporary files
-*.log
-*.tmp
-*.temp
-*.bak
-*.orig
-*.rej
-*.swp
-*.swo
-*~
-.idea/
-
-# Local-only working files (import payloads, scratch data)
 /local/
-
-# Local agent and planning state
 /plans/
 /.codex/
 /.conductor/
 /.context/
 /.impeccable.md
-
-# Cached Rust build products for the Longbridge plugin (CI restores these).
-.cache/

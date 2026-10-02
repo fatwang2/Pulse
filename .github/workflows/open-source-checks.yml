@@ -1,0 +1,50 @@
+name: Open-source checks
+
+on:
+  pull_request:
+    paths:
+      - '.claude-plugin/**'
+      - 'plugins/**'
+      - 'omarchy/**'
+      - 'Makefile'
+      - '.github/workflows/open-source-checks.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.claude-plugin/**'
+      - 'plugins/**'
+      - 'omarchy/**'
+      - 'Makefile'
+      - '.github/workflows/open-source-checks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install the tested Claude Code CLI
+        run: npm install --global @anthropic-ai/claude-code@2.1.287
+      - name: Validate and test the native Mods plugin
+        run: make test-claude
+
+  omarchy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test reducers, source rules, and the sandboxed installer
+        run: make test-omarchy

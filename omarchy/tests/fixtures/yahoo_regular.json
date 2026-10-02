@@ -1,0 +1,98 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "HKD",
+          "symbol": "0700.HK",
+          "exchangeName": "HKG",
+          "fullExchangeName": "HKSE",
+          "instrumentType": "EQUITY",
+          "firstTradeDate": 1087349400,
+          "regularMarketTime": 1787213347,
+          "hasPrePostMarketData": false,
+          "gmtoffset": 28800,
+          "timezone": "HKT",
+          "exchangeTimezoneName": "Asia/Hong_Kong",
+          "regularMarketPrice": 451.4,
+          "fiftyTwoWeekHigh": 683,
+          "fiftyTwoWeekLow": 411,
+          "regularMarketDayHigh": 457.4,
+          "regularMarketDayLow": 448.8,
+          "regularMarketVolume": 19622598,
+          "longName": "Tencent Holdings Limited",
+          "shortName": "TENCENT",
+          "chartPreviousClose": 447.2,
+          "priceHint": 3,
+          "currentTradingPeriod": {
+            "pre": {
+              "timezone": "HKT",
+              "end": 1787189400,
+              "start": 1787187600,
+              "gmtoffset": 28800
+            },
+            "regular": {
+              "timezone": "HKT",
+              "end": 1787213400,
+              "start": 1787189400,
+              "gmtoffset": 28800
+            },
+            "post": {
+              "timezone": "HKT",
+              "end": 1787213400,
+              "start": 1787213400,
+              "gmtoffset": 28800
+            }
+          },
+          "dataGranularity": "1d",
+          "range": "1d",
+          "validRanges": [
+            "1d",
+            "5d",
+            "1mo",
+            "3mo",
+            "6mo",
+            "1y",
+            "2y",
+            "5y",
+            "10y",
+            "ytd",
+            "max"
+          ]
+        },
+        "timestamp": [
+          1787213347
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "volume": [
+                19622598
+              ],
+              "high": [
+                457.3999938964844
+              ],
+              "open": [
+                454.6000061035156
+              ],
+              "low": [
+                448.79998779296875
+              ],
+              "close": [
+                451.3999938964844
+              ]
+            }
+          ],
+          "adjclose": [
+            {
+              "adjclose": [
+                451.3999938964844
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

@@ -1,31 +1,31 @@
 name: Feature request
-description: Suggest something Pulse should do.
+description: Suggest a feature for a Pulse edition.
 title: "[Feature] "
 labels: ["enhancement"]
 body:
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Pulse edition
+      multiple: true
+      options:
+        - Claude Code plugin
+        - Omarchy edition
+        - Current commercial Mac app
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:
       label: What are you trying to do?
-      description: The situation or workflow this would help with. The problem matters more than the solution.
+      description: Describe the situation or workflow this would help with.
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
       label: What would you like Pulse to do?
-  - type: dropdown
-    id: platform
-    attributes:
-      label: Platform
-      multiple: true
-      options:
-        - macOS menu bar app
-        - iOS
-        - MCP / agents
-        - Website
   - type: textarea
     id: context
     attributes:
-      label: Anything else?
-      description: Screenshots, sketches, or how other apps handle it.
+      label: Additional context

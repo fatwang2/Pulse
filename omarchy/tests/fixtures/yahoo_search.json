@@ -1,0 +1,53 @@
+{
+  "quotes": [
+    {
+      "symbol": "TM",
+      "shortname": "Toyota Motor Corporation",
+      "longname": "Toyota Motor Corporation",
+      "exchDisp": "NYSE",
+      "quoteType": "EQUITY"
+    },
+    {
+      "symbol": "7203.T",
+      "shortname": "TOYOTA MOTOR CORP",
+      "longname": "Toyota Motor Corporation",
+      "exchDisp": "Tokyo Stock Exchange",
+      "quoteType": "EQUITY"
+    },
+    {
+      "symbol": "9TO.F",
+      "shortname": "TOYOTA TSUSHO CORP.           R",
+      "longname": "Toyota Tsusho Corporation",
+      "exchDisp": "Frankfurt",
+      "quoteType": "EQUITY"
+    },
+    {
+      "symbol": "TMCO34.SA",
+      "shortname": "TOYOTAMO    DRN",
+      "longname": "Toyota Motor Corporation",
+      "exchDisp": "São Paulo",
+      "quoteType": "EQUITY"
+    },
+    {
+      "symbol": "TOYOTA80.BK",
+      "shortname": "TOYOTA80_DR TOYOTA#KTB",
+      "longname": "Toyota Motor Corporation",
+      "exchDisp": "SET",
+      "quoteType": "EQUITY"
+    },
+    {
+      "symbol": "TMH",
+      "shortname": "Toyota Motor Corporation",
+      "longname": "Toyota Motor Corporation ADRhedged",
+      "exchDisp": "NYSEArca",
+      "quoteType": "ETF"
+    },
+    {
+      "symbol": "8015.T",
+      "shortname": "TOYOTA TSUSHO CORP",
+      "longname": "Toyota Tsusho Corporation",
+      "exchDisp": "Tokyo Stock Exchange",
+      "quoteType": "EQUITY"
+    }
+  ]
+}

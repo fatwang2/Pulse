@@ -1,0 +1,11 @@
+Pulse for Omarchy
+Copyright 2026 fatwang2
+
+This plugin is a port of the market-data layer from Pulse for macOS
+(https://github.com/fatwang2/Pulse), which is MIT licensed and by the same
+author. Its symbol identity, market sessions, provider routing and quote
+derivation follow that implementation; the QML surface is written for Omarchy.
+
+Market data is fetched from public endpoints operated by third parties. Those
+services are not affiliated with this plugin and set their own terms, coverage
+and delays.

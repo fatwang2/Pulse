@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["hooks/**/*.ts", "hooks/**/*.tsx", "tests/**/*.ts", ".claude-plugin/types/**/*.d.ts"]
+}

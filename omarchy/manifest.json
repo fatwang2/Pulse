@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "pulse.omarchy",
+  "name": "Pulse",
+  "version": "0.1.1",
+  "author": "fatwang2",
+  "license": "MIT",
+  "description": "Glanceable market data in the Omarchy bar.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "activation": "on-demand",
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Pulse",
+    "description": "Watch your symbols without leaving what you're working on.",
+    "category": "Finance",
+    "aliases": [
+      "stocks",
+      "quotes",
+      "markets",
+      "watchlist",
+      "ticker"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {},
+    "schema": []
+  }
+}

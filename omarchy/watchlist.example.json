@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "lists": [
+    {
+      "name": "Watching",
+      "symbols": [
+        "AAPL",
+        "NVDA",
+        "TSM",
+        "^GSPC",
+        "00700.HK",
+        "^HSI",
+        "600519.SH",
+        "000001.SH",
+        "7203.T",
+        "005930.KS"
+      ]
+    }
+  ],
+  "activeList": "Watching",
+  "pollIntervalSeconds": 60,
+  "barDisplay": "icon",
+  "pinnedSymbol": "NVDA",
+  "carouselIntervalSeconds": 6
+}

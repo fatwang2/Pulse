@@ -34,9 +34,15 @@ free installers remain available. See [historical Mac source and downloads](docs
 
 A Claude Code plugin that shows quotes and signed percentage changes above the
 prompt, with a `/pulse` panel for adding and removing tickers, refreshing prices,
-and pausing updates. Requires Claude Code **2.1.287 or later**, with Mods enabled.
+and pausing updates. Connect Pulse Mac through MCP to browse its groups and
+choose which tickers appear in Claude Code. Mac watchlists remain read-only
+from the plugin. Requires Claude Code **2.1.287 or later**, with Mods enabled.
 
 ![Pulse for Claude Code showing three tickers above the prompt](assets/readme/pulse-claude-code.png)
+
+Connect Pulse Mac to browse its watchlist groups and choose which tickers to display:
+
+![Pulse CC panel connected to Pulse Mac through MCP, with watchlist groups and display selections](assets/readme/pulse-cc-mac-panel.png)
 
 Install from GitHub:
 
@@ -48,8 +54,7 @@ claude plugin install pulse-cc@pulse
 Restart Claude Code or run `/reload-plugins`, then add a ticker with
 `/pulse add AAPL` and open `/pulse` to manage your watchlist.
 See the [Claude Code guide](plugins/claude-code/README.md) for commands,
-provider limits, privacy, and local development. The current version uses Yahoo
-Finance, with Mac app integration planned for future versions.
+provider limits, privacy, Mac connection setup, and local development.
 
 ## Pulse for Omarchy
 

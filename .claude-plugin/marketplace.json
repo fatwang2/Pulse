@@ -10,7 +10,7 @@
     {
       "name": "pulse-cc",
       "source": "./plugins/claude-code",
-      "description": "Yahoo Finance quotes and watchlist management in Claude Code."
+      "description": "Yahoo Finance quotes or your Pulse Mac watchlists above the Claude Code prompt."
     }
   ]
 }

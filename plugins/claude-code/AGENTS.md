@@ -1,9 +1,10 @@
 # Pulse Claude Code plugin
 
-- The current MVP uses Yahoo Finance. Integration with the Mac app is planned
-  for future versions; Mac integration, MCP, positions and download promotion
-  remain outside this MVP's implementation scope. Keep a compact quote band
-  and a watchlist management panel; do not display charts or mini trends.
+- Keep independent Yahoo watchlists and the Pulse Mac view separate. Mac mode
+  uses the host's configured MCP connection and only list_watchlists/get_quotes;
+  selection affects CC display only. Never write Mac groups, symbols or trades.
+  Preserve the independent list when switching sources. Keep a compact quote
+  band and a management panel; do not display charts or mini trends.
 - Use Claude Code Mods APIs, not Node imports or direct filesystem/network
   access. Write each host call explicitly in `hooks/register.tsx` so the
   host's static analyzer can inventory it.

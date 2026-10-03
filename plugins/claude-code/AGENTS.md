@@ -16,7 +16,13 @@
 - Validate with `claude plugin validate` and exercise behavior with
   `claude plugin test plugins/claude-code` from the repository root.
 - Keep generated `.claude-plugin/types/` files out of Git. The MCP token is an
-  optional sensitive userConfig field. Use the host configuration dialog and
-  secure storage; never put credentials in the watchlist store, prompt or logs.
+  optional sensitive userConfig field. The terminal uses the host configuration
+  dialog; Desktop, which cannot show it, passes the token on stdin to
+  `claude plugin configure --values-stdin`. Never put credentials in the
+  watchlist store, prompt, logs or process arguments.
+- Claude Desktop runs a headless session (`isInteractive` false) and attaches
+  later: register `/pulse` unconditionally and start polling on
+  `session.attach`. Desktop draws a cell far smaller than a terminal row, so
+  spacing branches on `e.surface`; terminal panes also branch on placement.
 - Leave historical Mac source, the website, Mac workflows, release tags,
   binary assets and the Sparkle feed unchanged.

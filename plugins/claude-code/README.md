@@ -8,7 +8,8 @@ Mac to display selected tickers from its watchlists through MCP.
 
 Requires **Claude Code 2.1.287 or later**, with Mods enabled. The ticker and
 panel support the terminal and Claude Desktop's **Code** tab in local sessions.
-Headless (`claude -p` / Agent SDK) sessions do not poll or draw a ticker.
+Headless (`claude -p` / Agent SDK) sessions do not poll or draw a ticker;
+Claude Desktop starts polling when its window attaches to the session.
 
 ## Install
 
@@ -55,21 +56,23 @@ Restart Claude Code or run `/reload-plugins` to apply the update.
 | `/pulse on` | Resume automatic refresh |
 | `/pulse help` | Show command usage |
 
-The **Quote source** cards identify **Pulse CC** as Yahoo Finance and **Pulse Mac**
-as quotes from your Mac app. A cyan border highlights the selected source;
-muted descriptions, colored status text and bold counts separate controls from notes.
+The panel header switches between **Pulse CC** (Yahoo Finance) and **Pulse Mac**
+(quotes from your Mac app), with Refresh and Pause beside them and a colored
+status line below.
 
-In Pulse CC mode, the panel separates its action toolbar, bordered **Add ticker** field, aligned
-watchlist and muted source notes. Buttons have visible borders. Add with Enter
-or the **Add** button; remove a ticker with its row button. Prices, currency and
-source timestamps remain visible. Narrow panes stack quote details below the ticker.
-Press `r` or `p` while the panel has focus; input fields keep ordinary typing. Press Escape to return to the prompt.
-The panel footer links to [pulseticker.app](https://www.pulseticker.app/).
+In Pulse CC mode, an add field sits above the watchlist. Each row shows the
+ticker with its name and source time, the price and change on the right, and a
+Remove button. Narrow panes stack the price below the ticker. Add with Enter or
+the field's submit button. Press `r` or `p` while the panel has focus; input
+fields keep ordinary typing. Press Escape to return to the prompt.
+The panel uses native controls on Claude Desktop and text controls in the
+terminal; both draw the same layout. The footer links to
+[pulseticker.app](https://www.pulseticker.app/).
 
 ## Connect Pulse Mac
 
 Select **Pulse Mac** in `/pulse`. The first-connection card links to the
-Mac download and opens Claude Code's token configuration. The local MCP
+Mac download and takes the token. The local MCP
 connection is included with the plugin; no `claude mcp add` command, server URL,
 or port configuration is needed.
 
@@ -81,11 +84,14 @@ or port configuration is needed.
    in Claude Code's configuration dialog, then save. Apply the reload if prompted
    and reopen `/pulse`.
 
-In Claude Desktop's local **Code** tab, the button opens `/config`; choose
-pulse-cc and set **Pulse Mac token**, then reload the plugin.
+Claude Desktop's local **Code** tab cannot show that dialog, so the card has a
+token field instead: paste the token and press **Save**. Pulse passes it on
+standard input to `claude plugin configure --values-stdin`, which saves it the
+same way the dialog does, then reloads plugins to connect. The field shows the
+token while you type; Pulse clears it after saving.
 The token is optional: leave it empty to keep using Yahoo Finance independently.
-Claude Code masks the token and saves it in its secure credential store. The
-plugin never saves the token in its watchlist store or sends it as command text.
+Claude Code saves the token in its secure credential store. The plugin never
+saves the token in its watchlist store or sends it as command text or arguments.
 
 Once connected, the checklist is replaced by your Mac watchlist groups. Press
 **Show** beside a ticker to include it above the prompt; press **✓ Shown** to
@@ -122,12 +128,12 @@ Pause stops automatic reads; Refresh performs one read while paused. Selecting
 Pulse Mac also performs one initial read, so its groups are available while paused.
 
 If the MCP connection fails, the panel retains the last list and the band marks
-saved quotes **cached** and the source **offline**. It retries every five seconds
+saved quotes **cached** and the source **Offline**. It retries every five seconds
 without falling back to Yahoo. Select **Pulse CC** to return to
 your independent list. A connection failure does not erase either selection.
 
 The band shows up to five tickers in saved order, fitting fewer in a narrow
-terminal. A `+N` indicator points to the rest in `/pulse`. Gains are green,
+terminal. A `+N more` indicator points to the rest in `/pulse`. Gains are green,
 losses red, and percentages always include their sign. USD is omitted in this
 compact band; other currencies remain visible. The panel includes currency.
 Neither surface displays charts or mini trends. Opening the panel does not

@@ -37,15 +37,18 @@ function host(on: On, symbols: string[] = [], paused = false) {
   const saved = new Map<string, unknown>([[SETTINGS_KEY, { version: 1, symbols, paused }]])
   on('store.get', (_, e) => ({ value: saved.get(e.key) }))
   on('store.set', (_, e) => { saved.set(e.key, e.value); return { value: undefined } })
-  on('command.register', () => ({ value: { command: 'pulse' } }))
+  const commands: string[] = []
+  on('command.register', (_, e) => { commands.push(e.name); return { value: { command: e.name } } })
   on('session.start', () => ({ cwd: '/test' }))
+  on('session.attach', (_, e) => ({ clientId: e.clientId }))
+  on('session.detach', (_, e) => ({ clientId: e.clientId }))
   on('session.end', () => ({ sessionId: 'test' }))
   let paneOpen = false
   on('ui.panes', () => ({ value: paneOpen ? [{ id: 'pulse-quotes', title: 'Pulse', isShown: true, isFocused: true, isPlaced: true }] : [] }))
   on('ui.open', () => { paneOpen = true; return { value: { isPlaced: true } } })
   on('ui.close', () => { paneOpen = false; return { value: undefined } })
   on('ui.render', () => ({ type: 'Text', props: {}, children: ['Host content'] }))
-  return { clock, saved }
+  return { clock, saved, commands }
 }
 
 const command = ($: Engine, args: string) => $.command.run({
@@ -224,18 +227,25 @@ test('panel input and remove button work on terminal and desktop, including narr
   }
 })
 
-test('the explicit Add button uses the edited field and management controls remain usable on both layouts', async ($, on) => {
+test('Add uses the edited field (terminal button, desktop native submit) and management controls remain usable on both layouts', async ($, on) => {
   const { clock, saved } = host(on, [], true)
   on('http.fetch', () => ({ value: response() }))
   await $.session.start(START)
   for (const surface of ['terminal', 'desktop'] as const) {
     for (const bodyColumns of [40, 100]) {
       const ui = await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns }, surface })
-      await ui.press({ key: 'add' })
+      const desktop = surface === 'desktop'
+      // Desktop draws the field's own submit button, so Pulse draws no second Add.
+      expect(!!(await ui.find({ key: 'add' })), `Add button on ${surface}`).toBe(!desktop)
+      const add = async (text: string) => {
+        if (desktop) return ui.input({ key: 'add-ticker', text })
+        await ui.input({ key: 'add-ticker', text, kind: 'change' })
+        await ui.press({ key: 'add' })
+      }
+      await add('')
       await clock.settle()
       expect(await ui.find({ type: 'Text', text: /Enter a Yahoo ticker/ }), `empty Add should show validation on ${surface}/${bodyColumns}`).toBeDefined()
-      await ui.input({ key: 'add-ticker', text: 'aapl', kind: 'change' })
-      await ui.press({ key: 'add' })
+      await add('aapl')
       await clock.settle()
       expect(saved.get(SETTINGS_KEY)).toEqual({ version: 1, symbols: ['AAPL'], paused: true })
       expect((await ui.find({ key: 'add-ticker' }))?.props.value).toBe('')
@@ -243,12 +253,15 @@ test('the explicit Add button uses the edited field and management controls rema
       expect(await ui.find({ key: 'remove-AAPL' })).toBeDefined()
       await ui.press({ key: 'pause' })
       await clock.settle()
-      expect((await ui.find({ key: 'pause' }))?.text).toBe('Pause (p)')
+      expect((await ui.find({ key: 'pause' }))?.text).toBe(desktop ? 'Pause' : 'Pause (p)')
       await clock.advance(1000)
       expect(await ui.find({ type: 'Text', text: /Auto-refresh every 60s/ })).toBeDefined()
       await ui.press({ key: 'pause' })
       await clock.settle()
-      expect((await ui.find({ key: 'pause' }))?.text).toBe('Resume (p)')
+      expect((await ui.find({ key: 'pause' }))?.text).toBe(desktop ? 'Resume' : 'Resume (p)')
+      expect((await ui.find({ key: 'refresh' }))?.text).toBe(desktop ? 'Refresh' : 'Refresh (r)')
+      expect(!!(await ui.find({ type: 'Text', text: /Tab: move between controls/ })), `keyboard hint on ${surface}`).toBe(!desktop)
+      expect(await ui.find({ type: 'Text', text: /^─+$/ }), `no character-drawn rule on ${surface}`).toBe(undefined)
       await ui.press({ key: 'remove-AAPL' })
       await clock.settle()
       expect(saved.get(SETTINGS_KEY)).toEqual({ version: 1, symbols: [], paused: true })
@@ -273,6 +286,35 @@ test('headless sessions never fetch; exiting cancels polling; clearing retains i
   await $.session.end({ reason: 'prompt_input_exit', sessionId: 'test', resume: { id: 'test' } })
   await clock.advance(120_000)
   expect(requests).toBe(2)
+})
+
+test('Claude Desktop starts headless, registers /pulse at once, and polls only while attached', async ($, on) => {
+  const { clock, commands } = host(on, ['AAPL'])
+  let requests = 0
+  on('http.fetch', () => { requests++; return { value: response() } })
+  await $.session.start({ ...START, surface: null, isInteractive: false })
+  expect(commands).toEqual(['pulse'])
+  await clock.advance(120_000)
+  expect(requests).toBe(0)
+  await $.session.attach({ surface: 'desktop', clientId: 'desktop:one' })
+  await clock.settle()
+  expect(requests).toBe(1)
+  await $.session.attach({ surface: 'desktop', clientId: 'desktop:two' })
+  await clock.advance(60_000)
+  expect(requests, 'a second window must not start another refresh loop').toBe(2)
+  expect((await command($, '')).text).toBe('Pulse panel opened.')
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(await band.find({ type: 'Text', text: /AAPL.*100\.00/ })).toBeDefined()
+  await band.unmount()
+  await $.session.detach({ surface: 'desktop', clientId: 'desktop:one', reason: 'detach' })
+  await clock.advance(60_000)
+  expect(requests).toBe(3)
+  await $.session.detach({ surface: 'desktop', clientId: 'desktop:two', reason: 'detach' })
+  await clock.advance(120_000)
+  expect(requests).toBe(3)
+  await $.session.attach({ surface: 'desktop', clientId: 'desktop:one' })
+  await clock.settle()
+  expect(requests).toBe(4)
 })
 
 test('Retry-After accepts an HTTP date and malformed values use a safe minimum', () => {
@@ -502,9 +544,14 @@ test('unconnected Mac shows download and setup links, then reveals watchlists af
     expect((await pane.find({ type: 'Link', text: 'Download Pulse Mac ↗' }))?.props.href).toBe('https://www.pulseticker.app/')
     expect(await pane.find({ type: 'Link', text: 'Connection guide ↗' })).toBe(undefined)
     expect(await pane.find({ type: 'Text', text: /Settings → Agent access/ })).toBeDefined()
-    expect(await pane.find({ type: 'Text', text: /Click Paste token below to open configuration/ })).toBeDefined()
-    if (pane === panes[0]) expect(await pane.find({ type: 'Text', text: /In the window that opens, paste into Pulse Mac token and save/ })).toBeDefined()
-    expect((await pane.find({ key: 'mac-configure' }))?.text).toBe('Paste token')
+    if (pane === panes[0]) {
+      expect(await pane.find({ type: 'Text', text: /Click Paste token below to open configuration/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /In the window that opens, paste into Pulse Mac token and save/ })).toBeDefined()
+      expect((await pane.find({ key: 'mac-configure' }))?.text).toBe('Paste token')
+    } else {
+      expect(await pane.find({ type: 'Text', text: /Paste it below and press Save/ })).toBeDefined()
+      expect(await pane.find({ key: 'mac-token' })).toBeDefined()
+    }
     expect(await pane.find({ type: 'Text', text: /Follow the guide to add the server/ })).toBe(undefined)
     expect(await pane.find({ key: `mac-group-select-${GROUP_A}` })).toBe(undefined)
   }
@@ -536,7 +583,7 @@ test('Mac connection status stays stable during background reads while quotes st
     for (const pane of panes) {
       const status = await pane.find({ type: 'Text', text: connected })
       expect(status?.text).toBe(connected)
-      expect(status?.props.color).toBe('green')
+      expect(status?.props.color).toBe('success')
     }
   }
   await checkStatus()
@@ -555,7 +602,7 @@ test('Mac connection status stays stable during background reads while quotes st
   for (const pane of panes) {
     const status = await pane.find({ type: 'Text', text: '● Not connected · Check /mcp' })
     expect(status?.text).toBe('● Not connected · Check /mcp')
-    expect(status?.props.color).toBe('yellow')
+    expect(status?.props.color).toBe('warning')
     await pane.unmount()
   }
 })
@@ -570,7 +617,7 @@ test('Mac failures retain labeled cached quotes without Yahoo fallback; null quo
   const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
   state.unavailable = true
   await clock.advance(5000)
-  expect(await band.find({ type: 'Text', text: /offline.*AAPL US.*123\.00.*cached/ })).toBeDefined()
+  expect(await band.find({ type: 'Text', text: /Offline.*AAPL US.*123\.00.*cached/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /Cached quote.*Could not reach Pulse Mac/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /private-token/ })).toBe(undefined)
   state.unavailable = false; state.missing = true
@@ -648,29 +695,54 @@ test('Mac source and display selection survive reload while quotes are read anew
   expect(saved.get(SETTINGS_KEY)).toEqual({ version: 1, symbols: ['MSFT'], paused: false })
 })
 
-test('Paste token opens native configuration without storing or sending the token in a prompt', async ($, on) => {
+test('Paste token opens native configuration in the terminal and saves through the host CLI on desktop, never in Pulse settings', async ($, on) => {
   const { clock, saved } = host(on, ['MSFT'])
   const state = macHost(on, saved)
   state.refusal = 'auth'
   const commands: { command: string; args: string }[] = []
   on('command.run', async (_, e, next) => {
-    if (e.command === 'plugin' || e.command === 'config') {
+    if (['plugin', 'config', 'reload-plugins'].includes(e.command)) {
       commands.push({ command: e.command, args: e.args })
-      return { text: 'Configuration opened.' }
+      return { text: 'Done.' }
     }
     return next(e)
   })
+  const root = decodeURIComponent(new URL('..', import.meta.url).pathname).replace(/\/$/, '')
+  on('env.get', () => ({ value: '/Apps/claude' }))
+  const runs: { argv: readonly string[]; stdin?: string }[] = []
+  on('process.run', (_, e) => {
+    runs.push({ argv: e.argv, stdin: e.init?.stdin })
+    const stdout = e.argv[2] === 'list' ? JSON.stringify([
+      { id: 'pulse-cc@pulse', enabled: false, installPath: '/elsewhere' },
+      { id: 'pulse-cc@inline', enabled: true, installPath: root },
+    ]) : 'Saved.'
+    return { value: { exitCode: 0, stdout, stderr: '' } }
+  })
   await $.session.start(START); await clock.settle()
-  for (const surface of ['terminal', 'desktop'] as const) {
-    const pane = await $.ui.mount({ ...PANE, surface })
-    expect(await pane.find({ type: 'Text', text: '● Paste token to connect' })).toBeDefined()
-    expect(await pane.find({ type: 'Text', text: /private-token/ })).toBe(undefined)
-    expect(await pane.find({ type: 'Input' })).toBe(undefined)
-    await pane.press({ key: 'mac-configure' }); await clock.settle()
-    await pane.unmount()
-  }
-  expect(commands).toEqual([{ command: 'plugin', args: 'configure pulse-cc' }, { command: 'config', args: '' }])
-  expect(state.calls.length).toBe(0)
+
+  const terminal = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await terminal.find({ type: 'Text', text: '● Paste token to connect' })).toBeDefined()
+  expect(await terminal.find({ type: 'Input' })).toBe(undefined)
+  await terminal.press({ key: 'mac-configure' }); await clock.settle()
+  await terminal.unmount()
+  expect(commands).toEqual([{ command: 'plugin', args: 'configure pulse-cc' }])
+
+  // Desktop has no configuration dialog: the field saves through the host CLI.
+  const desktop = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await desktop.find({ key: 'mac-configure' })).toBe(undefined)
+  await desktop.input({ key: 'mac-token', text: '   ' }); await clock.settle()
+  expect(await desktop.find({ type: 'Text', text: /Paste the token from Pulse Mac/ })).toBeDefined()
+  expect(runs).toEqual([])
+  await desktop.input({ key: 'mac-token', text: ' private-token ' }); await clock.settle()
+  expect(runs).toEqual([
+    { argv: ['/Apps/claude', 'plugin', 'list', '--json'], stdin: '' },
+    { argv: ['/Apps/claude', 'plugin', 'configure', 'pulse-cc@inline', '--values-stdin'], stdin: '{"macToken":"private-token"}' },
+  ])
+  expect(commands.at(-1)).toEqual({ command: 'reload-plugins', args: '' })
+  expect((await desktop.find({ key: 'mac-token' }))?.props.value ?? '').toBe('')
+  expect(await desktop.find({ type: 'Text', text: /private-token/ })).toBe(undefined)
+  expect(await desktop.find({ type: 'Text', text: /Token saved/ })).toBeDefined()
+  await desktop.unmount()
   expect(JSON.stringify([...saved.entries()])).not.toContain('token')
 })
 

@@ -1,15 +1,16 @@
 import type { Register } from 'claude-code'
 import { SETTINGS_KEY, Watchlist } from './watchlist'
 import { formatChange, formatPrice, formatBandPrice, formatTime } from './yahoo'
-import { MAC_SETTINGS_KEY, symbolKey } from './mac'
+import { MAC_SETTINGS_KEY, MacError, symbolKey } from './mac'
 
 export const PANE = 'pulse-quotes'
 const HELP = '/pulse · /pulse source cc|mac · /pulse add AAPL · /pulse remove AAPL · /pulse refresh · /pulse off · /pulse on'
 
 export const register: Register = (on, options) => {
-  const intervalSeconds = watchInterval(options)
-  const macIntervalSeconds = watchInterval(options, 'macRefreshSeconds', 5, 5)
-  const server = typeof options.macServer === 'string' && options.macServer.trim() ? options.macServer.trim() : 'pulse'
+  const intervalSeconds = 60
+  const macIntervalSeconds = 5
+  const hasToken = typeof options.macToken === 'string' && !!options.macToken.trim()
+  let server = 'plugin:pulse-cc:pulse'
   const watch = new Watchlist(intervalSeconds * 1000, macIntervalSeconds * 1000)
   let input = ''
   let error = ''
@@ -30,13 +31,18 @@ export const register: Register = (on, options) => {
       save: preferences => $.store.set(SETTINGS_KEY, preferences),
       loadMac: () => $.store.get(MAC_SETTINGS_KEY),
       saveMac: preferences => $.store.set(MAC_SETTINGS_KEY, preferences),
-      listMac: () => $.mcp.call(server, 'list_watchlists', {}),
+      listMac: async () => {
+        const connection = await $.mcp.connect('pulse')
+        if (!connection.isConnected) throw new MacError(macConnectionMessage(connection.reason, hasToken))
+        server = connection.server
+        return $.mcp.call(server, 'list_watchlists', {})
+      },
       quoteMac: symbols => $.mcp.call(server, 'get_quotes', { symbols }),
       now: () => $.clock.now(),
       sleep: ms => $.clock.sleep(ms),
       after: (ms, callback) => $.clock.after(ms, callback),
       fetch: url => $.http.fetch(url, {
-        headers: { 'User-Agent': 'Pulse-CC/0.3.0', Accept: 'application/json' },
+        headers: { 'User-Agent': 'Pulse-CC/0.3.1', Accept: 'application/json' },
       }),
       redraw: () => $.ui.invalidate('ui.render'),
     })
@@ -62,7 +68,9 @@ export const register: Register = (on, options) => {
           await $.ui.close({ id: PANE })
           return { text: 'Pulse panel closed.' }
         }
-        await $.ui.open({ id: PANE, title: 'Pulse', focus: true, columns: 80, rows: Math.min(30, Math.max(22, watch.symbols.length * 3 + 20)) })
+        const needsSetup = watch.source === 'mac' && !watch.macConnected && !watch.groups.length
+        await $.ui.open({ id: PANE, title: 'Pulse', focus: true, columns: 80,
+          rows: needsSetup ? (e.presentation.columns < 64 ? 44 : 36) : Math.min(30, Math.max(22, watch.symbols.length * 3 + 20)) })
         return { text: 'Pulse panel opened.' }
       }
       if (args[0] === 'source' && args.length === 2 && (args[1] === 'cc' || args[1] === 'mac')) {
@@ -128,7 +136,8 @@ export const register: Register = (on, options) => {
     const rule = '─'.repeat(Math.max(8, e.props.bodyColumns - 2))
     const sourceWidth = Math.max(14, Math.floor((e.props.bodyColumns - 3) / 2))
     const mac = watch.source === 'mac'
-    const showLoading = watch.loading && (!mac || !watch.macConnected)
+    const needsSetup = mac && !watch.macConnected && !watch.groups.length
+    const showLoading = watch.loading && (!mac || (!watch.macConnected && hasToken))
     const currentGroup = watch.groups.find(group => group.id === macGroupID) ?? watch.groups[0]
     return <Box flexDirection="column" paddingX={1}>
       <Text bold color="cyan">Quote source</Text>
@@ -142,26 +151,31 @@ export const register: Register = (on, options) => {
         <Box key="source-mac-card" width={sourceWidth} flexDirection="column" borderStyle="round"
           borderColor={mac ? 'cyan' : 'gray'} paddingX={1}>
           <Button key="source-mac" label="Pulse Mac" variant={mac ? 'primary' : 'secondary'}
-            onPress={() => action(() => watch.setSource('mac'))} />
+            onPress={() => action(async () => {
+              await watch.setSource('mac')
+              if (!watch.macConnected && !watch.groups.length) await $.ui.open({ id: PANE, title: 'Pulse', focus: true,
+                columns: 80, rows: compact ? 44 : 36 })
+            })} />
           <Text color={mac ? 'cyan' : undefined} dimColor={!mac} wrap="wrap">From your Mac app</Text>
         </Box>
       </Box>
       <Box gap={2} flexWrap="wrap">
         <Text bold>{mac ? 'Pulse Mac watchlists' : 'Pulse CC watchlist'}</Text>
-        <Text bold color="cyan">{mac ? `${watch.symbols.length} selected`
-          : `${watch.preferences.symbols.length} ${watch.preferences.symbols.length === 1 ? 'ticker' : 'tickers'}`}</Text>
+        {!needsSetup && <Text bold color="cyan">{mac ? `${watch.symbols.length} selected`
+          : `${watch.preferences.symbols.length} ${watch.preferences.symbols.length === 1 ? 'ticker' : 'tickers'}`}</Text>}
       </Box>
       {!mac && <Text dimColor wrap="wrap">Manage an independent watchlist.</Text>}
       <Text key="refresh-status" color={watch.preferences.paused ? 'yellow' : showLoading ? 'cyan' : mac && !watch.macConnected ? 'yellow' : 'green'}>
         {watch.preferences.paused ? '● Auto-refresh paused' : showLoading ? (mac ? '● Reading Pulse Mac…' : '● Refreshing quotes…')
-          : mac ? (watch.macConnected ? `● Connected · Updates every ${macIntervalSeconds}s` : '● Not connected · Check /mcp')
+          : mac ? (watch.macConnected ? `● Connected · Updates every ${macIntervalSeconds}s`
+            : needsSetup && !hasToken ? '● Paste token to connect' : '● Not connected · Check /mcp')
             : `● Auto-refresh every ${intervalSeconds}s`}
       </Text>
-      <Box key="watchlist-actions" gap={2} marginTop={1} marginBottom={1} flexWrap="wrap">
+      {(!needsSetup || hasToken) && <Box key="watchlist-actions" gap={2} marginTop={1} marginBottom={1} flexWrap="wrap">
         <Button key="refresh" label="Refresh (r)" hotkey="r" onPress={() => action(() => watch.refresh())} />
         <Button key="pause" label={watch.preferences.paused ? 'Resume (p)' : 'Pause (p)'} hotkey="p"
           onPress={() => action(() => watch.pause(!watch.preferences.paused))} />
-      </Box>
+      </Box>}
       {!mac && <Box key="add-section" flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginBottom={1}>
         <Text bold color="cyan">Add ticker</Text>
         <Box gap={2} alignItems="center">
@@ -174,13 +188,46 @@ export const register: Register = (on, options) => {
         </Box>
       </Box>}
       {error && <Box marginBottom={1}><Text color="red" wrap="wrap">{error}</Text></Box>}
-      {watch.message && <Box marginBottom={1}><Text color={watch.message.includes('rate limited') ? 'yellow' : undefined} wrap="wrap">{watch.message}</Text></Box>}
-      {mac && <Box key="mac-notes" flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginBottom={1}>
+      {watch.message && !needsSetup && <Box marginBottom={1}><Text color={watch.message.includes('rate limited') ? 'yellow' : undefined} wrap="wrap">{watch.message}</Text></Box>}
+      {needsSetup && <Box key="mac-setup" flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginY={1}>
+        <Text bold color="cyan">Connect Pulse Mac</Text>
+        <Text bold wrap="wrap">Your markets, right in your Mac menu bar.</Text>
+        <Text dimColor wrap="wrap">Watch stocks and crypto, explore charts, and track positions.</Text>
+        <Box flexDirection="column" marginY={1}>
+          <Text wrap="wrap"><Link href="https://www.pulseticker.app/"><Text bold color="cyan">Download Pulse Mac ↗</Text></Link></Text>
+        </Box>
+        <Text wrap="wrap"><Text bold color="cyan">1. </Text>Install and open Pulse Mac.</Text>
+        <Text wrap="wrap"><Text bold color="cyan">2. </Text>Enable MCP in <Text bold>Settings → Agent access</Text> and copy the token.</Text>
+        <Text wrap="wrap"><Text bold color="cyan">3. </Text>Click <Text bold>{hasToken ? 'Update token' : 'Paste token'}</Text> below to open configuration.</Text>
+        <Box marginY={1}>
+          <Button key="mac-configure" label={hasToken ? 'Update token' : 'Paste token'} variant="primary"
+            onPress={() => action(async () => {
+              await $.ui.close({ id: PANE })
+              await $.command.run({ command: e.surface === 'terminal' ? 'plugin' : 'config',
+                args: e.surface === 'terminal' ? `configure ${$.plugin.name}` : '' })
+            })} />
+        </Box>
+        <Text dimColor wrap="wrap">{e.surface === 'terminal'
+          ? 'In the window that opens, paste into Pulse Mac token and save. Then reopen /pulse.'
+          : 'In /config → pulse-cc, paste the Pulse Mac token, then reload the plugin.'}</Text>
+        <Text dimColor wrap="wrap">The local connection is included. Keep Pulse Mac open.</Text>
+        {watch.message && !watch.message.startsWith('Could not reach Pulse Mac.') && !watch.message.startsWith('Paste your Pulse Mac token')
+          && <Text color="yellow" wrap="wrap">{watch.message}</Text>}
+      </Box>}
+      {mac && !needsSetup && <Box key="mac-notes" flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginBottom={1}>
         <Text bold color="cyan">Choose which Mac tickers to display</Text>
         <Text dimColor wrap="wrap">Manage tickers and groups in Pulse Mac. These controls only change this display.</Text>
         <Text dimColor wrap="wrap">{`MCP server: ${server} · Keep Pulse Mac open with Agent access enabled.`}</Text>
+        <Box marginTop={1} gap={2} flexWrap="wrap">
+          <Button key="mac-configure" label="Update token" onPress={() => action(async () => {
+            await $.ui.close({ id: PANE })
+            await $.command.run({ command: e.surface === 'terminal' ? 'plugin' : 'config',
+              args: e.surface === 'terminal' ? `configure ${$.plugin.name}` : '' })
+          })} />
+          {!watch.macConnected && <Link href="https://github.com/fatwang2/Pulse/tree/main/plugins/claude-code#connect-pulse-mac"><Text color="cyan">Connection guide ↗</Text></Link>}
+        </Box>
       </Box>}
-      {mac && !watch.groups.length && <Text dimColor wrap="wrap">{watch.macConnected ? 'No watchlist groups in Pulse Mac.' : 'Connect Pulse Mac in /mcp, then press Refresh.'}</Text>}
+      {mac && watch.macConnected && !watch.groups.length && <Text dimColor wrap="wrap">No watchlist groups in Pulse Mac.</Text>}
       {mac && watch.groups.length > 0 && <Box key="mac-groups" gap={1} flexWrap="wrap" marginBottom={1}>
         {watch.groups.map(group => <Button key={`mac-group-select-${group.id}`} label={group.name}
           variant={currentGroup?.id === group.id ? 'primary' : 'secondary'}
@@ -254,7 +301,10 @@ export const register: Register = (on, options) => {
   })
 }
 
-function watchInterval(options: Record<string, unknown>, key = 'refreshSeconds', fallback = 60, minimum = 60): number {
-  const value = Number(options[key] ?? fallback)
-  return Number.isFinite(value) ? Math.min(3600, Math.max(minimum, value)) : fallback
+function macConnectionMessage(reason: string, hasToken: boolean): string {
+  if (reason === 'disabled') return 'Pulse Mac connection is disabled. Enable it in /mcp to reconnect.'
+  if (reason === 'policy') return 'Pulse Mac connection is blocked by your Claude Code organization policy.'
+  if (reason === 'unapproved') return 'Approve the Pulse Mac connection in /mcp, then refresh.'
+  if (!hasToken) return 'Paste your Pulse Mac token to connect.'
+  return 'Could not connect. Keep Pulse Mac open with MCP enabled and check your token.'
 }

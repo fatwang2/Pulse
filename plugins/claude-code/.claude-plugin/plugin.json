@@ -1,6 +1,6 @@
 {
   "name": "pulse-cc",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Quotes above the prompt from Yahoo Finance or your Pulse Mac watchlists, with local display selection.",
   "author": {
     "name": "fatwang2",
@@ -19,27 +19,12 @@
     "macos"
   ],
   "userConfig": {
-    "refreshSeconds": {
-      "type": "number",
-      "title": "Refresh interval (seconds)",
-      "description": "Wait between refresh rounds. Yahoo requests are spaced at least one second apart.",
-      "default": 60,
-      "min": 60,
-      "max": 3600
-    },
-    "macServer": {
+    "macToken": {
       "type": "string",
-      "title": "Pulse Mac MCP server",
-      "description": "Name of the Pulse Mac server already configured in Claude Code /mcp. Credentials stay with Claude Code.",
-      "default": "pulse"
-    },
-    "macRefreshSeconds": {
-      "type": "number",
-      "title": "Pulse Mac refresh interval (seconds)",
-      "description": "Read Mac watchlists and cached quotes through MCP. Does not request fresh provider data.",
-      "default": 5,
-      "min": 5,
-      "max": 3600
+      "title": "Pulse Mac token",
+      "description": "Paste the MCP token from Pulse Mac \u2192 Settings \u2192 Agent access. Leave empty to use Yahoo Finance independently.",
+      "default": "",
+      "sensitive": true
     }
   }
 }

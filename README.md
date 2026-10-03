@@ -34,8 +34,9 @@ free installers remain available. See [historical Mac source and downloads](docs
 
 A Claude Code plugin that shows quotes and signed percentage changes above the
 prompt, with a `/pulse` panel for adding and removing tickers, refreshing prices,
-and pausing updates. Connect Pulse Mac through MCP to browse its groups and
-choose which tickers appear in Claude Code. Mac watchlists remain read-only
+and pausing updates. The local MCP connection is included: download Pulse Mac,
+paste its token, and choose which tickers from its groups appear in Claude Code.
+Mac watchlists remain read-only
 from the plugin. Requires Claude Code **2.1.287 or later**, with Mods enabled.
 
 ![Pulse for Claude Code showing three tickers above the prompt](assets/readme/pulse-claude-code.png)
@@ -53,6 +54,9 @@ claude plugin install pulse-cc@pulse
 
 Restart Claude Code or run `/reload-plugins`, then add a ticker with
 `/pulse add AAPL` and open `/pulse` to manage your watchlist.
+To connect the Mac app, select **Pulse Mac** in `/pulse`, enable MCP in the app's
+**Settings → Agent access**, then use **Paste token** to open the configuration
+dialog. **Pulse Mac token** is the only setting.
 See the [Claude Code guide](plugins/claude-code/README.md) for commands,
 provider limits, privacy, Mac connection setup, and local development.
 

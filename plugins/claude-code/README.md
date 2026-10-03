@@ -32,6 +32,15 @@ Hong Kong leading zeros are normalized; Shanghai `.SH` is accepted as an alias
 for Yahoo's `.SS`. Yahoo's coverage determines which tickers can return a quote.
 Unknown tickers stay visible with an error so you can correct or remove them.
 
+To update an installed plugin:
+
+```sh
+claude plugin marketplace update pulse
+claude plugin update pulse-cc@pulse
+```
+
+Restart Claude Code or run `/reload-plugins` to apply the update.
+
 ## Use
 
 | Command | Action |
@@ -59,25 +68,35 @@ The panel footer links to [pulseticker.app](https://www.pulseticker.app/).
 
 ## Connect Pulse Mac
 
-The panel shows the connection status, Mac watchlist groups, and which tickers
-are selected for display above the prompt:
+Select **Pulse Mac** in `/pulse`. The first-connection card links to the
+Mac download and opens Claude Code's token configuration. The local MCP
+connection is included with the plugin; no `claude mcp add` command, server URL,
+or port configuration is needed.
+
+![Pulse CC first-connection panel with the Mac download link and Paste token button](../../assets/readme/pulse-cc-mac-setup.png)
+
+1. [Download Pulse Mac](https://www.pulseticker.app/) and open the app.
+2. In Pulse Mac → **Settings → Agent access**, enable MCP and copy its token.
+3. In `/pulse` → **Pulse Mac**, press **Paste token**. Paste into **Pulse Mac token**
+   in Claude Code's configuration dialog, then save. Apply the reload if prompted
+   and reopen `/pulse`.
+
+In Claude Desktop's local **Code** tab, the button opens `/config`; choose
+pulse-cc and set **Pulse Mac token**, then reload the plugin.
+The token is optional: leave it empty to keep using Yahoo Finance independently.
+Claude Code masks the token and saves it in its secure credential store. The
+plugin never saves the token in its watchlist store or sends it as command text.
+
+Once connected, the checklist is replaced by your Mac watchlist groups. Press
+**Show** beside a ticker to include it above the prompt; press **✓ Shown** to
+hide it again. Use **Update token** when you rotate the token in Pulse Mac.
 
 ![Pulse CC panel connected to Pulse Mac through MCP, with watchlist groups and display selections](../../assets/readme/pulse-cc-mac-panel.png)
 
-1. Open Pulse Mac → Settings → Agent access, enable MCP, and copy its token.
-2. Add that local server to Claude Code. Replace `<token>` with your token;
-   do not commit it to your repository:
-
-   ```sh
-   claude mcp add --transport http --scope user pulse http://127.0.0.1:41927/mcp --header "Authorization: Bearer <token>"
-   ```
-
-3. Restart Claude Code, check the connection in `/mcp`, then open `/pulse`
-   and select **Pulse Mac**. If you already configured it under another name,
-   set **Pulse Mac MCP server** in `/config` → pulse-cc to that name and reload
-   the plugin.
-4. Switch between Mac groups in the panel. Press **Show** beside a ticker to
-   include it above the prompt; press **✓ Shown** to hide it again.
+The bundled connection appears in `/mcp` as `plugin:pulse-cc:pulse`. You can
+inspect its status and tools or disable it there. The plugin configuration
+contains only **Pulse Mac token**; refresh intervals and the local endpoint are
+built in.
 
 The plugin uses Claude Code's MCP connection and credentials. It calls only
 `list_watchlists` and `get_quotes`. Showing or hiding a ticker never changes
@@ -98,14 +117,13 @@ server on your Mac through their own `127.0.0.1`.
 Mac quotes come from the app's **in-memory cache**. Refresh reads that cache;
 it does not request a new quote from a provider. Each row retains the provider's
 quote timestamp; an uncached instrument shows an unavailable message.
-Mac mode reads lists and selected quotes every five seconds by default; set
-**Pulse Mac refresh interval (seconds)** in `/config` → pulse-cc to change it.
+Mac mode reads lists and selected quotes every five seconds.
 Pause stops automatic reads; Refresh performs one read while paused. Selecting
 Pulse Mac also performs one initial read, so its groups are available while paused.
 
 If the MCP connection fails, the panel retains the last list and the band marks
-saved quotes **cached** and the source **offline**. It retries on the configured
-interval without falling back to Yahoo. Select **Pulse CC** to return to
+saved quotes **cached** and the source **offline**. It retries every five seconds
+without falling back to Yahoo. Select **Pulse CC** to return to
 your independent list. A connection failure does not erase either selection.
 
 The band shows up to five tickers in saved order, fitting fewer in a narrow
@@ -115,10 +133,8 @@ compact band; other currencies remain visible. The panel includes currency.
 Neither surface displays charts or mini trends. Opening the panel does not
 trigger an extra quote request.
 
-For Yahoo quotes, in `/config` → pulse-cc, set **Refresh interval (seconds)** between 60 and
-3600. The default waits 60 seconds **after each round**, with requests spaced
-at least one second apart. A large watchlist takes longer to complete a round.
-Changes take effect when the plugin reloads.
+Yahoo refresh waits 60 seconds **after each round**, with requests spaced at
+least one second apart. A large watchlist takes longer to complete a round.
 
 ## Yahoo quote behavior
 

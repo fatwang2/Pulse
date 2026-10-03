@@ -375,8 +375,15 @@ function macHost(on: On, saved: Map<string, unknown>, selected = false) {
     groups: [{ id: GROUP_A, name: 'Main', symbols: [APPLE, TENCENT] }, { id: GROUP_B, name: 'Tech', symbols: [APPLE] }] as MacGroup[],
     calls: [] as { server: string; tool: string; args: Record<string, unknown> }[],
     unavailable: false, missing: false,
+    server: 'plugin:pulse-cc:pulse', connects: [] as string[],
+    refusal: undefined as 'auth' | 'disabled' | 'policy' | 'failed' | undefined,
     beforeCall: undefined as (() => Promise<void>) | undefined,
   }
+  on('mcp.connect', (_, e) => {
+    state.connects.push(e.server)
+    return { value: state.refusal ? { isConnected: false, reason: state.refusal, message: 'private-token must not be echoed' }
+      : { isConnected: true, server: state.server } }
+  })
   on('mcp.call', async (_, e) => {
     state.calls.push(e)
     if (state.beforeCall) await state.beforeCall()
@@ -451,7 +458,7 @@ test('Mac selection is shared across groups, local only, and usable on both surf
       await ui.unmount()
     }
   }
-  expect(state.calls.every(call => call.server === 'pulse' && ['list_watchlists', 'get_quotes'].includes(call.tool))).toBe(true)
+  expect(state.calls.every(call => call.server === state.server && ['list_watchlists', 'get_quotes'].includes(call.tool))).toBe(true)
   expect((await command($, 'add NVDA')).text).toContain('Add tickers in Pulse Mac')
   expect((await command($, 'remove AAPL')).text).toContain('Uncheck')
   expect(saved.get(SETTINGS_KEY)).toEqual({ version: 1, symbols: ['MSFT'], paused: false })
@@ -474,6 +481,49 @@ test('Mac list changes follow stable identities; new tickers stay unchecked and 
   expect((await ui.find({ key: `mac-toggle-${GROUP_A}-hk:700` }))?.text).toBe('Show')
   expect(state.calls[state.calls.length - 1].tool).toBe('list_watchlists')
   await ui.unmount(); await band.unmount()
+})
+
+test('unconnected Mac shows download and setup links, then reveals watchlists after connecting', async ($, on) => {
+  const { clock, saved } = host(on, ['MSFT'])
+  on('http.fetch', () => ({ value: response('MSFT') }))
+  const state = macHost(on, saved)
+  state.unavailable = true
+  saved.set(MAC_SETTINGS_KEY, { version: 1, source: 'cc', selected: [] })
+  await $.session.start(START); await clock.settle()
+  const panes = []
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const bodyColumns = surface === 'terminal' ? 40 : 100
+    panes.push(await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns }, surface }))
+  }
+  for (const pane of panes) expect(await pane.find({ type: 'Text', text: 'Connect Pulse Mac' })).toBe(undefined)
+  await panes[0].press({ key: 'source-mac' }); await clock.settle()
+  for (const pane of panes) {
+    expect(await pane.find({ type: 'Text', text: 'Connect Pulse Mac' })).toBeDefined()
+    expect((await pane.find({ type: 'Link', text: 'Download Pulse Mac ↗' }))?.props.href).toBe('https://www.pulseticker.app/')
+    expect(await pane.find({ type: 'Link', text: 'Connection guide ↗' })).toBe(undefined)
+    expect(await pane.find({ type: 'Text', text: /Settings → Agent access/ })).toBeDefined()
+    expect(await pane.find({ type: 'Text', text: /Click Paste token below to open configuration/ })).toBeDefined()
+    if (pane === panes[0]) expect(await pane.find({ type: 'Text', text: /In the window that opens, paste into Pulse Mac token and save/ })).toBeDefined()
+    expect((await pane.find({ key: 'mac-configure' }))?.text).toBe('Paste token')
+    expect(await pane.find({ type: 'Text', text: /Follow the guide to add the server/ })).toBe(undefined)
+    expect(await pane.find({ key: `mac-group-select-${GROUP_A}` })).toBe(undefined)
+  }
+  state.unavailable = false
+  await clock.advance(5000)
+  for (const pane of panes) {
+    expect(await pane.find({ type: 'Text', text: 'Connect Pulse Mac' })).toBe(undefined)
+    expect(await pane.find({ key: `mac-group-select-${GROUP_A}` })).toBeDefined()
+  }
+  state.unavailable = true
+  await clock.advance(5000)
+  for (const pane of panes) {
+    expect(await pane.find({ type: 'Text', text: 'Connect Pulse Mac' })).toBe(undefined)
+    expect(await pane.find({ type: 'Link', text: 'Connection guide ↗' })).toBeDefined()
+    expect(await pane.find({ key: `mac-group-select-${GROUP_A}` })).toBeDefined()
+    await pane.unmount()
+  }
+  expect(saved.get(SETTINGS_KEY)).toEqual({ version: 1, symbols: ['MSFT'], paused: false })
+  expect(state.calls.every(call => call.tool === 'list_watchlists')).toBe(true)
 })
 
 test('Mac connection status stays stable during background reads while quotes still update', async ($, on) => {
@@ -585,14 +635,86 @@ test('Mac decoding rejects mismatched or malformed data and preserves sanitized 
   expect(readMacPreferences({ version: 1, source: 'mac', selected: [APPLE, APPLE] }).selected).toEqual([{ market: 'us', code: 'AAPL' }])
 })
 
-test('Mac source and display selection survive reload while quotes are read anew', { options: { macServer: 'my-pulse' } }, async ($, on) => {
+test('Mac source and display selection survive reload while quotes are read anew', async ($, on) => {
   const { clock, saved } = host(on, ['MSFT'])
   const state = macHost(on, saved, true)
   await $.session.start(START); await clock.settle()
-  expect(state.calls.every(call => call.server === 'my-pulse')).toBe(true)
+  expect(state.calls.every(call => call.server === state.server)).toBe(true)
+  expect(state.connects).toEqual(['pulse'])
   await $.session.end({ reason: 'prompt_input_exit', sessionId: 'test', resume: { id: 'test' } })
   await $.session.start(START); await clock.settle()
   expect(state.calls.map(call => call.tool)).toEqual(['list_watchlists', 'get_quotes', 'list_watchlists', 'get_quotes'])
   expect((saved.get(MAC_SETTINGS_KEY) as { source: string }).source).toBe('mac')
   expect(saved.get(SETTINGS_KEY)).toEqual({ version: 1, symbols: ['MSFT'], paused: false })
+})
+
+test('Paste token opens native configuration without storing or sending the token in a prompt', async ($, on) => {
+  const { clock, saved } = host(on, ['MSFT'])
+  const state = macHost(on, saved)
+  state.refusal = 'auth'
+  const commands: { command: string; args: string }[] = []
+  on('command.run', async (_, e, next) => {
+    if (e.command === 'plugin' || e.command === 'config') {
+      commands.push({ command: e.command, args: e.args })
+      return { text: 'Configuration opened.' }
+    }
+    return next(e)
+  })
+  await $.session.start(START); await clock.settle()
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const pane = await $.ui.mount({ ...PANE, surface })
+    expect(await pane.find({ type: 'Text', text: '● Paste token to connect' })).toBeDefined()
+    expect(await pane.find({ type: 'Text', text: /private-token/ })).toBe(undefined)
+    expect(await pane.find({ type: 'Input' })).toBe(undefined)
+    await pane.press({ key: 'mac-configure' }); await clock.settle()
+    await pane.unmount()
+  }
+  expect(commands).toEqual([{ command: 'plugin', args: 'configure pulse-cc' }, { command: 'config', args: '' }])
+  expect(state.calls.length).toBe(0)
+  expect(JSON.stringify([...saved.entries()])).not.toContain('token')
+})
+
+test('bundled MCP uses the host-resolved name, reads only selected quotes and respects a disabled connection',
+  { options: { macToken: 'test-token' } }, async ($, on) => {
+    const { clock, saved } = host(on, ['MSFT'])
+    const state = macHost(on, saved, true)
+    // Calls must use the name returned by the host, never a guessed name.
+    state.server = 'plugin:pulse-cc:pulse-resolved'
+    await $.session.start(START); await clock.settle()
+    expect(state.connects).toEqual(['pulse'])
+    expect(state.calls.map(call => call.tool)).toEqual(['list_watchlists', 'get_quotes'])
+    expect(state.calls.every(call => call.server === state.server)).toBe(true)
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    expect(await ui.find({ type: 'Text', text: /test-token/ })).toBe(undefined)
+    state.refusal = 'disabled'
+    await clock.advance(5000)
+    expect(state.calls.length).toBe(2)
+    expect(await ui.find({ type: 'Text', text: /connection is disabled.*Enable it in \/mcp/ })).toBeDefined()
+    expect(await ui.find({ key: `mac-group-select-${GROUP_A}` })).toBeDefined()
+    state.refusal = undefined
+    await ui.press({ key: 'refresh' }); await clock.settle()
+    expect(state.calls.length).toBe(4)
+    expect(await ui.find({ type: 'Text', text: /Connected.*5s/ })).toBeDefined()
+    expect(saved.get(SETTINGS_KEY)).toEqual({ version: 1, symbols: ['MSFT'], paused: false })
+    await ui.unmount()
+  })
+
+test('empty token leaves Yahoo usable without plugin MCP calls; first-time failures show safe setup guidance', async ($, on) => {
+  const { clock, saved } = host(on, ['MSFT'])
+  const state = macHost(on, saved)
+  saved.set(MAC_SETTINGS_KEY, { version: 1, source: 'cc', selected: [] })
+  let yahoo = 0
+  on('http.fetch', () => { yahoo++; return { value: response('MSFT') } })
+  await $.session.start(START); await clock.settle()
+  expect(yahoo).toBe(1)
+  expect(state.connects.length).toBe(0)
+  expect(state.calls.length).toBe(0)
+  state.refusal = 'policy'
+  await command($, 'source mac'); await clock.settle()
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /blocked by.*organization policy/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /private-token/ })).toBe(undefined)
+  expect(await ui.find({ key: 'mac-configure' })).toBeDefined()
+  expect(state.calls.length).toBe(0)
+  await ui.unmount()
 })

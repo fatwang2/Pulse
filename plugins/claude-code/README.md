@@ -81,7 +81,7 @@ In the terminal, a fullscreen session docks the panel beside the conversation:
 
 In Claude Desktop's **Code** tab, the panel opens beside the chat with native buttons:
 
-<img src="../../assets/readme/pulse-cc-desktop-panel.png" width="480" alt="Pulse CC panel in Claude Desktop with the quote source buttons, an add field and three tickers">
+<img src="../../assets/readme/pulse-cc-desktop-panel.png" width="480" alt="Pulse CC panel in Claude Desktop with two stocks and two crypto pairs">
 
 ## Connect Pulse Mac
 

@@ -43,7 +43,7 @@ from the plugin. Requires Claude Code **2.1.287 or later**, with Mods enabled.
 
 The `/pulse` panel works in the terminal and in Claude Desktop's **Code** tab:
 
-<img src="assets/readme/pulse-cc-desktop-panel.png" width="480" alt="Pulse CC panel in Claude Desktop with the quote source buttons, an add field and three tickers">
+<img src="assets/readme/pulse-cc-desktop-panel.png" width="480" alt="Pulse CC panel in Claude Desktop with two stocks and two crypto pairs">
 
 Connect Pulse Mac to browse its watchlist groups and choose which tickers to display:
 

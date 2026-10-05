@@ -281,9 +281,11 @@ export const register: Register = (on, options) => {
           const stale = quote ? formatStaleDate(quote.timestamp, now) : ''
           const meta = quote ? [quote.name, stale && `As of ${stale}`,
             !!quote.delaySeconds && `Delay ${Math.ceil(quote.delaySeconds / 60)}m`].filter(Boolean).join(' · ') : ''
+          // minWidth 0 lets a long name truncate instead of pushing the row's
+          // button out of a narrow Desktop pane (flex items default to content width).
           return <Box key={`ticker-${symbol}`} flexDirection="column" width="100%" marginTop={index ? rowGap : 0}>
             <Box gap={2} alignItems="center" width="100%">
-              <Box flexDirection="column" flexGrow={1} flexShrink={1}>
+              <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
                 <Text bold wrap="truncate">{symbol}</Text>
                 {!compact && meta && <Text dimColor wrap="truncate">{meta}</Text>}
               </Box>
@@ -360,7 +362,7 @@ export const register: Register = (on, options) => {
           const meta = stale ? `${item.name} · As of ${stale}` : item.name
           return <Box key={`mac-row-${group.id}-${key}`} flexDirection="column" width="100%" marginTop={rowGap}>
             <Box gap={2} alignItems="center" width="100%">
-              <Box flexDirection="column" flexGrow={1} flexShrink={1}>
+              <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
                 <Text bold wrap="truncate">{`${item.displayCode} · ${item.market.toUpperCase()}`}</Text>
                 {!compact && <Text dimColor wrap="truncate">{meta}</Text>}
               </Box>
@@ -431,7 +433,7 @@ function startWatch($: EngineInterface, watch: Watchlist, mac: MacLink): Promise
     sleep: ms => $.clock.sleep(ms),
     after: (ms, callback) => $.clock.after(ms, callback),
     fetch: url => $.http.fetch(url, {
-      headers: { 'User-Agent': 'Pulse-CC/0.3.4', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.3.5', Accept: 'application/json' },
     }),
     redraw: () => $.ui.invalidate('ui.render'),
   })

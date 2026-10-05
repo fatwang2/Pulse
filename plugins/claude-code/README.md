@@ -125,11 +125,12 @@ The same panel in Claude Desktop:
 
 ### If Claude Code blocks the reads
 
-Claude Code checks the plugin's background reads against your permission
-settings. In some modes, notably Claude Desktop's **Auto** mode, it refuses a
-read that no message of yours asked for, even with a valid token. Pulse then
-shows **Blocked by Claude Code permissions**, the refusal it received, and the
-two read-only rules that allow it. Add them to `~/.claude/settings.json` (or
+The plugin reads Pulse Mac on its own, without a message of yours, and does
+not approve those reads itself: Claude Code checks them against your permission
+settings. Depending on the mode, for example the terminal's default mode or
+Claude Desktop's **Auto** mode, it can refuse them even with a valid token.
+Pulse then shows **Blocked by Claude Code permissions**, the refusal it
+received, and the two read-only rules that allow it. Add them to `~/.claude/settings.json` (or
 with `/permissions` in the terminal) and start a new session:
 
 ```json
@@ -242,6 +243,40 @@ account system, external backend, filesystem scanner, or model calls. It does
 not add quotes or your watchlist to model prompts. A command's short reply, such
 as `Added AAPL.`, is visible in the conversation. It never records trades.
 See the [Pulse privacy policy](https://www.pulseticker.app/privacy#pulse-cc).
+
+## What the mod runs
+
+Pulse CC is a Claude Code mod: functions in `hooks/register.tsx` that Claude
+Code calls in its own process. Everything it does goes through the mods API.
+
+- **Events it handles:** `session.start` registers `/pulse` and, in a terminal
+  session, starts the quote refresh. `session.attach` and `session.detach`
+  start and stop the refresh when Claude Desktop connects or disconnects.
+  `session.end` stops it. `command.run` answers `/pulse`. `ui.render` draws the
+  band above the prompt and the `/pulse` panel. It has no hook on Claude's tool
+  calls, prompts, or permission checks.
+- **Network requests:** HTTPS `GET` requests to
+  `query1.finance.yahoo.com` for stock and index symbols and to
+  `data-api.binance.vision` for crypto pairs, about once a minute while prices
+  are shown, plus manual refreshes. They contain only the symbols. No other
+  hosts.
+- **Tool calls:** in Pulse Mac mode only, it calls the `list_watchlists` and
+  `get_quotes` tools of its own bundled Pulse Mac connection about every five
+  seconds, at the address in **Pulse Mac MCP address** (by default
+  `127.0.0.1:41927`, your own Mac). These calls are made by the plugin, not by
+  Claude, and go through your permission settings as described above. It never
+  calls Pulse Mac's write tools.
+- **Commands and programs:** in the terminal, **Paste token** runs
+  `/plugin configure pulse-cc`, which opens Claude Code's configuration dialog.
+  In Claude Desktop, **Save** runs `claude plugin list --json` to find this
+  plugin's id, then `claude plugin configure <id> --values-stdin` with the token
+  on standard input. It starts `claude` from the path in `CLAUDE_CODE_EXECPATH`,
+  which Claude Code sets to its own executable, and falls back to `claude` on
+  your `PATH`. It runs no other commands or programs.
+- **Local data:** its plugin store holds the watchlist and display settings
+  described above. The only environment variable it reads is
+  `CLAUDE_CODE_EXECPATH`, which is not a credential. The links to
+  `pulseticker.app` in the panel open in your browser and send nothing.
 
 ## Development and verification
 

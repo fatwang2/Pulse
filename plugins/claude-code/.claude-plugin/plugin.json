@@ -1,7 +1,7 @@
 {
   "name": "pulse-cc",
   "displayName": "Pulse CC",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Stock and crypto quotes above the prompt, or your Pulse Mac watchlists, with local display selection.",
   "author": {
     "name": "fatwang2",

@@ -61,16 +61,6 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  // $.mcp.call still passes through the permission check, and Desktop's auto
-  // mode refuses a call no user request asked for. Allow only this plugin's own
-  // read-only reads; the model's calls and every write tool keep their checks.
-  on('tool.check', async ($, e, next) => {
-    if (next.origin.plugin === $.plugin.name && /^mcp__.+__(list_watchlists|get_quotes)$/.test(e.tool)) {
-      return { decision: 'allow', reason: 'Pulse CC reads your Pulse Mac watchlists and quotes to display them.' }
-    }
-    return next(e)
-  })
-
   on('session.end', async ($, e, next) => {
     // /clear and /resume end a conversation, not the loaded mod's session.
     if (e.reason !== 'clear' && e.reason !== 'resume') {
@@ -433,7 +423,7 @@ function startWatch($: EngineInterface, watch: Watchlist, mac: MacLink): Promise
     sleep: ms => $.clock.sleep(ms),
     after: (ms, callback) => $.clock.after(ms, callback),
     fetch: url => $.http.fetch(url, {
-      headers: { 'User-Agent': 'Pulse-CC/0.3.6', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.3.7', Accept: 'application/json' },
     }),
     redraw: () => $.ui.invalidate('ui.render'),
   })

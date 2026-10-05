@@ -28,11 +28,15 @@
   spacing branches on `e.surface`; terminal panes also branch on placement.
 - Rows show no per-row clock; date a quote only when it is from an earlier day.
 - Background `$.mcp.call` reads may be refused by Claude Code's permission check
-  (Desktop's auto mode). Tell that apart from connection failures, show the
-  refusal and the exact read-only allow rules; never weaken checks for writes.
+  (the terminal's default mode, Desktop's auto mode). Tell that apart from
+  connection failures and show the refusal and the exact read-only allow rules.
+  Never approve the plugin's own calls in `tool.check`: the directory blocks a
+  mod that answers allow, and the user's rules decide.
 - The plugin is meant for Anthropic's plugin directory: remote MCP URLs must be
   `https://` or a `${user_config.*}` reference, so the local Pulse Mac endpoint
   stays in the `macUrl` option. Keep README images as absolute URLs, the
-  README's data disclosures complete, and the plugin folder self-contained.
+  README's data disclosures and "What the mod runs" section in step with the
+  code (hosts, tool calls, commands, programs), and the plugin folder
+  self-contained.
 - Leave historical Mac source, the website, Mac workflows, release tags,
   binary assets and the Sparkle feed unchanged.

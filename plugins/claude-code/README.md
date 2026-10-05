@@ -61,13 +61,22 @@ The panel header switches between **Pulse CC** (Yahoo Finance) and **Pulse Mac**
 status line below.
 
 In Pulse CC mode, an add field sits above the watchlist. Each row shows the
-ticker with its name and source time, the price and change on the right, and a
-Remove button. Narrow panes stack the price below the ticker. Add with Enter or
+ticker and its name, the price and change on the right, and a Remove button.
+Rows carry no per-row clock; a quote from an earlier day, such as the last close
+over a weekend, is labelled with its date so it never reads as today's. Narrow panes stack the price below the ticker. Add with Enter or
 the field's submit button. Press `r` or `p` while the panel has focus; input
 fields keep ordinary typing. Press Escape to return to the prompt.
 The panel uses native controls on Claude Desktop and text controls in the
 terminal; both draw the same layout. The footer links to
 [pulseticker.app](https://www.pulseticker.app/).
+
+In the terminal, a fullscreen session docks the panel beside the conversation:
+
+![Pulse CC panel docked beside a Claude Code terminal session, with three tickers](../../assets/readme/pulse-cc-terminal-panel.png)
+
+In Claude Desktop's **Code** tab, the panel opens beside the chat with native buttons:
+
+<img src="../../assets/readme/pulse-cc-desktop-panel.png" width="480" alt="Pulse CC panel in Claude Desktop with the quote source buttons, an add field and two tickers">
 
 ## Connect Pulse Mac
 
@@ -76,7 +85,7 @@ Mac download and takes the token. The local MCP
 connection is included with the plugin; no `claude mcp add` command, server URL,
 or port configuration is needed.
 
-![Pulse CC first-connection panel with the Mac download link and Paste token button](../../assets/readme/pulse-cc-mac-setup.png)
+![Pulse CC first-connection card in the terminal, with the Mac download link and Paste token button](../../assets/readme/pulse-cc-mac-setup.png)
 
 1. [Download Pulse Mac](https://www.pulseticker.app/) and open the app.
 2. In Pulse Mac → **Settings → Agent access**, enable MCP and copy its token.
@@ -87,8 +96,11 @@ or port configuration is needed.
 Claude Desktop's local **Code** tab cannot show that dialog, so the card has a
 token field instead: paste the token and press **Save**. Pulse passes it on
 standard input to `claude plugin configure --values-stdin`, which saves it the
-same way the dialog does, then reloads plugins to connect. The field shows the
-token while you type; Pulse clears it after saving.
+same way the dialog does. Start a new session to connect. The field shows the
+token as you type.
+
+<img src="../../assets/readme/pulse-cc-desktop-setup.png" width="360" alt="Pulse CC first-connection card in Claude Desktop with a token field and Save button">
+
 The token is optional: leave it empty to keep using Yahoo Finance independently.
 Claude Code saves the token in its secure credential store. The plugin never
 saves the token in its watchlist store or sends it as command text or arguments.
@@ -98,6 +110,33 @@ Once connected, the checklist is replaced by your Mac watchlist groups. Press
 hide it again. Use **Update token** when you rotate the token in Pulse Mac.
 
 ![Pulse CC panel connected to Pulse Mac through MCP, with watchlist groups and display selections](../../assets/readme/pulse-cc-mac-panel.png)
+
+The same panel in Claude Desktop:
+
+<img src="../../assets/readme/pulse-cc-desktop-mac-panel.png" width="480" alt="Pulse CC panel in Claude Desktop connected to Pulse Mac, with watchlist groups and Show buttons">
+
+### If Claude Code blocks the reads
+
+Claude Code checks the plugin's background reads against your permission
+settings. In some modes, notably Claude Desktop's **Auto** mode, it refuses a
+read that no message of yours asked for, even with a valid token. Pulse then
+shows **Blocked by Claude Code permissions**, the refusal it received, and the
+two read-only rules that allow it. Add them to `~/.claude/settings.json` (or
+with `/permissions` in the terminal) and start a new session:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_pulse-cc_pulse__list_watchlists",
+      "mcp__plugin_pulse-cc_pulse__get_quotes"
+    ]
+  }
+}
+```
+
+Merge them into an existing `allow` list. Writes, such as adding tickers or
+recording trades in Pulse Mac, are not covered and still ask first.
 
 The bundled connection appears in `/mcp` as `plugin:pulse-cc:pulse`. You can
 inspect its status and tools or disable it there. The plugin configuration

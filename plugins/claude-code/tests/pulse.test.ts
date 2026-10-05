@@ -5,7 +5,7 @@ import { SETTINGS_KEY } from '../hooks/watchlist'
 import { MAC_SETTINGS_KEY, decodeMacQuotes, decodeWatchlists, readMacPreferences } from '../hooks/mac'
 import type { MacGroup } from '../hooks/mac'
 import type { McpToolResult } from 'claude-code'
-import { decodeQuote, formatBandPrice, formatPrice, normalizeSymbol, quoteURL, YahooError } from '../hooks/yahoo'
+import { decodeQuote, formatBandPrice, formatPrice, formatStaleDate, normalizeSymbol, quoteURL, YahooError } from '../hooks/yahoo'
 
 const PLUGIN = 'pulse-cc'
 const NOW = 1_790_965_500_000
@@ -67,6 +67,8 @@ test('Yahoo decoding uses previous close, preserves unknown delay, and rejects a
   expect(normalizeSymbol('600519.SH')).toBe('600519.SS')
   expect(quoteURL('^GSPC')).toContain('%5EGSPC')
   expect(() => normalizeSymbol('https://example.com')).toThrow()
+  expect(formatStaleDate(NOW - 60_000, NOW)).toBe('')
+  expect(formatStaleDate(NOW - 3 * 86_400_000, NOW)).toMatch(/^[A-Z][a-z]{2} \d{1,2}$/)
 })
 
 test('a new installation is empty; adding, de-duplicating and removing tickers persists locally', async ($, on) => {
@@ -101,7 +103,8 @@ test('quotes are spaced apart, refreshed on a timer, and show source times in bo
   expect(requests).toEqual([NOW, NOW + 1000])
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    expect(await ui.find({ type: 'Text', text: /As of/ })).toBeDefined()
+    // Today's quotes carry no per-row time; only an earlier day's quote is dated.
+    expect(await ui.find({ type: 'Text', text: /As of/ })).toBe(undefined)
     expect(await ui.find({ type: 'Text', text: /Exchange delays vary/ })).toBeDefined()
     await ui.unmount()
     const band = await $.ui.mount({ ...BAND, surface })
@@ -416,7 +419,7 @@ function macHost(on: On, saved: Map<string, unknown>, selected = false) {
   const state = {
     groups: [{ id: GROUP_A, name: 'Main', symbols: [APPLE, TENCENT] }, { id: GROUP_B, name: 'Tech', symbols: [APPLE] }] as MacGroup[],
     calls: [] as { server: string; tool: string; args: Record<string, unknown> }[],
-    unavailable: false, missing: false,
+    unavailable: false, missing: false, denied: false,
     server: 'plugin:pulse-cc:pulse', connects: [] as string[],
     refusal: undefined as 'auth' | 'disabled' | 'policy' | 'failed' | undefined,
     beforeCall: undefined as (() => Promise<void>) | undefined,
@@ -430,6 +433,11 @@ function macHost(on: On, saved: Map<string, unknown>, selected = false) {
     state.calls.push(e)
     if (state.beforeCall) await state.beforeCall()
     if (state.unavailable) throw new Error('private-token must not be echoed')
+    if (state.denied) {
+      return { deny: `The server-side auto mode classifier gave no verdict for mcp__plugin_pulse-cc_pulse__${e.tool}: `
+        + 'the request that produced this action did not ask for one. '
+        + 'Issue the action again once, as-is; if it is denied again, continue with other tasks.' }
+    }
     if (e.tool === 'list_watchlists') return { value: macResult({ groups: state.groups }) }
     if (e.tool === 'get_quotes') {
       const refs = e.args.symbols as { market: string; code: string }[]
@@ -550,7 +558,7 @@ test('unconnected Mac shows download and setup links, then reveals watchlists af
       expect((await pane.find({ key: 'mac-configure' }))?.text).toBe('Paste token')
     } else {
       expect(await pane.find({ type: 'Text', text: /Paste it below and press Save/ })).toBeDefined()
-      expect(await pane.find({ key: 'mac-token' })).toBeDefined()
+      expect(await pane.find({ key: 'mac-token-0' })).toBeDefined()
     }
     expect(await pane.find({ type: 'Text', text: /Follow the guide to add the server/ })).toBe(undefined)
     expect(await pane.find({ key: `mac-group-select-${GROUP_A}` })).toBe(undefined)
@@ -669,6 +677,39 @@ test('Yahoo cooldown cannot delay Mac reads; Mac pause and exit stop polling and
   expect(state.calls.length).toBe(6)
 })
 
+test('a permission refusal is told apart from a connection failure, with its error and the exact read-only rules',
+  { options: { macToken: 'test-token' } }, async ($, on) => {
+    const { clock, saved } = host(on)
+    const state = macHost(on, saved, true)
+    state.denied = true
+    await $.session.start(START); await clock.settle()
+    const rules = ['mcp__plugin_pulse-cc_pulse__list_watchlists', 'mcp__plugin_pulse-cc_pulse__get_quotes']
+    for (const surface of ['terminal', 'desktop'] as const) {
+      const pane = await $.ui.mount({ ...PANE, surface })
+      expect(await pane.find({ type: 'Text', text: '● Blocked by Claude Code permissions' })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: 'Claude Code blocked the Pulse Mac read' })).toBeDefined()
+      const detail = await pane.find({ type: 'Text', text: /auto mode classifier gave no verdict/ })
+      expect(detail?.text).toContain('did not ask for one.')
+      // The instructions the host writes for the model are not shown to the person.
+      expect(detail?.text).not.toContain('Issue the action again')
+      expect(JSON.parse((await pane.find({ type: 'Code' }))?.props.source as string)).toEqual({ permissions: { allow: rules } })
+      expect(!!(await pane.find({ type: 'Text', text: /\/permissions/ })), `/permissions hint on ${surface}`).toBe(surface === 'terminal')
+      expect(await pane.find({ type: 'Text', text: 'Connect Pulse Mac' })).toBe(undefined)
+      expect(await pane.find({ type: 'Text', text: /test-token/ })).toBe(undefined)
+      await pane.unmount()
+      const band = await $.ui.mount({ ...BAND, surface })
+      expect(await band.find({ type: 'Text', text: /Blocked/ })).toBeDefined()
+      await band.unmount()
+    }
+    // Once allowed, the next read clears the block.
+    state.denied = false
+    await clock.advance(5000)
+    const pane = await $.ui.mount({ ...PANE, surface: 'desktop' })
+    expect(await pane.find({ type: 'Text', text: /Connected/ })).toBeDefined()
+    expect(await pane.find({ type: 'Code' })).toBe(undefined)
+    await pane.unmount()
+  })
+
 test('Mac decoding rejects mismatched or malformed data and preserves sanitized display text', () => {
   const groups = decodeWatchlists(macResult({ groups: [{ id: GROUP_A, name: '\u001bMain', symbols: [APPLE] }] }))
   expect(groups[0].name).toBe('Main')
@@ -730,18 +771,21 @@ test('Paste token opens native configuration in the terminal and saves through t
   // Desktop has no configuration dialog: the field saves through the host CLI.
   const desktop = await $.ui.mount({ ...PANE, surface: 'desktop' })
   expect(await desktop.find({ key: 'mac-configure' })).toBe(undefined)
-  await desktop.input({ key: 'mac-token', text: '   ' }); await clock.settle()
+  await desktop.input({ key: 'mac-token-0', text: '   ' }); await clock.settle()
   expect(await desktop.find({ type: 'Text', text: /Paste the token from Pulse Mac/ })).toBeDefined()
   expect(runs).toEqual([])
-  await desktop.input({ key: 'mac-token', text: ' private-token ' }); await clock.settle()
+  await desktop.input({ key: 'mac-token-1', text: ' private-token ' }); await clock.settle()
   expect(runs).toEqual([
     { argv: ['/Apps/claude', 'plugin', 'list', '--json'], stdin: '' },
     { argv: ['/Apps/claude', 'plugin', 'configure', 'pulse-cc@inline', '--values-stdin'], stdin: '{"macToken":"private-token"}' },
   ])
-  expect(commands.at(-1)).toEqual({ command: 'reload-plugins', args: '' })
-  expect((await desktop.find({ key: 'mac-token' }))?.props.value ?? '').toBe('')
+  // Desktop cannot run /reload-plugins; the panel asks for a new session instead.
+  expect(commands.some(command => command.command === 'reload-plugins')).toBe(false)
+  // The saved field is redrawn under a new key, so Desktop discards what was typed.
+  expect(await desktop.find({ key: 'mac-token-1' })).toBe(undefined)
+  expect((await desktop.find({ key: 'mac-token-2' }))?.props.value ?? '').toBe('')
   expect(await desktop.find({ type: 'Text', text: /private-token/ })).toBe(undefined)
-  expect(await desktop.find({ type: 'Text', text: /Token saved/ })).toBeDefined()
+  expect(await desktop.find({ type: 'Text', text: /Token saved\. Start a new session to connect\./ })).toBeDefined()
   await desktop.unmount()
   expect(JSON.stringify([...saved.entries()])).not.toContain('token')
 })

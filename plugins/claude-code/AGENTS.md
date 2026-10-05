@@ -24,5 +24,9 @@
   later: register `/pulse` unconditionally and start polling on
   `session.attach`. Desktop draws a cell far smaller than a terminal row, so
   spacing branches on `e.surface`; terminal panes also branch on placement.
+- Rows show no per-row clock; date a quote only when it is from an earlier day.
+- Background `$.mcp.call` reads may be refused by Claude Code's permission check
+  (Desktop's auto mode). Tell that apart from connection failures, show the
+  refusal and the exact read-only allow rules; never weaken checks for writes.
 - Leave historical Mac source, the website, Mac workflows, release tags,
   binary assets and the Sparkle feed unchanged.

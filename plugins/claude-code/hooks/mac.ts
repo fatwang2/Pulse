@@ -98,3 +98,19 @@ export function decodeMacQuotes(result: McpToolResult, requested: MacInstrument[
   }
   return quotes
 }
+
+export type PermissionBlock = { detail: string; rules: string[] }
+
+// The connection works but Claude Code's permission check refused a read (an
+// auto-mode classifier with no request to judge, or an ungranted tool). Report
+// the refusal's first sentence and the exact read-only rules that would allow it.
+export function readPermissionRefusal(cause: unknown): PermissionBlock | undefined {
+  const text = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : ''
+  // `$.mcp.call(server, tool) refused: <reason>`, or `$.mcp.call: <reason>`.
+  const refused = /\$\.mcp\.call(?:\([^)]*\))?(?:\s+refused)?:\s*([\s\S]+)$/.exec(text)?.[1]
+  if (!refused || !/auto mode classifier|haven't granted|not granted|permission/i.test(refused)) return undefined
+  const tool = /\b(mcp__[A-Za-z0-9_-]+?__)(list_watchlists|get_quotes)\b/.exec(refused)
+  if (!tool) return undefined
+  const detail = (/^[\s\S]*?\.(?=\s|$)/.exec(refused.trim())?.[0] ?? refused).replace(/\s+/g, ' ').trim().slice(0, 300)
+  return { detail, rules: [`${tool[1]}list_watchlists`, `${tool[1]}get_quotes`] }
+}

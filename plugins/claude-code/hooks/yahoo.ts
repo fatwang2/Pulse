@@ -104,3 +104,11 @@ export function formatTime(timestamp: number): string {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
   })
 }
+
+// A quote from an earlier day is labelled with its date so a cached or closed-market
+// price never reads as today's; today's quotes need no per-row time.
+export function formatStaleDate(timestamp: number, now: number): string {
+  const quoted = new Date(timestamp)
+  if (quoted.toDateString() === new Date(now).toDateString()) return ''
+  return quoted.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}

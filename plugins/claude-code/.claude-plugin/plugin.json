@@ -1,6 +1,6 @@
 {
   "name": "pulse-cc",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Quotes above the prompt from Yahoo Finance or your Pulse Mac watchlists, with local display selection.",
   "author": {
     "name": "fatwang2",

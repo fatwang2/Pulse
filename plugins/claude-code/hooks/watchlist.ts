@@ -1,8 +1,8 @@
 import type { HttpResponse, McpToolResult, Timer } from 'claude-code'
 import { decodeQuote, normalizeSymbol, quoteURL, YahooError } from './yahoo'
 import type { Quote } from './yahoo'
-import { decodeMacQuotes, decodeWatchlists, instruments, MacError, readMacPreferences, symbolKey } from './mac'
-import type { MacGroup, MacPreferences, SymbolRef } from './mac'
+import { decodeMacQuotes, decodeWatchlists, instruments, MacError, readMacPreferences, readPermissionRefusal, symbolKey } from './mac'
+import type { MacGroup, MacPreferences, PermissionBlock, SymbolRef } from './mac'
 
 export const SETTINGS_KEY = 'watchlist.v1'
 export type Preferences = { version: 1; symbols: string[]; paused: boolean }
@@ -58,6 +58,8 @@ export class Watchlist {
   private lastRequestAt = -Infinity
   private rateFailures = 0
   private writes: Promise<unknown> = Promise.resolve()
+  // Set while Claude Code's permission check refuses the Mac reads.
+  macBlocked: PermissionBlock | undefined
 
   constructor(private readonly intervalMs: number, private readonly macIntervalMs = 5000) {}
 
@@ -310,6 +312,7 @@ export class Watchlist {
       this.groups = decodeWatchlists(result)
       this.reconcile()
       this.macConnected = true
+      this.macBlocked = undefined
       this.changed()
       const available = instruments(this.groups)
       const selected = this.symbols.map(key => available.get(key)!)
@@ -326,7 +329,9 @@ export class Watchlist {
     } catch (error) {
       if (!current()) return
       this.macConnected = false
+      this.macBlocked = readPermissionRefusal(error)
       this.message = error instanceof MacError ? error.message
+        : this.macBlocked ? 'Claude Code blocked the Pulse Mac read.'
         : 'Could not reach Pulse Mac. Keep the app open and check its MCP connection in /mcp.'
       for (const key of this.symbols) this.macErrors[key] = this.message
     }

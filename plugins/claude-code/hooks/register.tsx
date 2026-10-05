@@ -1,6 +1,6 @@
 import type { EngineInterface, Register } from 'claude-code'
 import { SETTINGS_KEY, Watchlist } from './watchlist'
-import { formatChange, formatPrice, formatBandPrice, formatTime } from './yahoo'
+import { formatChange, formatPrice, formatBandPrice, formatStaleDate } from './yahoo'
 import { MAC_SETTINGS_KEY, MacError, symbolKey } from './mac'
 
 export const PANE = 'pulse-quotes'
@@ -17,6 +17,9 @@ export const register: Register = (on, options) => {
   // through the same host command non-interactively (secure storage). The typed
   // value travels only on that command's stdin and is never kept or shown.
   let token = ''
+  // Desktop keeps a field's typed text while the drawn value stays '', so a
+  // cleared field is redrawn under a new key to discard it.
+  let fieldRound = 0
   let editingToken = false
   let notice = ''
   let error = ''
@@ -54,6 +57,16 @@ export const register: Register = (on, options) => {
 
   on('session.detach', { surface: 'desktop' }, async ($, e, next) => {
     if (desktops.delete(e.clientId) && !interactive && !desktops.size) watch.stop()
+    return next(e)
+  })
+
+  // $.mcp.call still passes through the permission check, and Desktop's auto
+  // mode refuses a call no user request asked for. Allow only this plugin's own
+  // read-only reads; the model's calls and every write tool keep their checks.
+  on('tool.check', async ($, e, next) => {
+    if (next.origin.plugin === $.plugin.name && /^mcp__.+__(list_watchlists|get_quotes)$/.test(e.tool)) {
+      return { decision: 'allow', reason: 'Pulse CC reads your Pulse Mac watchlists and quotes to display them.' }
+    }
     return next(e)
   })
 
@@ -103,7 +116,8 @@ export const register: Register = (on, options) => {
     const { Box, Text } = $.ui.resolve(e)
     const width = Math.max(20, e.props.bodyColumns || e.viewport?.columns || 80)
     const offline = watch.source === 'mac' && !watch.macConnected && !watch.loading
-    const state = watch.preferences.paused ? 'Paused' : offline ? 'Offline' : ''
+    const blocked = watch.source === 'mac' && !!watch.macBlocked
+    const state = watch.preferences.paused ? 'Paused' : blocked ? 'Blocked' : offline ? 'Offline' : ''
     const symbols = watch.symbols
     const label = (symbol: string) => {
       const quote = watch.quotes[symbol]
@@ -137,7 +151,7 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
     if (e.surface !== 'terminal' && e.surface !== 'desktop') return next(e)
-    const { Box, Text, Button, Input, Link } = $.ui.resolve(e)
+    const { Box, Text, Button, Input, Link, Code } = $.ui.resolve(e)
     // Desktop measures cells in its code font but draws proportional text, so
     // its rows fit side by side at fewer reported columns than the terminal's.
     const compact = e.props.bodyColumns < (e.surface === 'desktop' ? 44 : 64)
@@ -146,7 +160,7 @@ export const register: Register = (on, options) => {
     const desktop = e.surface === 'desktop'
     const redraw = () => $.ui.invalidate('ui.render')
     const action = (task: () => Promise<unknown>) => { void act(task).finally(redraw) }
-    const addTicker = () => action(async () => { await watch.add(input); input = '' })
+    const addTicker = () => action(async () => { await watch.add(input); input = ''; fieldRound++ })
     const configure = () => action(async () => {
       if (desktop) { editingToken = true; return }
       await $.ui.close({ id: PANE })
@@ -155,6 +169,7 @@ export const register: Register = (on, options) => {
     const saveToken = (value: string) => action(async () => {
       const typed = value.trim()
       token = ''
+      fieldRound++
       notice = ''
       if (!typed) throw new Error('Paste the token from Pulse Mac → Settings → Agent access.')
       const claude = await $.env.get('CLAUDE_CODE_EXECPATH') || 'claude'
@@ -166,29 +181,30 @@ export const register: Register = (on, options) => {
       if (saved.exitCode !== 0) throw new Error('Could not save the token. Run /plugin configure pulse-cc in a terminal.')
       hasToken = link.hasToken = true
       editingToken = false
-      notice = 'Token saved. Reloading plugins to connect…'
-      // The plugin's options and its MCP server read the token when they load.
-      await $.command.run({ command: 'reload-plugins' }).catch(() => {
-        notice = 'Token saved. Run /reload-plugins to connect.'
-      })
+      // The plugin's options and its MCP server read the token when a session
+      // loads them, and Desktop cannot run /reload-plugins.
+      notice = 'Token saved. Start a new session to connect.'
     })
-    const tokenField = <Box key="token-field" gap={1} alignItems="center" marginTop={1}>
+    const tokenField = <Box key={`token-field-${fieldRound}`} gap={1} alignItems="center" marginTop={1}>
       <Box flexGrow={1} flexShrink={1}>
-        <Input key="mac-token" placeholder="Paste the Pulse Mac token" value={token} submitLabel="Save" autoFocus
+        <Input key={`mac-token-${fieldRound}`} placeholder="Paste the Pulse Mac token" value={token} submitLabel="Save" autoFocus
           onInput={value => { token = value }} onSubmit={saveToken} />
       </Box>
     </Box>
     const mac = watch.source === 'mac'
     const paused = watch.preferences.paused
     const needsSetup = mac && !watch.macConnected && !watch.groups.length
+    const block = mac ? watch.macBlocked : undefined
     const showLoading = watch.loading && (!mac || (!watch.macConnected && hasToken))
     const currentGroup = watch.groups.find(group => group.id === macGroupID) ?? watch.groups[0]
-    const statusColor = paused ? 'warning' : showLoading ? 'cyan' : mac && !watch.macConnected ? 'warning' : 'success'
-    const status = paused ? '● Auto-refresh paused' : showLoading ? (mac ? '● Reading Pulse Mac…' : '● Refreshing quotes…')
+    const statusColor = paused || block ? 'warning' : showLoading ? 'cyan' : mac && !watch.macConnected ? 'warning' : 'success'
+    const status = paused ? '● Auto-refresh paused' : block ? '● Blocked by Claude Code permissions'
+      : showLoading ? (mac ? '● Reading Pulse Mac…' : '● Refreshing quotes…')
       : mac ? (watch.macConnected ? `● Connected · Updates every ${macIntervalSeconds}s`
         : needsSetup && !hasToken ? '● Paste token to connect' : '● Not connected · Check /mcp')
         : `● Auto-refresh every ${intervalSeconds}s`
     const ccCount = watch.preferences.symbols.length
+    const now = await $.clock.now()
 
     const section = (title: string) => <Text dimColor bold>{title.toUpperCase()}</Text>
     // Spacing is in cells. Desktop converts a cell to a code-font character, far
@@ -199,8 +215,10 @@ export const register: Register = (on, options) => {
     const space = desktop ? 3 : e.props.placement === 'dock' ? 2 : 1
     const gap = desktop ? 1 : 0
     const rowGap = desktop ? 2 : 1
-    const padX = desktop ? 6 : 1
-    const cardX = desktop ? 5 : 1
+    // Desktop text fields keep a fixed width (their submit button included), so
+    // the insets stay small enough for the token field to fit a docked pane.
+    const padX = desktop ? 4 : 1
+    const cardX = desktop ? 2 : 1
 
     return <Box flexDirection="column" paddingX={padX} paddingY={desktop ? 2 : 0}>
       <Box key="source" flexDirection="column">
@@ -235,7 +253,7 @@ export const register: Register = (on, options) => {
         </Box>}
       </Box>
 
-      {!mac && <Box key="add-section" gap={1} alignItems="center" marginTop={rowGap}>
+      {!mac && <Box key={`add-section-${fieldRound}`} gap={1} alignItems="center" marginTop={rowGap}>
         <Box flexGrow={1} flexShrink={1}>
           <Input key="add-ticker" placeholder={compact ? 'AAPL, 0700.HK' : 'Add a ticker: AAPL, 0700.HK, ^GSPC'} value={input}
             submitLabel={desktop ? 'Add' : 'add'} autoFocus onInput={value => { input = value }}
@@ -259,10 +277,11 @@ export const register: Register = (on, options) => {
           const change = <Text color={quote ? changeColor(quote.changePercent) : undefined} dimColor={!quote}>
             {quote ? formatChange(quote.changePercent) : '—'}
           </Text>
-          const meta = quote ? `${quote.name} · As of ${formatTime(quote.timestamp)}`
-            + (quote.delaySeconds !== null ? ` · Delay ${Math.ceil(quote.delaySeconds / 60)}m` : '') : ''
-          return <Box key={`ticker-${symbol}`} flexDirection="column" marginTop={index ? rowGap : 0}>
-            <Box gap={2} alignItems="center">
+          const stale = quote ? formatStaleDate(quote.timestamp, now) : ''
+          const meta = quote ? [quote.name, stale && `As of ${stale}`,
+            quote.delaySeconds !== null && `Delay ${Math.ceil(quote.delaySeconds / 60)}m`].filter(Boolean).join(' · ') : ''
+          return <Box key={`ticker-${symbol}`} flexDirection="column" width="100%" marginTop={index ? rowGap : 0}>
+            <Box gap={2} alignItems="center" width="100%">
               <Box flexDirection="column" flexGrow={1} flexShrink={1}>
                 <Text bold wrap="truncate">{symbol}</Text>
                 {!compact && meta && <Text dimColor wrap="truncate">{meta}</Text>}
@@ -277,7 +296,27 @@ export const register: Register = (on, options) => {
         })}
       </Box>}
 
-      {needsSetup && <Box key="mac-setup" flexDirection="column" borderStyle="round" borderColor="cyan"
+      {block && <Box key="mac-permission" flexDirection="column" borderStyle="round" borderColor="warning"
+        paddingX={cardX} paddingY={desktop ? 2 : 0} marginTop={rowGap}>
+        <Text bold>Claude Code blocked the Pulse Mac read</Text>
+        <Box marginTop={gap}><Text dimColor wrap="wrap">Your token is set and the connection is up, but Claude Code's
+          permission check refused the background read.</Text></Box>
+        <Box key="mac-permission-error" flexDirection="column" marginTop={rowGap}>
+          <Text dimColor>Error</Text>
+          <Text color="warning" wrap="wrap">{block.detail}</Text>
+        </Box>
+        <Box flexDirection="column" marginTop={rowGap}>
+          <Text wrap="wrap">Allow these read-only tools in <Text bold>~/.claude/settings.json</Text>
+            {desktop ? '' : ' or with /permissions'}, then start a new session:</Text>
+          <Box marginTop={gap}>
+            <Code language="json"
+              source={JSON.stringify({ permissions: { allow: block.rules } }, null, 2)} />
+          </Box>
+        </Box>
+        <Box marginTop={gap}><Text dimColor wrap="wrap">Writes such as adding tickers or recording trades still ask first.</Text></Box>
+      </Box>}
+
+      {needsSetup && !block && <Box key="mac-setup" flexDirection="column" borderStyle="round" borderColor="cyan"
         paddingX={cardX} paddingY={desktop ? 2 : 0} marginTop={rowGap}>
         <Text bold>Connect Pulse Mac</Text>
         <Box marginTop={gap}><Text dimColor wrap="wrap">Your markets in the Mac menu bar: stocks, crypto, charts and positions.</Text></Box>
@@ -316,9 +355,10 @@ export const register: Register = (on, options) => {
           const quote = watch.quotes[key], failed = watch.errors[key]
           const price = selected && quote ? <Text dimColor={!!failed}>{formatPrice(quote)}</Text> : undefined
           const change = selected && quote ? <Text color={changeColor(quote.changePercent)}>{formatChange(quote.changePercent)}</Text> : undefined
-          const meta = selected && quote ? `${item.name} · As of ${formatTime(quote.timestamp)}` : item.name
-          return <Box key={`mac-row-${group.id}-${key}`} flexDirection="column" marginTop={rowGap}>
-            <Box gap={2} alignItems="center">
+          const stale = selected && quote ? formatStaleDate(quote.timestamp, now) : ''
+          const meta = stale ? `${item.name} · As of ${stale}` : item.name
+          return <Box key={`mac-row-${group.id}-${key}`} flexDirection="column" width="100%" marginTop={rowGap}>
+            <Box gap={2} alignItems="center" width="100%">
               <Box flexDirection="column" flexGrow={1} flexShrink={1}>
                 <Text bold wrap="truncate">{`${item.displayCode} · ${item.market.toUpperCase()}`}</Text>
                 {!compact && <Text dimColor wrap="truncate">{meta}</Text>}
@@ -388,7 +428,7 @@ function startWatch($: EngineInterface, watch: Watchlist, mac: MacLink): Promise
     sleep: ms => $.clock.sleep(ms),
     after: (ms, callback) => $.clock.after(ms, callback),
     fetch: url => $.http.fetch(url, {
-      headers: { 'User-Agent': 'Pulse-CC/0.3.2', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.3.3', Accept: 'application/json' },
     }),
     redraw: () => $.ui.invalidate('ui.render'),
   })

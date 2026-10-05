@@ -2,7 +2,7 @@
   "mcpServers": {
     "pulse": {
       "type": "http",
-      "url": "http://127.0.0.1:41927/mcp?client=pulse-cc",
+      "url": "${user_config.macUrl}",
       "headers": {
         "Authorization": "Bearer ${user_config.macToken}"
       }

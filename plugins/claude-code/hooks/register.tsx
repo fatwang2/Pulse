@@ -433,7 +433,7 @@ function startWatch($: EngineInterface, watch: Watchlist, mac: MacLink): Promise
     sleep: ms => $.clock.sleep(ms),
     after: (ms, callback) => $.clock.after(ms, callback),
     fetch: url => $.http.fetch(url, {
-      headers: { 'User-Agent': 'Pulse-CC/0.3.5', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.3.6', Accept: 'application/json' },
     }),
     redraw: () => $.ui.invalidate('ui.render'),
   })

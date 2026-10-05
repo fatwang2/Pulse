@@ -1,6 +1,7 @@
 {
   "name": "pulse-cc",
-  "version": "0.3.5",
+  "displayName": "Pulse CC",
+  "version": "0.3.6",
   "description": "Stock and crypto quotes above the prompt, or your Pulse Mac watchlists, with local display selection.",
   "author": {
     "name": "fatwang2",
@@ -9,6 +10,10 @@
   "license": "MIT",
   "homepage": "https://github.com/fatwang2/Pulse/tree/main/plugins/claude-code",
   "repository": "https://github.com/fatwang2/Pulse",
+  "icon": "./icon.svg",
+  "documentationUrl": "https://www.pulseticker.app/claude-code",
+  "supportUrl": "https://github.com/fatwang2/Pulse/issues",
+  "privacyPolicyUrl": "https://www.pulseticker.app/privacy#pulse-cc",
   "keywords": [
     "finance",
     "stocks",
@@ -23,9 +28,16 @@
     "macToken": {
       "type": "string",
       "title": "Pulse Mac token",
-      "description": "Paste the MCP token from Pulse Mac \u2192 Settings \u2192 Agent access. Leave empty to keep your own watchlist.",
+      "description": "Paste the MCP token from Pulse Mac → Settings → Agent access. Leave empty to keep your own watchlist.",
       "default": "",
       "sensitive": true
+    },
+    "macUrl": {
+      "type": "string",
+      "title": "Pulse Mac MCP address",
+      "description": "Pulse Mac's local MCP endpoint. Keep the default; change it only to reach a development build of Pulse Mac.",
+      "default": "http://127.0.0.1:41927/mcp?client=pulse-cc",
+      "sensitive": false
     }
   }
 }

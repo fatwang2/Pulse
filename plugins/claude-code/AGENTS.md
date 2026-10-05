@@ -30,5 +30,9 @@
 - Background `$.mcp.call` reads may be refused by Claude Code's permission check
   (Desktop's auto mode). Tell that apart from connection failures, show the
   refusal and the exact read-only allow rules; never weaken checks for writes.
+- The plugin is meant for Anthropic's plugin directory: remote MCP URLs must be
+  `https://` or a `${user_config.*}` reference, so the local Pulse Mac endpoint
+  stays in the `macUrl` option. Keep README images as absolute URLs, the
+  README's data disclosures complete, and the plugin folder self-contained.
 - Leave historical Mac source, the website, Mac workflows, release tags,
   binary assets and the Sparkle feed unchanged.

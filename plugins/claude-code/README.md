@@ -4,7 +4,7 @@ Market quotes above your Claude Code prompt. Open `/pulse` to manage the
 watchlist while you work. Keep your own watchlist of stocks and crypto, or
 connect Pulse Mac to display selected tickers from its watchlists through MCP.
 
-![AAPL, NVDA, BTC/USDT and ETH/USDT prices above the Claude Code prompt](../../assets/readme/pulse-claude-code.png)
+![AAPL, NVDA, BTC/USDT and ETH/USDT prices above the Claude Code prompt](https://raw.githubusercontent.com/fatwang2/Pulse/main/assets/readme/pulse-claude-code.png)
 
 Requires **Claude Code 2.1.287 or later**, with Mods enabled. The ticker and
 panel support the terminal and Claude Desktop's **Code** tab in local sessions.
@@ -77,21 +77,23 @@ terminal; both draw the same layout. The footer links to
 
 In the terminal, a fullscreen session docks the panel beside the conversation:
 
-![Pulse CC panel docked beside a Claude Code terminal session, with two stocks and two crypto pairs](../../assets/readme/pulse-cc-terminal-panel.png)
+![Pulse CC panel docked beside a Claude Code terminal session, with two stocks and two crypto pairs](https://raw.githubusercontent.com/fatwang2/Pulse/main/assets/readme/pulse-cc-terminal-panel.png)
 
 In Claude Desktop's **Code** tab, the band sits above the prompt and the panel
 opens beside the chat with native buttons:
 
-![Claude Desktop with Pulse CC prices above the prompt and the panel beside the chat](../../assets/readme/pulse-cc-desktop.png)
+![Claude Desktop with Pulse CC prices above the prompt and the panel beside the chat](https://raw.githubusercontent.com/fatwang2/Pulse/main/assets/readme/pulse-cc-desktop.png)
 
 ## Connect Pulse Mac
 
 Select **Pulse Mac** in `/pulse`. The first-connection card links to the
 Mac download and takes the token. The local MCP
 connection is included with the plugin; no `claude mcp add` command, server URL,
-or port configuration is needed.
+or port configuration is needed. The configuration dialog also lists
+**Pulse Mac MCP address**, prefilled with Pulse Mac's local endpoint
+(`127.0.0.1`); leave it as it is.
 
-![Pulse CC first-connection card in the terminal, with the Mac download link and Paste token button](../../assets/readme/pulse-cc-mac-setup.png)
+![Pulse CC first-connection card in the terminal, with the Mac download link and Paste token button](https://raw.githubusercontent.com/fatwang2/Pulse/main/assets/readme/pulse-cc-mac-setup.png)
 
 1. [Download Pulse Mac](https://www.pulseticker.app/) and open the app.
 2. In Pulse Mac → **Settings → Agent access**, enable MCP and copy its token.
@@ -105,7 +107,7 @@ standard input to `claude plugin configure --values-stdin`, which saves it the
 same way the dialog does. Start a new session to connect. The field shows the
 token as you type.
 
-<img src="../../assets/readme/pulse-cc-desktop-setup.png" width="360" alt="Pulse CC first-connection card in Claude Desktop with a token field and Save button">
+<img src="https://raw.githubusercontent.com/fatwang2/Pulse/main/assets/readme/pulse-cc-desktop-setup.png" width="360" alt="Pulse CC first-connection card in Claude Desktop with a token field and Save button">
 
 The token is optional: leave it empty to keep using your own watchlist.
 Claude Code saves the token in its secure credential store. The plugin never
@@ -115,11 +117,11 @@ Once connected, the checklist is replaced by your Mac watchlist groups. Press
 **Show** beside a ticker to include it above the prompt; press **✓ Shown** to
 hide it again. Use **Update token** when you rotate the token in Pulse Mac.
 
-![Pulse CC panel connected to Pulse Mac through MCP, with watchlist groups and display selections](../../assets/readme/pulse-cc-mac-panel.png)
+![Pulse CC panel connected to Pulse Mac through MCP, with watchlist groups and display selections](https://raw.githubusercontent.com/fatwang2/Pulse/main/assets/readme/pulse-cc-mac-panel.png)
 
 The same panel in Claude Desktop:
 
-<img src="../../assets/readme/pulse-cc-desktop-mac-panel.png" width="480" alt="Pulse CC panel in Claude Desktop connected to Pulse Mac, with watchlist groups and Show buttons">
+<img src="https://raw.githubusercontent.com/fatwang2/Pulse/main/assets/readme/pulse-cc-desktop-mac-panel.png" width="480" alt="Pulse CC panel in Claude Desktop connected to Pulse Mac, with watchlist groups and Show buttons">
 
 ### If Claude Code blocks the reads
 
@@ -239,6 +241,7 @@ the Mac app manages its provider connections. The plugin has no analytics,
 account system, external backend, filesystem scanner, or model calls. It does
 not add quotes or your watchlist to model prompts. A command's short reply, such
 as `Added AAPL.`, is visible in the conversation. It never records trades.
+See the [Pulse privacy policy](https://www.pulseticker.app/privacy#pulse-cc).
 
 ## Development and verification
 

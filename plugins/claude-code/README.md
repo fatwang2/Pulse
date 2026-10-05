@@ -79,9 +79,10 @@ In the terminal, a fullscreen session docks the panel beside the conversation:
 
 ![Pulse CC panel docked beside a Claude Code terminal session, with two stocks and two crypto pairs](../../assets/readme/pulse-cc-terminal-panel.png)
 
-In Claude Desktop's **Code** tab, the panel opens beside the chat with native buttons:
+In Claude Desktop's **Code** tab, the band sits above the prompt and the panel
+opens beside the chat with native buttons:
 
-<img src="../../assets/readme/pulse-cc-desktop-panel.png" width="480" alt="Pulse CC panel in Claude Desktop with two stocks and two crypto pairs">
+![Claude Desktop with Pulse CC prices above the prompt and the panel beside the chat](../../assets/readme/pulse-cc-desktop.png)
 
 ## Connect Pulse Mac
 

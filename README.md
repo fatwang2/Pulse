@@ -41,9 +41,9 @@ from the plugin. Requires Claude Code **2.1.287 or later**, with Mods enabled.
 
 ![Pulse for Claude Code showing stock and crypto prices above the prompt](assets/readme/pulse-claude-code.png)
 
-The `/pulse` panel works in the terminal and in Claude Desktop's **Code** tab:
+The prices and the `/pulse` panel also work in Claude Desktop's **Code** tab:
 
-<img src="assets/readme/pulse-cc-desktop-panel.png" width="480" alt="Pulse CC panel in Claude Desktop with two stocks and two crypto pairs">
+![Claude Desktop with Pulse CC prices above the prompt and the panel beside the chat](assets/readme/pulse-cc-desktop.png)
 
 Connect Pulse Mac to browse its watchlist groups and choose which tickers to display:
 

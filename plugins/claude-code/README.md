@@ -1,10 +1,10 @@
 # Pulse for Claude Code
 
 Market quotes above your Claude Code prompt. Open `/pulse` to manage the
-watchlist while you work. Use Yahoo Finance independently, or connect Pulse
-Mac to display selected tickers from its watchlists through MCP.
+watchlist while you work. Keep your own watchlist of stocks and crypto, or
+connect Pulse Mac to display selected tickers from its watchlists through MCP.
 
-![AAPL, NVDA, and MSFT prices above the Claude Code prompt](../../assets/readme/pulse-claude-code.png)
+![AAPL, NVDA, BTC/USDT and ETH/USDT prices above the Claude Code prompt](../../assets/readme/pulse-claude-code.png)
 
 Requires **Claude Code 2.1.287 or later**, with Mods enabled. The ticker and
 panel support the terminal and Claude Desktop's **Code** tab in local sessions.
@@ -24,14 +24,19 @@ Restart Claude Code or run `/reload-plugins`, then add tickers:
 /pulse add AAPL
 /pulse add NVDA
 /pulse add MSFT
+/pulse add BTC/USDT
 /pulse
 ```
 
-The initial watchlist is empty. Add Yahoo ticker symbols, not company names.
+The initial watchlist is empty. Add ticker symbols, not company names.
 Examples: `AAPL`, `BRK-B`, `0700.HK`, `600519.SS`, `7203.T`, `^GSPC`.
 Hong Kong leading zeros are normalized; Shanghai `.SH` is accepted as an alias
-for Yahoo's `.SS`. Yahoo's coverage determines which tickers can return a quote.
+for `.SS`. The quote source's coverage determines which tickers return a quote.
 Unknown tickers stay visible with an error so you can correct or remove them.
+
+Add crypto as a pair written `BASE/QUOTE`, as in Pulse Mac: `BTC/USDT`,
+`ETH/USDT`, `SOL/USDC`. Stocks and crypto share one list and one band. A symbol
+with a dash, such as `BTC-USD`, is read as a ticker rather than a pair.
 
 To update an installed plugin:
 
@@ -56,7 +61,7 @@ Restart Claude Code or run `/reload-plugins` to apply the update.
 | `/pulse on` | Resume automatic refresh |
 | `/pulse help` | Show command usage |
 
-The panel header switches between **Pulse CC** (Yahoo Finance) and **Pulse Mac**
+The panel header switches between **Pulse CC** (your own watchlist) and **Pulse Mac**
 (quotes from your Mac app), with Refresh and Pause beside them and a colored
 status line below.
 
@@ -72,11 +77,11 @@ terminal; both draw the same layout. The footer links to
 
 In the terminal, a fullscreen session docks the panel beside the conversation:
 
-![Pulse CC panel docked beside a Claude Code terminal session, with three tickers](../../assets/readme/pulse-cc-terminal-panel.png)
+![Pulse CC panel docked beside a Claude Code terminal session, with two stocks and two crypto pairs](../../assets/readme/pulse-cc-terminal-panel.png)
 
 In Claude Desktop's **Code** tab, the panel opens beside the chat with native buttons:
 
-<img src="../../assets/readme/pulse-cc-desktop-panel.png" width="480" alt="Pulse CC panel in Claude Desktop with the quote source buttons, an add field and two tickers">
+<img src="../../assets/readme/pulse-cc-desktop-panel.png" width="480" alt="Pulse CC panel in Claude Desktop with the quote source buttons, an add field and three tickers">
 
 ## Connect Pulse Mac
 
@@ -101,7 +106,7 @@ token as you type.
 
 <img src="../../assets/readme/pulse-cc-desktop-setup.png" width="360" alt="Pulse CC first-connection card in Claude Desktop with a token field and Save button">
 
-The token is optional: leave it empty to keep using Yahoo Finance independently.
+The token is optional: leave it empty to keep using your own watchlist.
 Claude Code saves the token in its secure credential store. The plugin never
 saves the token in its watchlist store or sends it as command text or arguments.
 
@@ -149,7 +154,7 @@ Mac watchlists. Add/remove tickers and edit groups in Pulse Mac; their changes
 appear at the next refresh. New tickers start unchecked. The same instrument
 in multiple groups shares one selection and appears only once in the band.
 
-The two sources are separate. **Pulse CC** retains your existing Yahoo
+The two sources are separate. **Pulse CC** retains your existing
 watchlist, including its saved order. **Pulse Mac** keeps a separate local
 display selection, in the order selected. Switching sources neither imports
 nor overwrites either list. Only the selected source appears above the prompt.
@@ -168,7 +173,7 @@ Pulse Mac also performs one initial read, so its groups are available while paus
 
 If the MCP connection fails, the panel retains the last list and the band marks
 saved quotes **cached** and the source **Offline**. It retries every five seconds
-without falling back to Yahoo. Select **Pulse CC** to return to
+without falling back to the Pulse CC sources. Select **Pulse CC** to return to
 your independent list. A connection failure does not erase either selection.
 
 The band shows up to five tickers in saved order, fitting fewer in a narrow
@@ -178,16 +183,19 @@ compact band; other currencies remain visible. The panel includes currency.
 Neither surface displays charts or mini trends. Opening the panel does not
 trigger an extra quote request.
 
-Yahoo refresh waits 60 seconds **after each round**, with requests spaced at
-least one second apart. A large watchlist takes longer to complete a round.
+Pulse CC refreshes 60 seconds **after each round**. Stock requests are spaced
+at least one second apart, so a large watchlist takes longer to complete a
+round; crypto pairs are read together in one request.
 
-## Yahoo quote behavior
+## Stock quote behavior
+
+Stock and index quotes come from Yahoo Finance.
 
 - Prices are Yahoo's **regular-session** quotes, not pre-market, after-hours,
   overnight quotes, or a live trade stream. The percentage compares the price
   with the previous close; when that is missing, it shows `—`.
-- Each panel row shows Yahoo's quote timestamp in your local time. A closed
-  market may correctly show the last trading session's price.
+- A quote from an earlier day is labelled with its date. A closed market may
+  correctly show the last trading session's price.
 - Exchange delays vary. Delay is shown when Yahoo supplies it; missing delay
   metadata is never presented as proof of real-time data. See
   [Yahoo's exchange data guide](https://help.yahoo.com/kb/finance/article-exchanges-data-delays-sln2310.html).
@@ -201,9 +209,21 @@ Yahoo's chart endpoint is unofficial, has no availability guarantee, and may
 change or be unavailable in some regions. Software's MIT license does not grant
 rights to Yahoo's market data. These quotes are for informational use.
 
+## Crypto quote behavior
+
+- Pairs are read from Binance's public Spot market-data API
+  (`data-api.binance.vision`), the source Pulse Mac uses. No API key or account.
+- One request reads every pair, in batches of 100, on the same 60-second
+  refresh as stocks. Crypto trades around the clock, so the percentage is the
+  **24-hour** change: the last price against the price 24 hours earlier.
+- Binance Spot data is not delayed. The band omits the quote currency because
+  the pair already names it; the panel shows it.
+- An unknown or delisted pair shows its own error without stopping the other
+  pairs. A Yahoo rate limit never delays crypto refreshes.
+
 ## Local data and privacy
 
-The plugin saves Yahoo ticker symbols and the paused setting in Claude Code's
+The plugin saves Yahoo ticker symbols, Binance pairs and the paused setting in Claude Code's
 local plugin store (`watchlist.v1`). It separately saves the selected source and
 Mac instrument references (`mac-view.v1`). It does not copy the MCP token into
 plugin storage. That store is shared by your local sessions.
@@ -211,7 +231,8 @@ Edits in one session are picked up by another at its next refresh; concurrent
 writes across processes are last-writer-wins. Quote caches are in memory and are
 fetched again in a new session.
 
-In Pulse CC mode, watching a ticker sends it to Yahoo Finance. In Mac mode,
+In Pulse CC mode, watching a ticker sends it to Yahoo Finance and watching a
+pair sends it to Binance. In Mac mode,
 only selected instrument references are sent to the configured Pulse MCP server;
 the Mac app manages its provider connections. The plugin has no analytics,
 account system, external backend, filesystem scanner, or model calls. It does
@@ -260,7 +281,8 @@ npm exec --yes --package=typescript@5.9.3 -- tsc -p plugins/claude-code
 
 Generated declarations stay local and are ignored by Git. All host API calls
 live in `hooks/register.tsx`; `watchlist.ts` manages lifecycle, `yahoo.ts`
-decodes Yahoo responses, and `mac.ts` decodes Mac snapshots and quotes.
+and `binance.ts` decode stock and crypto quotes, and `mac.ts` decodes Mac
+snapshots and quotes.
 The implementation was written independently;
 it does not include code from meme-watch.
 

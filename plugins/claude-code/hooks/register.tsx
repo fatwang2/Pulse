@@ -2,6 +2,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import { SETTINGS_KEY, Watchlist } from './watchlist'
 import { formatChange, formatPrice, formatBandPrice, formatStaleDate } from './yahoo'
 import { MAC_SETTINGS_KEY, MacError, symbolKey } from './mac'
+import { isCryptoPair } from './binance'
 
 export const PANE = 'pulse-quotes'
 const HELP = '/pulse · /pulse source cc|mac · /pulse add AAPL · /pulse remove AAPL · /pulse refresh · /pulse off · /pulse on'
@@ -38,7 +39,7 @@ export const register: Register = (on, options) => {
   const desktops = new Set<string>()
   on('session.start', async ($, e, next) => {
     await $.command.register({
-      name: 'pulse', description: 'Watch quotes from Yahoo Finance or your Pulse Mac watchlists',
+      name: 'pulse', description: 'Watch stocks and crypto, or your Pulse Mac watchlists',
       argumentHint: '[source cc|mac | add <ticker> | remove <ticker> | refresh | off | on]',
       immediate: true,
     })
@@ -234,7 +235,7 @@ export const register: Register = (on, options) => {
             })} />
         </Box>
         <Box marginTop={gap}><Text dimColor wrap="wrap">{mac ? 'Quotes from your Pulse Mac watchlists. Choose which ones Claude Code shows.'
-          : 'Yahoo Finance quotes for an independent Claude Code watchlist.'}</Text></Box>
+          : 'An independent Claude Code watchlist for stocks and crypto.'}</Text></Box>
       </Box>
 
       <Box key="status-section" flexDirection="column" marginTop={space}>
@@ -255,7 +256,7 @@ export const register: Register = (on, options) => {
 
       {!mac && <Box key={`add-section-${fieldRound}`} gap={1} alignItems="center" marginTop={rowGap}>
         <Box flexGrow={1} flexShrink={1}>
-          <Input key="add-ticker" placeholder={compact ? 'AAPL, 0700.HK' : 'Add a ticker: AAPL, 0700.HK, ^GSPC'} value={input}
+          <Input key="add-ticker" placeholder={compact ? 'AAPL, BTC/USDT' : 'Add a ticker: AAPL, 0700.HK, BTC/USDT'} value={input}
             submitLabel={desktop ? 'Add' : 'add'} autoFocus onInput={value => { input = value }}
             onSubmit={value => { input = value; addTicker() }} />
         </Box>
@@ -279,7 +280,7 @@ export const register: Register = (on, options) => {
           </Text>
           const stale = quote ? formatStaleDate(quote.timestamp, now) : ''
           const meta = quote ? [quote.name, stale && `As of ${stale}`,
-            quote.delaySeconds !== null && `Delay ${Math.ceil(quote.delaySeconds / 60)}m`].filter(Boolean).join(' · ') : ''
+            !!quote.delaySeconds && `Delay ${Math.ceil(quote.delaySeconds / 60)}m`].filter(Boolean).join(' · ') : ''
           return <Box key={`ticker-${symbol}`} flexDirection="column" width="100%" marginTop={index ? rowGap : 0}>
             <Box gap={2} alignItems="center" width="100%">
               <Box flexDirection="column" flexGrow={1} flexShrink={1}>
@@ -384,7 +385,9 @@ export const register: Register = (on, options) => {
         {mac && !needsSetup && notice && <Text color="success" wrap="wrap">{notice}</Text>}
         <Text dimColor wrap="wrap">
           {mac ? 'Pulse Mac · Cached app quotes · Provider timestamps · Times are local · '
-            : 'Yahoo Finance · Regular-session quotes · Exchange delays vary · Times are local · '}
+            : watch.preferences.symbols.some(isCryptoPair)
+              ? 'Yahoo Finance · Binance Spot · Stocks: regular session, exchange delays vary · Crypto: 24h change · Times are local · '
+              : 'Yahoo Finance · Regular-session quotes · Exchange delays vary · Times are local · '}
           <Link href="https://www.pulseticker.app/">pulseticker.app</Link>
         </Text>
         {!desktop && <Text dimColor wrap="wrap">Tab: move between controls · Enter: activate · Esc: return to prompt</Text>}
@@ -428,7 +431,7 @@ function startWatch($: EngineInterface, watch: Watchlist, mac: MacLink): Promise
     sleep: ms => $.clock.sleep(ms),
     after: (ms, callback) => $.clock.after(ms, callback),
     fetch: url => $.http.fetch(url, {
-      headers: { 'User-Agent': 'Pulse-CC/0.3.3', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.3.4', Accept: 'application/json' },
     }),
     redraw: () => $.ui.invalidate('ui.render'),
   })

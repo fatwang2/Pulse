@@ -1,7 +1,7 @@
 {
   "name": "pulse-cc",
-  "version": "0.3.3",
-  "description": "Quotes above the prompt from Yahoo Finance or your Pulse Mac watchlists, with local display selection.",
+  "version": "0.3.4",
+  "description": "Stock and crypto quotes above the prompt, or your Pulse Mac watchlists, with local display selection.",
   "author": {
     "name": "fatwang2",
     "url": "https://github.com/fatwang2"
@@ -12,6 +12,7 @@
   "keywords": [
     "finance",
     "stocks",
+    "crypto",
     "ticker",
     "yahoo",
     "mods",
@@ -22,7 +23,7 @@
     "macToken": {
       "type": "string",
       "title": "Pulse Mac token",
-      "description": "Paste the MCP token from Pulse Mac \u2192 Settings \u2192 Agent access. Leave empty to use Yahoo Finance independently.",
+      "description": "Paste the MCP token from Pulse Mac \u2192 Settings \u2192 Agent access. Leave empty to keep your own watchlist.",
       "default": "",
       "sensitive": true
     }

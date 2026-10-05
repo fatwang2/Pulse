@@ -6,6 +6,7 @@ import { MAC_SETTINGS_KEY, decodeMacQuotes, decodeWatchlists, readMacPreferences
 import type { MacGroup } from '../hooks/mac'
 import type { McpToolResult } from 'claude-code'
 import { decodeQuote, formatBandPrice, formatPrice, formatStaleDate, normalizeSymbol, quoteURL, YahooError } from '../hooks/yahoo'
+import { BinanceError, decodeTickers, isCryptoPair, tickersURL } from '../hooks/binance'
 
 const PLUGIN = 'pulse-cc'
 const NOW = 1_790_965_500_000
@@ -51,6 +52,17 @@ function host(on: On, symbols: string[] = [], paused = false) {
   return { clock, saved, commands }
 }
 
+function binance(url: string, prices: Record<string, [number, number]> = {}) {
+  const requested = JSON.parse(decodeURIComponent(url.split('symbols=')[1])) as string[]
+  if (requested.some(symbol => !(symbol in prices))) {
+    return { ok: false, status: 400, headers: {}, text: '{"code":-1121,"msg":"Invalid symbol."}' }
+  }
+  return { ok: true, status: 200, headers: {}, text: JSON.stringify(requested.map(symbol => ({
+    symbol, lastPrice: String(prices[symbol][0]), prevClosePrice: String(prices[symbol][1]), closeTime: NOW - 1000,
+  }))) }
+}
+const PRICES: Record<string, [number, number]> = { BTCUSDT: [86594, 84820], ETHUSDT: [3200.5, 3300], PEPEUSDT: [0.00000441, 0.0000042] }
+
 const command = ($: Engine, args: string) => $.command.run({
   command: 'pulse', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 },
 })
@@ -69,6 +81,82 @@ test('Yahoo decoding uses previous close, preserves unknown delay, and rejects a
   expect(() => normalizeSymbol('https://example.com')).toThrow()
   expect(formatStaleDate(NOW - 60_000, NOW)).toBe('')
   expect(formatStaleDate(NOW - 3 * 86_400_000, NOW)).toMatch(/^[A-Z][a-z]{2} \d{1,2}$/)
+})
+
+test('Binance pairs parse, batch, decode and format like Pulse Mac', () => {
+  expect(normalizeSymbol(' btc/usdt ')).toBe('BTC/USDT')
+  expect(normalizeSymbol('BTC-USD')).toBe('BTC-USD') // A dash stays a Yahoo symbol.
+  expect(isCryptoPair('BTC/USDT')).toBe(true)
+  expect(isCryptoPair('BTC-USD')).toBe(false)
+  expect(() => normalizeSymbol('BTC/USDT/X')).toThrow('Binance pair')
+  expect(tickersURL(['BTC/USDT', 'ETH/USDT'])).toBe('https://data-api.binance.vision/api/v3/ticker/24hr?symbols='
+    + encodeURIComponent('["BTCUSDT","ETHUSDT"]'))
+  const url = tickersURL(['BTC/USDT', 'PEPE/USDT'])
+  const quotes = decodeTickers(['BTC/USDT', 'PEPE/USDT'], binance(url, PRICES), NOW)
+  expect(Math.abs(quotes['BTC/USDT'].changePercent! - (86594 - 84820) / 84820 * 100) < 1e-9).toBe(true)
+  expect(quotes['BTC/USDT'].currency).toBe('USDT')
+  expect(quotes['BTC/USDT'].delaySeconds).toBe(0)
+  expect(formatPrice(quotes['BTC/USDT'])).toBe('86,594.00 USDT')
+  expect(formatBandPrice(quotes['BTC/USDT'])).toBe('86,594.00') // The pair already names USDT.
+  expect(formatPrice(quotes['PEPE/USDT'])).toBe('0.00000441 USDT')
+  let caught: unknown
+  try { decodeTickers(['NOPE/USDT'], binance(tickersURL(['NOPE/USDT']), PRICES), NOW) } catch (error) { caught = error }
+  expect(caught instanceof BinanceError && caught.invalidSymbol).toBe(true)
+})
+
+test('a mixed list reads every pair in one Binance request and stocks from Yahoo', async ($, on) => {
+  const { clock } = host(on, ['AAPL', 'BTC/USDT', 'ETH/USDT'])
+  const yahoo: string[] = [], crypto: string[] = []
+  on('http.fetch', (_, e) => {
+    if (e.url.includes('binance')) { crypto.push(e.url); return { value: binance(e.url, PRICES) } }
+    yahoo.push(e.url); return { value: response('AAPL') }
+  })
+  await $.session.start(START); await clock.settle()
+  expect(crypto).toEqual([tickersURL(['BTC/USDT', 'ETH/USDT'])])
+  expect(yahoo.length).toBe(1)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const band = await $.ui.mount({ ...BAND, surface })
+    expect(await band.find({ type: 'Text', text: /AAPL.*100\.00.*BTC\/USDT.*86,594\.00/ })).toBeDefined()
+    expect(await band.find({ type: 'Text', text: /86,594\.00 USDT/ })).toBe(undefined)
+    await band.unmount()
+    const pane = await $.ui.mount({ ...PANE, surface })
+    expect(await pane.find({ type: 'Text', text: '86,594.00 USDT' })).toBeDefined()
+    expect(await pane.find({ type: 'Text', text: /Binance Spot/ })).toBeDefined()
+    expect(await pane.find({ type: 'Text', text: /Delay/ })).toBe(undefined)
+    expect(await pane.find({ type: 'Text', text: /Crypto: 24h change/ })).toBeDefined()
+    await pane.unmount()
+  }
+})
+
+test('an unknown or delisted pair fails alone instead of failing the whole Binance batch', async ($, on) => {
+  const { clock } = host(on, ['BTC/USDT', 'OLD/USDT'])
+  const crypto: string[] = []
+  on('http.fetch', (_, e) => { crypto.push(e.url); return { value: binance(e.url, PRICES) } })
+  await $.session.start(START); await clock.settle()
+  expect(crypto).toEqual([tickersURL(['BTC/USDT', 'OLD/USDT']), tickersURL(['BTC/USDT']), tickersURL(['OLD/USDT'])])
+  const pane = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await pane.find({ type: 'Text', text: '86,594.00 USDT' })).toBeDefined()
+  expect(await pane.find({ type: 'Text', text: /Binance has no Spot pair/ })).toBeDefined()
+  await pane.unmount()
+})
+
+test('Binance pairs keep refreshing while Yahoo waits out a rate limit', async ($, on) => {
+  const { clock } = host(on, ['AAPL', 'BTC/USDT'])
+  let yahoo = 0, crypto = 0
+  on('http.fetch', (_, e) => {
+    if (e.url.includes('binance')) { crypto++; return { value: binance(e.url, PRICES) } }
+    yahoo++; return { value: { ok: false, status: 429, headers: { 'retry-after': '600' }, text: '' } }
+  })
+  await $.session.start(START); await clock.settle()
+  expect([yahoo, crypto]).toEqual([1, 1])
+  await clock.advance(60_000)
+  expect([yahoo, crypto]).toEqual([1, 2])
+  await clock.advance(60_000)
+  expect([yahoo, crypto]).toEqual([1, 3])
+  const pane = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await pane.find({ type: 'Text', text: '86,594.00 USDT' })).toBeDefined()
+  expect(await pane.find({ type: 'Text', text: /Yahoo rate limited/ })).toBeDefined()
+  await pane.unmount()
 })
 
 test('a new installation is empty; adding, de-duplicating and removing tickers persists locally', async ($, on) => {

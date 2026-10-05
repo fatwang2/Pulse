@@ -1,6 +1,7 @@
 import type { HttpResponse, McpToolResult, Timer } from 'claude-code'
 import { decodeQuote, normalizeSymbol, quoteURL, YahooError } from './yahoo'
 import type { Quote } from './yahoo'
+import { BINANCE_BATCH, BinanceError, decodeTickers, isCryptoPair, tickersURL } from './binance'
 import { decodeMacQuotes, decodeWatchlists, instruments, MacError, readMacPreferences, readPermissionRefusal, symbolKey } from './mac'
 import type { MacGroup, MacPreferences, PermissionBlock, SymbolRef } from './mac'
 
@@ -220,14 +221,18 @@ export class Watchlist {
       this.changed()
       const now = await this.api.now()
       const cooldown = this.source === 'cc' ? Math.max(0, this.retryAt - now) : 0
-      if (this.pending) this.schedule(cooldown, this.pendingManual)
-      else this.schedule(this.source === 'mac' ? this.macIntervalMs : Math.max(cooldown, this.intervalMs))
+      // Binance pairs keep their cadence through a Yahoo cooldown; Yahoo still waits.
+      const crypto = this.source === 'cc' && this.preferences.symbols.some(isCryptoPair)
+      if (this.pending) this.schedule(crypto ? 0 : cooldown, this.pendingManual)
+      else this.schedule(this.source === 'mac' ? this.macIntervalMs : Math.max(crypto ? 0 : cooldown, this.intervalMs))
     }
   }
 
   private async runRefresh(manual: boolean): Promise<void> {
     const now = await this.api!.now()
     if (this.source === 'cc' && now < this.retryAt) {
+      // Binance pairs still refresh; Yahoo tickers wait out the cooldown.
+      if (this.preferences.symbols.some(isCryptoPair)) await this.poll(manual, false)
       this.message = `Yahoo rate limited requests. Retry after ${Math.ceil((this.retryAt - now) / 1000)}s.`
       this.changed()
       return
@@ -263,7 +268,7 @@ export class Watchlist {
     return true
   }
 
-  private async poll(manual: boolean): Promise<void> {
+  private async poll(manual: boolean, yahoo = true): Promise<void> {
     const api = this.api!
     const revision = this.revision
     const saved = readPreferences(await api.load())
@@ -278,7 +283,15 @@ export class Watchlist {
     this.loading = true
     this.message = ''
     this.changed()
-    for (const symbol of [...saved.symbols]) {
+    const current = () => this.active && revision === this.revision
+    const pairs = saved.symbols.filter(isCryptoPair)
+    const tickers = saved.symbols.filter(symbol => !isCryptoPair(symbol))
+    for (let offset = 0; offset < pairs.length; offset += BINANCE_BATCH) {
+      await this.pollCrypto(pairs.slice(offset, offset + BINANCE_BATCH), current)
+      if (!current()) return
+    }
+    if (!yahoo) return
+    for (const symbol of tickers) {
       if (!this.active || revision !== this.revision) return
       try {
         await this.fetchQuote(symbol, () => this.active && revision === this.revision)
@@ -287,7 +300,7 @@ export class Watchlist {
         // Do not echo request URLs or raw server bodies into the conversation.
         this.ccErrors[symbol] = error instanceof YahooError ? error.message : 'Could not reach Yahoo Finance.'
         if (await this.throttle(error)) {
-          const deferred = saved.symbols.slice(saved.symbols.indexOf(symbol) + 1)
+          const deferred = tickers.slice(tickers.indexOf(symbol) + 1)
           for (const remaining of deferred) this.ccErrors[remaining] = 'Refresh deferred: Yahoo rate limited requests.'
           this.changed()
           return
@@ -298,6 +311,41 @@ export class Watchlist {
     if (!this.active || revision !== this.revision) return
     this.rateFailures = 0
     this.retryAt = 0
+  }
+
+  /** One request per batch; an unknown or delisted pair fails the batch, so retry pair by pair. */
+  private async pollCrypto(pairs: string[], current: () => boolean): Promise<void> {
+    try {
+      await this.fetchCrypto(pairs, current)
+    } catch (error) {
+      if (!current()) return
+      if (error instanceof BinanceError && error.invalidSymbol && pairs.length > 1) {
+        for (const pair of pairs) {
+          if (!current()) return
+          try { await this.fetchCrypto([pair], current) } catch (cause) {
+            if (!current()) return
+            this.ccErrors[pair] = cause instanceof BinanceError ? cause.message : 'Could not reach Binance.'
+          }
+        }
+      } else {
+        // Do not echo request URLs or raw server bodies into the conversation.
+        for (const pair of pairs) this.ccErrors[pair] = error instanceof BinanceError ? error.message : 'Could not reach Binance.'
+      }
+    }
+    if (current()) this.changed()
+  }
+
+  private async fetchCrypto(pairs: string[], current: () => boolean): Promise<void> {
+    const api = this.api!
+    const response = await api.fetch(tickersURL(pairs))
+    if (!current()) return
+    const quotes = decodeTickers(pairs, response, await api.now())
+    if (!current()) return
+    for (const pair of pairs) {
+      const quote = quotes[pair]
+      if (quote) { this.ccQuotes[pair] = quote; delete this.ccErrors[pair] }
+      else this.ccErrors[pair] = 'Binance returned no quote for this pair.'
+    }
   }
 
   private async pollMac(revision: number): Promise<void> {

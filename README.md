@@ -32,18 +32,18 @@ free installers remain available. See [historical Mac source and downloads](docs
 
 ## Pulse for Claude Code
 
-A Claude Code plugin that shows quotes and signed percentage changes above the
-prompt, with a `/pulse` panel for adding and removing tickers, refreshing prices,
-and pausing updates. The local MCP connection is included: download Pulse Mac,
+A Claude Code plugin that shows stock and crypto quotes with signed percentage
+changes above the prompt, with a `/pulse` panel for adding and removing tickers,
+refreshing prices, and pausing updates. The local MCP connection is included: download Pulse Mac,
 paste its token, and choose which tickers from its groups appear in Claude Code.
 Mac watchlists remain read-only
 from the plugin. Requires Claude Code **2.1.287 or later**, with Mods enabled.
 
-![Pulse for Claude Code showing three tickers above the prompt](assets/readme/pulse-claude-code.png)
+![Pulse for Claude Code showing stock and crypto prices above the prompt](assets/readme/pulse-claude-code.png)
 
 The `/pulse` panel works in the terminal and in Claude Desktop's **Code** tab:
 
-<img src="assets/readme/pulse-cc-desktop-panel.png" width="480" alt="Pulse CC panel in Claude Desktop with the quote source buttons, an add field and two tickers">
+<img src="assets/readme/pulse-cc-desktop-panel.png" width="480" alt="Pulse CC panel in Claude Desktop with the quote source buttons, an add field and three tickers">
 
 Connect Pulse Mac to browse its watchlist groups and choose which tickers to display:
 
@@ -56,8 +56,9 @@ claude plugin marketplace add fatwang2/Pulse
 claude plugin install pulse-cc@pulse
 ```
 
-Restart Claude Code or run `/reload-plugins`, then add a ticker with
-`/pulse add AAPL` and open `/pulse` to manage your watchlist.
+Restart Claude Code or run `/reload-plugins`, then add a stock with
+`/pulse add AAPL` or a crypto pair with `/pulse add BTC/USDT`, and open `/pulse`
+to manage your watchlist.
 To connect the Mac app, select **Pulse Mac** in `/pulse`, enable MCP in the app's
 **Settings → Agent access**, then use **Paste token** to open the configuration
 dialog. **Pulse Mac token** is the only setting.

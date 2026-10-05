@@ -10,7 +10,7 @@
     {
       "name": "pulse-cc",
       "source": "./plugins/claude-code",
-      "description": "Yahoo Finance quotes or your Pulse Mac watchlists above the Claude Code prompt."
+      "description": "Stock and crypto quotes, or your Pulse Mac watchlists, above the Claude Code prompt."
     }
   ]
 }

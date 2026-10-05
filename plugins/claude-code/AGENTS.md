@@ -11,6 +11,8 @@
   host's static analyzer can inventory it.
 - Preserve saved watchlists. Pause, removal, exit and reload must discard
   late results and prevent duplicate refresh loops.
+- Crypto pairs (`BTC/USDT`) read Binance's public Spot data API only, batched,
+  never through Yahoo's spacing or cooldown. A dash symbol stays Yahoo's.
 - Respect Yahoo cooldowns. Never present cached data as a newly fetched quote
   or unknown source delay as real time.
 - Validate with `claude plugin validate` and exercise behavior with

@@ -17,11 +17,12 @@ export class YahooError extends Error {
   }
 }
 
-/** Yahoo wire symbols, not company names. Never interpolate arbitrary URLs. */
+/** Yahoo wire symbols or Binance pairs, not company names. Never interpolate arbitrary URLs. */
 export function normalizeSymbol(input: string): string {
   let symbol = input.trim().toUpperCase()
+  if (/^[A-Z0-9]{1,20}\/[A-Z0-9]{1,20}$/.test(symbol)) return symbol
   if (!/^[A-Z0-9^][A-Z0-9.^=\-]{0,31}$/.test(symbol)) {
-    throw new Error('Enter a Yahoo ticker, such as AAPL, 0700.HK or ^GSPC.')
+    throw new Error('Enter a Yahoo ticker, such as AAPL, 0700.HK or ^GSPC, or a Binance pair, such as BTC/USDT.')
   }
   if (/^\d{6}\.SH$/.test(symbol)) symbol = symbol.replace(/\.SH$/, '.SS')
   const hk = /^(\d{1,5})\.HK$/.exec(symbol)
@@ -84,15 +85,18 @@ export function decodeQuote(symbol: string, response: HttpResponse, now: number)
 }
 
 export function formatPrice(quote: Quote): string {
-  const price = quote.price.toLocaleString('en-US', {
-    minimumFractionDigits: 2, maximumFractionDigits: quote.price < 1 ? 6 : 2,
-  })
+  // Below 1, keep significant digits: a 0.00000441 token must not round to 0.000004.
+  const price = quote.price < 1
+    ? quote.price.toLocaleString('en-US', { minimumSignificantDigits: 2, maximumSignificantDigits: 4 })
+    : quote.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return `${price}${quote.currency ? ' ' + quote.currency : ''}`
 }
 
 /** Keep the compact prompt ticker concise while disambiguating other currencies. */
 export function formatBandPrice(quote: Quote): string {
-  return formatPrice(quote.currency === 'USD' ? { ...quote, currency: null } : quote)
+  // A pair (BTC/USDT) already names its quote currency.
+  const named = quote.currency === 'USD' || quote.symbol.endsWith(`/${quote.currency}`)
+  return formatPrice(named ? { ...quote, currency: null } : quote)
 }
 
 export function formatChange(value: number | null): string {

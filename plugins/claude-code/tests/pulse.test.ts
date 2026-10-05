@@ -766,7 +766,7 @@ test('Yahoo cooldown cannot delay Mac reads; Mac pause and exit stop polling and
 })
 
 test('a permission refusal is told apart from a connection failure, with its error and the exact read-only rules',
-  { options: { macToken: 'test-token' } }, async ($, on) => {
+  { options: { macToken: 'your-mac-token' } }, async ($, on) => {
     const { clock, saved } = host(on)
     const state = macHost(on, saved, true)
     state.denied = true
@@ -783,7 +783,7 @@ test('a permission refusal is told apart from a connection failure, with its err
       expect(JSON.parse((await pane.find({ type: 'Code' }))?.props.source as string)).toEqual({ permissions: { allow: rules } })
       expect(!!(await pane.find({ type: 'Text', text: /\/permissions/ })), `/permissions hint on ${surface}`).toBe(surface === 'terminal')
       expect(await pane.find({ type: 'Text', text: 'Connect Pulse Mac' })).toBe(undefined)
-      expect(await pane.find({ type: 'Text', text: /test-token/ })).toBe(undefined)
+      expect(await pane.find({ type: 'Text', text: /your-mac-token/ })).toBe(undefined)
       await pane.unmount()
       const band = await $.ui.mount({ ...BAND, surface })
       expect(await band.find({ type: 'Text', text: /Blocked/ })).toBeDefined()
@@ -879,7 +879,7 @@ test('Paste token opens native configuration in the terminal and saves through t
 })
 
 test('bundled MCP uses the host-resolved name, reads only selected quotes and respects a disabled connection',
-  { options: { macToken: 'test-token' } }, async ($, on) => {
+  { options: { macToken: 'your-mac-token' } }, async ($, on) => {
     const { clock, saved } = host(on, ['MSFT'])
     const state = macHost(on, saved, true)
     // Calls must use the name returned by the host, never a guessed name.
@@ -889,7 +889,7 @@ test('bundled MCP uses the host-resolved name, reads only selected quotes and re
     expect(state.calls.map(call => call.tool)).toEqual(['list_watchlists', 'get_quotes'])
     expect(state.calls.every(call => call.server === state.server)).toBe(true)
     const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-    expect(await ui.find({ type: 'Text', text: /test-token/ })).toBe(undefined)
+    expect(await ui.find({ type: 'Text', text: /your-mac-token/ })).toBe(undefined)
     state.refusal = 'disabled'
     await clock.advance(5000)
     expect(state.calls.length).toBe(2)

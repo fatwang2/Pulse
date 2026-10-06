@@ -1,24 +1,19 @@
 import type { EngineInterface, Register } from 'claude-code'
 import { SETTINGS_KEY, Watchlist } from './watchlist'
 import { formatChange, formatPrice, formatBandPrice, formatStaleDate } from './yahoo'
-import { MAC_SETTINGS_KEY, MacError, symbolKey } from './mac'
 import { isCryptoPair } from './binance'
 
 export const PANE = 'pulse-quotes'
-const HELP = '/pulse · /pulse source cc|mac · /pulse add AAPL · /pulse remove AAPL · /pulse refresh · /pulse off · /pulse on'
+const HELP = '/pulse · /pulse add AAPL · /pulse remove AAPL · /pulse refresh · /pulse off · /pulse on'
 
-export const register: Register = (on, options) => {
+export const register: Register = on => {
   const intervalSeconds = 60
-  const macIntervalSeconds = 5
-  const hasToken = typeof options.macToken === 'string' && !!options.macToken.trim()
-  const link: MacLink = { server: 'plugin:pulse-cc:pulse', hasToken }
-  const watch = new Watchlist(intervalSeconds * 1000, macIntervalSeconds * 1000)
+  const watch = new Watchlist(intervalSeconds * 1000)
   let input = ''
   // Desktop keeps a field's typed text while the drawn value stays '', so a
   // cleared field is redrawn under a new key to discard it.
   let fieldRound = 0
   let error = ''
-  let macGroupID: string | undefined
 
   const act = async (action: () => Promise<unknown>) => {
     error = ''
@@ -33,12 +28,12 @@ export const register: Register = (on, options) => {
   const desktops = new Set<string>()
   on('session.start', async ($, e, next) => {
     await $.command.register({
-      name: 'pulse', description: 'Watch stocks and crypto, or your Pulse Mac watchlists',
-      argumentHint: '[source cc|mac | add <ticker> | remove <ticker> | refresh | off | on]',
+      name: 'pulse', description: 'Watch stock and crypto quotes above the prompt',
+      argumentHint: '[add <ticker> | remove <ticker> | refresh | off | on]',
       immediate: true,
     })
     interactive = e.isInteractive
-    if (interactive) await startWatch($, watch, link)
+    if (interactive) await startWatch($, watch)
     return next(e)
   })
 
@@ -46,7 +41,7 @@ export const register: Register = (on, options) => {
     // A second desktop window shares the running refresh loop.
     const first = !interactive && !desktops.size
     desktops.add(e.clientId)
-    if (first) await startWatch($, watch, link)
+    if (first) await startWatch($, watch)
     return next(e)
   })
 
@@ -73,13 +68,9 @@ export const register: Register = (on, options) => {
           await $.ui.close({ id: PANE })
           return { text: 'Pulse panel closed.' }
         }
-        const needsSetup = watch.source === 'mac' && !watch.macConnected && !watch.groups.length
         await $.ui.open({ id: PANE, title: 'Pulse', focus: true, columns: 80,
-          rows: needsSetup ? (e.presentation.columns < 64 ? 44 : 36) : Math.min(30, Math.max(22, watch.symbols.length * 3 + 20)) })
+          rows: Math.min(30, Math.max(22, watch.preferences.symbols.length * 3 + 20)) })
         return { text: 'Pulse panel opened.' }
-      }
-      if (args[0] === 'source' && args.length === 2 && (args[1] === 'cc' || args[1] === 'mac')) {
-        return { text: await watch.setSource(args[1]) }
       }
       if (args[0] === 'add' && args.length === 2) return { text: await watch.add(args[1]) }
       if (args[0] === 'remove' && args.length === 2) return { text: await watch.remove(args[1]) }
@@ -100,14 +91,12 @@ export const register: Register = (on, options) => {
     if (e.props.hasSurvey) return next(e)
     const { Box, Text } = $.ui.resolve(e)
     const width = Math.max(20, e.props.bodyColumns || e.viewport?.columns || 80)
-    const offline = watch.source === 'mac' && !watch.macConnected && !watch.loading
-    const blocked = watch.source === 'mac' && !!watch.macBlocked
-    const state = watch.preferences.paused ? 'Paused' : blocked ? 'Blocked' : offline ? 'Offline' : ''
-    const symbols = watch.symbols
+    const state = watch.preferences.paused ? 'Paused' : ''
+    const symbols = watch.preferences.symbols
     const label = (symbol: string) => {
       const quote = watch.quotes[symbol]
       const cached = watch.errors[symbol] && quote ? ' cached' : ''
-      return quote ? `${watch.label(symbol)} ${formatBandPrice(quote)} ${formatChange(quote.changePercent)}${cached}` : `${watch.label(symbol)} unavailable`
+      return quote ? `${symbol} ${formatBandPrice(quote)} ${formatChange(quote.changePercent)}${cached}` : `${symbol} unavailable`
     }
     const more = (list: string[]) => list.length < symbols.length ? `   +${symbols.length - list.length} more`.length : 0
     const fits = (list: string[]) => 8 + (state ? state.length + 3 : 0) + list.map(symbol => label(symbol).length).reduce((a, b) => a + b, 0)
@@ -117,12 +106,12 @@ export const register: Register = (on, options) => {
     return <Box><Text wrap="truncate">
       <Text dimColor>Pulse</Text>
       {state && <Text color="warning">{` ${state}`}</Text>}{'   '}
-      {!visible.length && <Text dimColor>{watch.source === 'mac' ? 'Choose Mac tickers in /pulse' : 'Add a ticker with /pulse add AAPL'}</Text>}
+      {!visible.length && <Text dimColor>Add a ticker with /pulse add AAPL</Text>}
       {visible.map((symbol, index) => {
         const quote = watch.quotes[symbol]
         const failed = !!watch.errors[symbol]
         return <Text key={symbol}>
-          {index ? <Text dimColor>{' · '}</Text> : ''}<Text bold>{watch.label(symbol)}</Text>{' '}
+          {index ? <Text dimColor>{' · '}</Text> : ''}<Text bold>{symbol}</Text>{' '}
           {quote ? <Text>
             <Text dimColor={failed}>{formatBandPrice(quote)}</Text>{' '}
             <Text color={changeColor(quote.changePercent)}>{formatChange(quote.changePercent)}</Text>
@@ -136,7 +125,7 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
     if (e.surface !== 'terminal' && e.surface !== 'desktop') return next(e)
-    const { Box, Text, Button, Input, Link, Code } = $.ui.resolve(e)
+    const { Box, Text, Button, Input, Link } = $.ui.resolve(e)
     // Desktop measures cells in its code font but draws proportional text, so
     // its rows fit side by side at fewer reported columns than the terminal's.
     const compact = e.props.bodyColumns < (e.surface === 'desktop' ? 44 : 64)
@@ -146,27 +135,9 @@ export const register: Register = (on, options) => {
     const redraw = () => $.ui.invalidate('ui.render')
     const action = (task: () => Promise<unknown>) => { void act(task).finally(redraw) }
     const addTicker = () => action(async () => { await watch.add(input); input = ''; fieldRound++ })
-    // The terminal opens the host's configuration dialog, which keeps the token
-    // in secure storage. Desktop cannot show that dialog, so its card names the
-    // same command for a terminal session instead of saving the token itself.
-    const configure = () => action(async () => {
-      await $.ui.close({ id: PANE })
-      await $.command.run({ command: 'plugin', args: 'configure pulse-cc' })
-    })
-    const configureHint = <Text wrap="wrap">In a terminal, run <Text bold>claude</Text>, then <Text bold>/plugin configure pulse-cc</Text>.
-      Paste into <Text bold>Pulse Mac token</Text>, save, and start a new session here.</Text>
-    const mac = watch.source === 'mac'
     const paused = watch.preferences.paused
-    const needsSetup = mac && !watch.macConnected && !watch.groups.length
-    const block = mac ? watch.macBlocked : undefined
-    const showLoading = watch.loading && (!mac || (!watch.macConnected && hasToken))
-    const currentGroup = watch.groups.find(group => group.id === macGroupID) ?? watch.groups[0]
-    const statusColor = paused || block ? 'warning' : showLoading ? 'cyan' : mac && !watch.macConnected ? 'warning' : 'success'
-    const status = paused ? '● Auto-refresh paused' : block ? '● Blocked by Claude Code permissions'
-      : showLoading ? (mac ? '● Reading Pulse Mac…' : '● Refreshing quotes…')
-      : mac ? (watch.macConnected ? `● Connected · Updates every ${macIntervalSeconds}s`
-        : needsSetup && !hasToken ? '● Paste token to connect' : '● Not connected · Check /mcp')
-        : `● Auto-refresh every ${intervalSeconds}s`
+    const statusColor = paused ? 'warning' : watch.loading ? 'cyan' : 'success'
+    const status = paused ? '● Auto-refresh paused' : watch.loading ? '● Refreshing quotes…' : `● Auto-refresh every ${intervalSeconds}s`
     const ccCount = watch.preferences.symbols.length
     const now = await $.clock.now()
 
@@ -180,57 +151,40 @@ export const register: Register = (on, options) => {
     const gap = desktop ? 1 : 0
     const rowGap = desktop ? 2 : 1
     // Desktop text fields keep a fixed width (their submit button included), so
-    // the insets stay small enough for the token field to fit a docked pane.
+    // the insets stay small enough for the add field to fit a docked pane.
     const padX = desktop ? 4 : 1
-    const cardX = desktop ? 2 : 1
 
     return <Box flexDirection="column" paddingX={padX} paddingY={desktop ? 2 : 0}>
-      <Box key="source" flexDirection="column">
-        {section('Quote source')}
-        <Box key="source-actions" gap={1} marginTop={gap}>
-          <Button key="source-cc" label="Pulse CC" variant={mac ? 'secondary' : 'primary'}
-            onPress={() => action(() => watch.setSource('cc'))} />
-          <Button key="source-mac" label="Pulse Mac" variant={mac ? 'primary' : 'secondary'}
-            onPress={() => action(async () => {
-              await watch.setSource('mac')
-              if (!watch.macConnected && !watch.groups.length) await $.ui.open({ id: PANE, title: 'Pulse', focus: true,
-                columns: 80, rows: compact ? 40 : 32 })
-            })} />
-        </Box>
-        <Box marginTop={gap}><Text dimColor wrap="wrap">{mac ? 'Quotes from your Pulse Mac watchlists. Choose which ones Claude Code shows.'
-          : 'An independent Claude Code watchlist for stocks and crypto.'}</Text></Box>
-      </Box>
-
-      <Box key="status-section" flexDirection="column" marginTop={space}>
+      <Box key="status-section" flexDirection="column">
         <Box justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
-          {section(mac ? 'Pulse Mac' : `Watchlist · ${ccCount} ${ccCount === 1 ? 'ticker' : 'tickers'}`)}
-          {!desktop && (!needsSetup || hasToken) && <Box key="watchlist-actions" gap={1}>
+          {section(`Watchlist · ${ccCount} ${ccCount === 1 ? 'ticker' : 'tickers'}`)}
+          {!desktop && <Box key="watchlist-actions" gap={1}>
             <Button key="refresh" label="Refresh (r)" hotkey="r" dimColor onPress={() => action(() => watch.refresh())} />
             <Button key="pause" label={paused ? 'Resume (p)' : 'Pause (p)'} hotkey="p" dimColor
               onPress={() => action(() => watch.pause(!paused))} />
           </Box>}
         </Box>
         <Box marginTop={gap}><Text key="refresh-status" color={statusColor}>{status}</Text></Box>
-        {desktop && (!needsSetup || hasToken) && <Box key="watchlist-actions" gap={1} marginTop={rowGap}>
+        {desktop && <Box key="watchlist-actions" gap={1} marginTop={rowGap}>
           <Button key="refresh" label="Refresh" hotkey="r" onPress={() => action(() => watch.refresh())} />
           <Button key="pause" label={paused ? 'Resume' : 'Pause'} hotkey="p" onPress={() => action(() => watch.pause(!paused))} />
         </Box>}
       </Box>
 
-      {!mac && <Box key={`add-section-${fieldRound}`} gap={1} alignItems="center" marginTop={rowGap}>
+      <Box key={`add-section-${fieldRound}`} gap={1} alignItems="center" marginTop={rowGap}>
         <Box flexGrow={1} flexShrink={1}>
           <Input key="add-ticker" placeholder={compact ? 'AAPL, BTC/USDT' : 'Add a ticker: AAPL, 0700.HK, BTC/USDT'} value={input}
             submitLabel={desktop ? 'Add' : 'add'} autoFocus onInput={value => { input = value }}
             onSubmit={value => { input = value; addTicker() }} />
         </Box>
         {!desktop && <Button key="add" label="Add" onPress={addTicker} />}
-      </Box>}
+      </Box>
       {error && <Box marginTop={rowGap}><Text color="error" wrap="wrap">{error}</Text></Box>}
-      {watch.message && !needsSetup && <Box marginTop={1}>
+      {watch.message && <Box marginTop={1}>
         <Text color={watch.message.includes('rate limited') ? 'warning' : undefined} dimColor={!watch.message.includes('rate limited')} wrap="wrap">{watch.message}</Text>
       </Box>}
 
-      {!mac && <Box key="watchlist" flexDirection="column" marginTop={rowGap}>
+      <Box key="watchlist" flexDirection="column" marginTop={rowGap}>
         {!ccCount && <Text dimColor wrap="wrap">Your watchlist is empty. Add a ticker above.</Text>}
         {watch.preferences.symbols.map((symbol, index) => {
           const quote = watch.quotes[symbol]
@@ -260,99 +214,13 @@ export const register: Register = (on, options) => {
             {failed && <Text color="warning" wrap="wrap">{quote ? 'Cached quote · ' : ''}{failed}</Text>}
           </Box>
         })}
-      </Box>}
-
-      {block && <Box key="mac-permission" flexDirection="column" borderStyle="round" borderColor="warning"
-        paddingX={cardX} paddingY={desktop ? 2 : 0} marginTop={rowGap}>
-        <Text bold>Claude Code blocked the Pulse Mac read</Text>
-        <Box marginTop={gap}><Text dimColor wrap="wrap">Your token is set and the connection is up, but Claude Code's
-          permission check refused the background read.</Text></Box>
-        <Box key="mac-permission-error" flexDirection="column" marginTop={rowGap}>
-          <Text dimColor>Error</Text>
-          <Text color="warning" wrap="wrap">{block.detail}</Text>
-        </Box>
-        <Box flexDirection="column" marginTop={rowGap}>
-          <Text wrap="wrap">Allow these read-only tools in <Text bold>~/.claude/settings.json</Text>
-            {desktop ? '' : ' or with /permissions'}, then start a new session:</Text>
-          <Box marginTop={gap}>
-            <Code language="json"
-              source={JSON.stringify({ permissions: { allow: block.rules } }, null, 2)} />
-          </Box>
-        </Box>
-        <Box marginTop={gap}><Text dimColor wrap="wrap">Writes such as adding tickers or recording trades still ask first.</Text></Box>
-      </Box>}
-
-      {needsSetup && !block && <Box key="mac-setup" flexDirection="column" borderStyle="round" borderColor="cyan"
-        paddingX={cardX} paddingY={desktop ? 2 : 0} marginTop={rowGap}>
-        <Text bold>Connect Pulse Mac</Text>
-        <Box marginTop={gap}><Text dimColor wrap="wrap">Your markets in the Mac menu bar: stocks, crypto, charts and positions.</Text></Box>
-        <Box flexDirection="column" marginTop={rowGap}>
-          <Text wrap="wrap"><Text color="cyan">{'1  '}</Text><Link href="https://www.pulseticker.app/"><Text color="cyan">Download Pulse Mac ↗</Text></Link>, then open it.</Text>
-          <Text wrap="wrap"><Text color="cyan">{'2  '}</Text>Enable MCP in <Text bold>Settings → Agent access</Text> and copy the token.</Text>
-          {desktop ? <Text wrap="wrap"><Text color="cyan">{'3  '}</Text>Save it in Claude Code's configuration:</Text>
-            : <Text wrap="wrap"><Text color="cyan">{'3  '}</Text>Click <Text bold>{hasToken ? 'Update token' : 'Paste token'}</Text> below to open configuration.</Text>}
-        </Box>
-        {desktop ? <Box marginTop={1}>{configureHint}</Box> : <Box marginTop={1}>
-          <Button key="mac-configure" label={hasToken ? 'Update token' : 'Paste token'} variant="primary" onPress={configure} />
-        </Box>}
-        <Box marginTop={gap}><Text dimColor wrap="wrap">{desktop ? 'Claude Code keeps it in secure storage, never in Pulse settings.'
-          : 'In the window that opens, paste into Pulse Mac token and save. Then reopen /pulse.'}
-          {' The local connection is included; keep Pulse Mac open.'}</Text></Box>
-        {watch.message && !watch.message.startsWith('Could not reach Pulse Mac.') && !watch.message.startsWith('Paste your Pulse Mac token')
-          && <Text color="warning" wrap="wrap">{watch.message}</Text>}
-      </Box>}
-
-      {mac && watch.macConnected && !watch.groups.length && <Box marginTop={1}><Text dimColor wrap="wrap">No watchlist groups in Pulse Mac.</Text></Box>}
-      {mac && watch.groups.length > 0 && <Box key="mac-groups" gap={1} flexWrap="wrap" marginTop={rowGap}>
-        {watch.groups.map(group => <Button key={`mac-group-select-${group.id}`} label={group.name}
-          variant={currentGroup?.id === group.id ? 'primary' : 'secondary'}
-          onPress={() => { macGroupID = group.id; redraw() }} />)}
-      </Box>}
-      {mac && currentGroup && [currentGroup].map(group => <Box key={`mac-group-${group.id}`} flexDirection="column" marginTop={rowGap}>
-        <Box gap={1}>
-          <Text bold>{group.name}</Text>
-          <Text dimColor>{`${group.symbols.length} tickers`}</Text>
-        </Box>
-        {!group.symbols.length && <Text dimColor>Empty group</Text>}
-        {group.symbols.map(item => {
-          const key = symbolKey(item)
-          const selected = watch.macPreferences.selected.some(ref => symbolKey(ref) === key)
-          const quote = watch.quotes[key], failed = watch.errors[key]
-          const price = selected && quote ? <Text dimColor={!!failed}>{formatPrice(quote)}</Text> : undefined
-          const change = selected && quote ? <Text color={changeColor(quote.changePercent)}>{formatChange(quote.changePercent)}</Text> : undefined
-          const stale = selected && quote ? formatStaleDate(quote.timestamp, now) : ''
-          const meta = stale ? `${item.name} · As of ${stale}` : item.name
-          return <Box key={`mac-row-${group.id}-${key}`} flexDirection="column" width="100%" marginTop={rowGap}>
-            <Box gap={2} alignItems="center" width="100%">
-              <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
-                <Text bold wrap="truncate">{`${item.displayCode} · ${item.market.toUpperCase()}`}</Text>
-                {!compact && <Text dimColor wrap="truncate">{meta}</Text>}
-              </Box>
-              {!compact && price && <Box flexDirection="column" alignItems="flex-end" flexShrink={0}>{price}{change}</Box>}
-              <Button key={`mac-toggle-${group.id}-${key}`} label={selected ? '✓ Shown' : 'Show'}
-                variant={selected ? 'primary' : 'secondary'} onPress={() => action(() => watch.toggleMac({ market: item.market, code: item.code }))} />
-            </Box>
-            {compact && price && <Box gap={2}>{price}{change}</Box>}
-            {compact && <Text dimColor wrap="truncate">{meta}</Text>}
-            {selected && failed && <Text color="warning" wrap="wrap">{quote ? 'Cached quote · ' : ''}{failed}</Text>}
-          </Box>
-        })}
-      </Box>)}
+      </Box>
 
       <Box key="footer" flexDirection="column" marginTop={space}>
-        {mac && !needsSetup && <Box gap={2} alignItems="center" flexWrap="wrap">
-          <Text dimColor wrap="wrap">{`MCP ${link.server} · Keep Pulse Mac open with Agent access enabled.`}</Text>
-          {!desktop && <Button key="mac-configure" label="Update token" dimColor onPress={configure} />}
-          {!watch.macConnected && <Link href="https://github.com/fatwang2/Pulse/tree/main/plugins/claude-code#connect-pulse-mac"><Text color="cyan">Connection guide ↗</Text></Link>}
-        </Box>}
-        {mac && !needsSetup && desktop && <Box key="mac-token-hint" marginTop={gap}>
-          <Text dimColor wrap="wrap">To update the token, run <Text bold>/plugin configure pulse-cc</Text> in a terminal Claude Code session.</Text>
-        </Box>}
         <Text dimColor wrap="wrap">
-          {mac ? 'Pulse Mac · Cached app quotes · Provider timestamps · Times are local · '
-            : watch.preferences.symbols.some(isCryptoPair)
-              ? 'Yahoo Finance · Binance Spot · Stocks: regular session, exchange delays vary · Crypto: 24h change · Times are local · '
-              : 'Yahoo Finance · Regular-session quotes · Exchange delays vary · Times are local · '}
+          {watch.preferences.symbols.some(isCryptoPair)
+            ? 'Yahoo Finance · Binance Spot · Stocks: regular session, exchange delays vary · Crypto: 24h change · Times are local · '
+            : 'Yahoo Finance · Regular-session quotes · Exchange delays vary · Times are local · '}
           <Link href="https://www.pulseticker.app/">pulseticker.app</Link>
         </Text>
         {!desktop && <Text dimColor wrap="wrap">Tab: move between controls · Enter: activate · Esc: return to prompt</Text>}
@@ -365,39 +233,20 @@ function changeColor(change: number | null): string | undefined {
   return change === null ? undefined : change >= 0 ? 'green' : 'red'
 }
 
-type MacLink = { server: string, hasToken: boolean }
-
-function startWatch($: EngineInterface, watch: Watchlist, mac: MacLink): Promise<void> {
+function startWatch($: EngineInterface, watch: Watchlist): Promise<void> {
   return watch.start({
     load: () => $.store.get(SETTINGS_KEY),
     save: preferences => $.store.set(SETTINGS_KEY, preferences),
-    loadMac: () => $.store.get(MAC_SETTINGS_KEY),
-    saveMac: preferences => $.store.set(MAC_SETTINGS_KEY, preferences),
-    listMac: async () => {
-      const connection = await $.mcp.connect('pulse')
-      if (!connection.isConnected) throw new MacError(macConnectionMessage(connection.reason, mac.hasToken))
-      mac.server = connection.server
-      return $.mcp.call(mac.server, 'list_watchlists', {})
-    },
-    quoteMac: symbols => $.mcp.call(mac.server, 'get_quotes', { symbols }),
     now: () => $.clock.now(),
     sleep: ms => $.clock.sleep(ms),
     after: (ms, callback) => $.clock.after(ms, callback),
     // The only two hosts the mod contacts, each written whole at its call.
     fetchYahoo: path => $.http.fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${path}`, {
-      headers: { 'User-Agent': 'Pulse-CC/0.3.8', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.4.0', Accept: 'application/json' },
     }),
     fetchBinance: query => $.http.fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?${query}`, {
-      headers: { 'User-Agent': 'Pulse-CC/0.3.8', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.4.0', Accept: 'application/json' },
     }),
     redraw: () => $.ui.invalidate('ui.render'),
   })
-}
-
-function macConnectionMessage(reason: string, hasToken: boolean): string {
-  if (reason === 'disabled') return 'Pulse Mac connection is disabled. Enable it in /mcp to reconnect.'
-  if (reason === 'policy') return 'Pulse Mac connection is blocked by your Claude Code organization policy.'
-  if (reason === 'unapproved') return 'Approve the Pulse Mac connection in /mcp, then refresh.'
-  if (!hasToken) return 'Paste your Pulse Mac token to connect.'
-  return 'Could not connect. Keep Pulse Mac open with MCP enabled and check your token.'
 }

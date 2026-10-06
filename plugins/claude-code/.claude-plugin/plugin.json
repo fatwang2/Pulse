@@ -1,8 +1,8 @@
 {
   "name": "pulse-cc",
   "displayName": "Pulse CC",
-  "version": "0.3.8",
-  "description": "Stock and crypto quotes above the prompt, or your Pulse Mac watchlists, with local display selection.",
+  "version": "0.4.0",
+  "description": "Stock and crypto quotes above the Claude Code prompt, with a /pulse panel to manage your watchlist.",
   "author": {
     "name": "fatwang2",
     "url": "https://github.com/fatwang2"
@@ -20,24 +20,6 @@
     "crypto",
     "ticker",
     "yahoo",
-    "mods",
-    "mcp",
-    "macos"
-  ],
-  "userConfig": {
-    "macToken": {
-      "type": "string",
-      "title": "Pulse Mac token",
-      "description": "Paste the MCP token from Pulse Mac → Settings → Agent access. Leave empty to keep your own watchlist.",
-      "default": "",
-      "sensitive": true
-    },
-    "macUrl": {
-      "type": "string",
-      "title": "Pulse Mac MCP address",
-      "description": "Pulse Mac's local MCP endpoint. Keep the default; change it only to reach a development build of Pulse Mac.",
-      "default": "http://127.0.0.1:41927/mcp?client=pulse-cc",
-      "sensitive": false
-    }
-  }
+    "mods"
+  ]
 }

@@ -1,8 +1,7 @@
 import type { HttpResponse } from 'claude-code'
 import type { Quote } from './yahoo'
 
-// Binance's public market-data host (`data-api.binance.vision`), the same Spot
-// source Pulse Mac uses. No key.
+// Binance's public Spot market-data host (`data-api.binance.vision`). No key.
 export const BINANCE_BATCH = 100
 
 export class BinanceError extends Error {
@@ -51,7 +50,7 @@ export function decodeTickers(pairs: string[], response: HttpResponse, now: numb
       symbol: pair,
       name: 'Binance Spot',
       price,
-      // As in Pulse Mac: the change against the close 24 hours before the last trade.
+      // The change against the close 24 hours before the last trade.
       changePercent: positive(close) ? (price - close) / close * 100 : null,
       currency: pair.split('/')[1],
       timestamp: time,

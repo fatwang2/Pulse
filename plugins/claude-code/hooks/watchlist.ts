@@ -1,19 +1,13 @@
-import type { HttpResponse, McpToolResult, Timer } from 'claude-code'
+import type { HttpResponse, Timer } from 'claude-code'
 import { decodeQuote, normalizeSymbol, quotePath, YahooError } from './yahoo'
 import type { Quote } from './yahoo'
 import { BINANCE_BATCH, BinanceError, decodeTickers, isCryptoPair, tickersQuery } from './binance'
-import { decodeMacQuotes, decodeWatchlists, instruments, MacError, readMacPreferences, readPermissionRefusal, symbolKey } from './mac'
-import type { MacGroup, MacPreferences, PermissionBlock, SymbolRef } from './mac'
 
 export const SETTINGS_KEY = 'watchlist.v1'
 export type Preferences = { version: 1; symbols: string[]; paused: boolean }
 export type Host = {
   load: () => Promise<unknown>
   save: (preferences: Preferences) => Promise<void>
-  loadMac: () => Promise<unknown>
-  saveMac: (preferences: MacPreferences) => Promise<void>
-  listMac: () => Promise<McpToolResult>
-  quoteMac: (symbols: SymbolRef[]) => Promise<McpToolResult>
   now: () => Promise<number>
   sleep: (ms: number) => Promise<void>
   after: (ms: number, callback: () => Promise<void>) => Timer
@@ -40,13 +34,8 @@ export function readPreferences(value: unknown): Preferences {
 /** One controller per loaded mod; host APIs provide network, timers and storage. */
 export class Watchlist {
   preferences: Preferences = { version: 1, symbols: [], paused: false }
-  macPreferences: MacPreferences = { version: 1, source: 'cc', selected: [] }
-  groups: MacGroup[] = []
-  macConnected = false
-  private ccQuotes: Record<string, Quote> = {}
-  private macQuotes: Record<string, Quote> = {}
-  private ccErrors: Record<string, string> = {}
-  private macErrors: Record<string, string> = {}
+  quotes: Record<string, Quote> = {}
+  errors: Record<string, string> = {}
   message = ''
   loading = false
   retryAt = 0
@@ -60,29 +49,13 @@ export class Watchlist {
   private lastRequestAt = -Infinity
   private rateFailures = 0
   private writes: Promise<unknown> = Promise.resolve()
-  // Set while Claude Code's permission check refuses the Mac reads.
-  macBlocked: PermissionBlock | undefined
 
-  constructor(private readonly intervalMs: number, private readonly macIntervalMs = 5000) {}
-
-  get source(): 'cc' | 'mac' { return this.macPreferences.source }
-  get symbols(): string[] {
-    if (this.source === 'cc') return this.preferences.symbols
-    const available = instruments(this.groups)
-    return this.macPreferences.selected.map(symbolKey).filter(key => available.has(key))
-  }
-  get quotes(): Record<string, Quote> { return this.source === 'cc' ? this.ccQuotes : this.macQuotes }
-  get errors(): Record<string, string> { return this.source === 'cc' ? this.ccErrors : this.macErrors }
-  label(key: string): string {
-    const item = instruments(this.groups).get(key)
-    return this.source === 'mac' && item ? `${item.displayCode} ${item.market.toUpperCase()}` : key
-  }
+  constructor(private readonly intervalMs: number) {}
 
   async start(api: Host): Promise<void> {
     this.stop()
     this.api = api
     this.preferences = readPreferences(await api.load())
-    this.macPreferences = readMacPreferences(await api.loadMac())
     this.reconcile()
     this.active = true
     this.changed()
@@ -104,7 +77,7 @@ export class Watchlist {
   private schedule(delay: number, manual = false): void {
     this.timer?.cancel()
     this.timer = undefined
-    if (!this.active || (!manual && (this.preferences.paused || (this.source === 'cc' && !this.preferences.symbols.length)))) return
+    if (!this.active || (!manual && (this.preferences.paused || !this.preferences.symbols.length))) return
     if (this.job) { this.pending = true; this.pendingManual ||= manual; return }
     this.timer = this.api!.after(delay, async () => {
       this.timer = undefined
@@ -113,7 +86,9 @@ export class Watchlist {
   }
 
   private edit(change: (preferences: Preferences) => string): Promise<string> {
-    const action = this.writes.catch(() => {}).then(async () => {
+    const previous = this.writes
+    const action = (async () => {
+      try { await previous } catch { /* A failed write does not block the next. */ }
       if (!this.api) throw new Error('Pulse has not started yet.')
       // Read before writing so a second session's latest settings are retained.
       const preferences = readPreferences(await this.api.load())
@@ -126,13 +101,12 @@ export class Watchlist {
       this.changed()
       this.schedule(0)
       return message
-    })
+    })()
     this.writes = action
     return action
   }
 
   add(input: string): Promise<string> {
-    if (this.source === 'mac') return Promise.reject(new Error('Add tickers in Pulse Mac, then select them here.'))
     const symbol = normalizeSymbol(input)
     return this.edit(preferences => {
       if (preferences.symbols.includes(symbol)) return `${symbol} is already on your watchlist.`
@@ -142,7 +116,6 @@ export class Watchlist {
   }
 
   remove(input: string): Promise<string> {
-    if (this.source === 'mac') return Promise.reject(new Error('Uncheck a ticker to hide it here. Manage the watchlist in Pulse Mac.'))
     const symbol = normalizeSymbol(input)
     return this.edit(preferences => {
       if (!preferences.symbols.includes(symbol)) return `${symbol} is not on your watchlist.`
@@ -158,50 +131,9 @@ export class Watchlist {
     })
   }
 
-  private editMac(change: (preferences: MacPreferences) => string, manual = false): Promise<string> {
-    const action = this.writes.catch(() => {}).then(async () => {
-      if (!this.api) throw new Error('Pulse has not started yet.')
-      const preferences = readMacPreferences(await this.api.loadMac())
-      const message = change(preferences)
-      await this.api.saveMac(preferences)
-      this.macPreferences = preferences
-      this.revision++
-      this.message = message
-      this.reconcile()
-      this.changed()
-      this.schedule(0, manual)
-      return message
-    })
-    this.writes = action
-    return action
-  }
-
-  async setSource(source: 'cc' | 'mac'): Promise<string> {
-    return this.editMac(preferences => {
-      preferences.source = source
-      return source === 'mac' ? 'Pulse Mac selected. Choose tickers to display.' : 'Claude Code watchlist selected.'
-    }, source === 'mac') // One read makes groups available even when paused.
-  }
-
-  toggleMac(symbol: SymbolRef): Promise<string> {
-    if (this.source !== 'mac') return Promise.reject(new Error('Select Pulse Mac first.'))
-    const key = symbolKey(symbol)
-    if (!instruments(this.groups).has(key)) return Promise.reject(new Error('This ticker is no longer in Pulse Mac. Refresh the list.'))
-    return this.editMac(preferences => {
-      const selected = preferences.selected.some(ref => symbolKey(ref) === key)
-      preferences.selected = selected ? preferences.selected.filter(ref => symbolKey(ref) !== key) : [...preferences.selected, symbol]
-      return selected ? 'Ticker hidden in Claude Code.' : 'Ticker selected for Claude Code.'
-    })
-  }
-
   private reconcile(): void {
-    const ccSymbols = new Set(this.preferences.symbols)
-    const macSymbols = new Set(instruments(this.groups).keys())
-    for (const [records, keys] of [
-      [[this.ccQuotes, this.ccErrors], ccSymbols], [[this.macQuotes, this.macErrors], macSymbols],
-    ] as const) {
-      for (const record of records) for (const key of Object.keys(record)) if (!keys.has(key)) delete record[key]
-    }
+    const symbols = new Set(this.preferences.symbols)
+    for (const record of [this.quotes, this.errors]) for (const key of Object.keys(record)) if (!symbols.has(key)) delete record[key]
   }
 
   async refresh(manual = true): Promise<void> {
@@ -221,17 +153,17 @@ export class Watchlist {
       this.loading = false
       this.changed()
       const now = await this.api.now()
-      const cooldown = this.source === 'cc' ? Math.max(0, this.retryAt - now) : 0
+      const cooldown = Math.max(0, this.retryAt - now)
       // Binance pairs keep their cadence through a Yahoo cooldown; Yahoo still waits.
-      const crypto = this.source === 'cc' && this.preferences.symbols.some(isCryptoPair)
+      const crypto = this.preferences.symbols.some(isCryptoPair)
       if (this.pending) this.schedule(crypto ? 0 : cooldown, this.pendingManual)
-      else this.schedule(this.source === 'mac' ? this.macIntervalMs : Math.max(crypto ? 0 : cooldown, this.intervalMs))
+      else this.schedule(Math.max(crypto ? 0 : cooldown, this.intervalMs))
     }
   }
 
   private async runRefresh(manual: boolean): Promise<void> {
     const now = await this.api!.now()
-    if (this.source === 'cc' && now < this.retryAt) {
+    if (now < this.retryAt) {
       // Binance pairs still refresh; Yahoo tickers wait out the cooldown.
       if (this.preferences.symbols.some(isCryptoPair)) await this.poll(manual, false)
       this.message = `Yahoo rate limited requests. Retry after ${Math.ceil((this.retryAt - now) / 1000)}s.`
@@ -256,8 +188,8 @@ export class Watchlist {
     if (!response || !current()) return
     const now = await this.api!.now()
     if (!current()) return
-    this.ccQuotes[symbol] = decodeQuote(symbol, response, now)
-    delete this.ccErrors[symbol]
+    this.quotes[symbol] = decodeQuote(symbol, response, now)
+    delete this.errors[symbol]
   }
 
   private async throttle(cause: unknown): Promise<boolean> {
@@ -273,14 +205,11 @@ export class Watchlist {
     const api = this.api!
     const revision = this.revision
     const saved = readPreferences(await api.load())
-    const mac = readMacPreferences(await api.loadMac())
     if (!this.active || revision !== this.revision) return
     // Pick up changes made in another local Claude Code session.
     this.preferences = saved
-    this.macPreferences = mac
     this.reconcile()
     if (saved.paused && !manual) { this.changed(); return }
-    if (this.source === 'mac') return this.pollMac(revision)
     this.loading = true
     this.message = ''
     this.changed()
@@ -299,10 +228,10 @@ export class Watchlist {
       } catch (error) {
         if (!this.active || revision !== this.revision) return
         // Do not echo request URLs or raw server bodies into the conversation.
-        this.ccErrors[symbol] = error instanceof YahooError ? error.message : 'Could not reach Yahoo Finance.'
+        this.errors[symbol] = error instanceof YahooError ? error.message : 'Could not reach Yahoo Finance.'
         if (await this.throttle(error)) {
           const deferred = tickers.slice(tickers.indexOf(symbol) + 1)
-          for (const remaining of deferred) this.ccErrors[remaining] = 'Refresh deferred: Yahoo rate limited requests.'
+          for (const remaining of deferred) this.errors[remaining] = 'Refresh deferred: Yahoo rate limited requests.'
           this.changed()
           return
         }
@@ -325,12 +254,12 @@ export class Watchlist {
           if (!current()) return
           try { await this.fetchCrypto([pair], current) } catch (cause) {
             if (!current()) return
-            this.ccErrors[pair] = cause instanceof BinanceError ? cause.message : 'Could not reach Binance.'
+            this.errors[pair] = cause instanceof BinanceError ? cause.message : 'Could not reach Binance.'
           }
         }
       } else {
         // Do not echo request URLs or raw server bodies into the conversation.
-        for (const pair of pairs) this.ccErrors[pair] = error instanceof BinanceError ? error.message : 'Could not reach Binance.'
+        for (const pair of pairs) this.errors[pair] = error instanceof BinanceError ? error.message : 'Could not reach Binance.'
       }
     }
     if (current()) this.changed()
@@ -344,46 +273,8 @@ export class Watchlist {
     if (!current()) return
     for (const pair of pairs) {
       const quote = quotes[pair]
-      if (quote) { this.ccQuotes[pair] = quote; delete this.ccErrors[pair] }
-      else this.ccErrors[pair] = 'Binance returned no quote for this pair.'
+      if (quote) { this.quotes[pair] = quote; delete this.errors[pair] }
+      else this.errors[pair] = 'Binance returned no quote for this pair.'
     }
-  }
-
-  private async pollMac(revision: number): Promise<void> {
-    const api = this.api!
-    const current = () => this.active && revision === this.revision && this.source === 'mac'
-    this.loading = true
-    this.message = ''
-    this.changed()
-    try {
-      const result = await api.listMac()
-      if (!current()) return
-      this.groups = decodeWatchlists(result)
-      this.reconcile()
-      this.macConnected = true
-      this.macBlocked = undefined
-      this.changed()
-      const available = instruments(this.groups)
-      const selected = this.symbols.map(key => available.get(key)!)
-      for (let offset = 0; offset < selected.length; offset += 100) {
-        const batch = selected.slice(offset, offset + 100)
-        const result = await api.quoteMac(batch.map(({ market, code }) => ({ market, code })))
-        const now = await api.now()
-        if (!current()) return
-        for (const [key, quote] of Object.entries(decodeMacQuotes(result, batch, now))) {
-          if (quote) { this.macQuotes[key] = quote; delete this.macErrors[key] }
-          else this.macErrors[key] = 'No quote cached in Pulse Mac yet.'
-        }
-      }
-    } catch (error) {
-      if (!current()) return
-      this.macConnected = false
-      this.macBlocked = readPermissionRefusal(error)
-      this.message = error instanceof MacError ? error.message
-        : this.macBlocked ? 'Claude Code blocked the Pulse Mac read.'
-        : 'Could not reach Pulse Mac. Keep the app open and check its MCP connection in /mcp.'
-      for (const key of this.symbols) this.macErrors[key] = this.message
-    }
-    if (current()) this.changed()
   }
 }

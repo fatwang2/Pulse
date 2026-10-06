@@ -34,20 +34,15 @@ free installers remain available. See [historical Mac source and downloads](docs
 
 A Claude Code plugin that shows stock and crypto quotes with signed percentage
 changes above the prompt, with a `/pulse` panel for adding and removing tickers,
-refreshing prices, and pausing updates. The local MCP connection is included: download Pulse Mac,
-paste its token, and choose which tickers from its groups appear in Claude Code.
-Mac watchlists remain read-only
-from the plugin. Requires Claude Code **2.1.287 or later**, with Mods enabled.
+refreshing prices, and pausing updates. Stocks and indices come from Yahoo
+Finance and crypto pairs from Binance's public Spot data. Requires Claude Code
+**2.1.287 or later**, with Mods enabled.
 
 ![Pulse for Claude Code showing stock and crypto prices above the prompt](assets/readme/pulse-claude-code.png)
 
 The prices and the `/pulse` panel also work in Claude Desktop's **Code** tab:
 
 ![Claude Desktop with Pulse CC prices above the prompt and the panel beside the chat](assets/readme/pulse-cc-desktop.png)
-
-Connect Pulse Mac to browse its watchlist groups and choose which tickers to display:
-
-![Pulse CC panel connected to Pulse Mac through MCP, with watchlist groups and display selections](assets/readme/pulse-cc-mac-panel.png)
 
 Install from GitHub:
 
@@ -59,11 +54,8 @@ claude plugin install pulse-cc@pulse
 Restart Claude Code or run `/reload-plugins`, then add a stock with
 `/pulse add AAPL` or a crypto pair with `/pulse add BTC/USDT`, and open `/pulse`
 to manage your watchlist.
-To connect the Mac app, select **Pulse Mac** in `/pulse`, enable MCP in the app's
-**Settings → Agent access**, then use **Paste token** to open the configuration
-dialog. **Pulse Mac token** is the only setting.
 See the [Claude Code guide](plugins/claude-code/README.md) for commands,
-provider limits, privacy, Mac connection setup, and local development.
+provider limits, privacy, and local development.
 
 ## Pulse for Omarchy
 

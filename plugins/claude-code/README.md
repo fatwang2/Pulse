@@ -148,28 +148,59 @@ Pulse CC is a Claude Code mod: functions in `hooks/register.tsx` that Claude
 Code calls in its own process. Everything it does goes through the mods API,
 and every host call is written out in that one file.
 
-- **Hooks and what they do:** `session.start` registers `/pulse` and, in a
-  terminal session, starts the quote refresh. `session.attach` and
-  `session.detach` start and stop the refresh when Claude Desktop connects or
-  disconnects. `session.end` stops it. `command.run` answers `/pulse` and no
-  other command. `ui.render` draws the band above the prompt and the `/pulse`
-  panel. It has no hook on Claude's tool calls, prompts, permission checks or
-  messages, so it never sees, changes or approves them.
-- **What it fetches and sends, and where:** HTTPS `GET` requests to exactly two
-  fixed addresses, each written whole at its call:
-  `https://query1.finance.yahoo.com/v8/finance/chart/<symbol>` for stocks and
-  indices, and `https://data-api.binance.vision/api/v3/ticker/24hr?symbols=<pairs>`
-  for crypto pairs. A request carries only the watched symbols, a
-  `Pulse-CC/<version>` user agent and `Accept: application/json`; no token,
-  cookie, account or other data. They run about once a minute while prices are
-  shown, plus manual refreshes. It contacts no other hosts, and responses are
-  read only as quote data: nothing in them is run or treated as a command.
-- **Tools, commands and programs:** none. It calls no MCP or other tools, runs
-  no slash commands, starts no processes and runs no shell commands.
-- **Local data:** its plugin store holds the watchlist and paused setting
-  described above. It has no configuration options and reads no environment
-  variables, files or credentials. The panel's link to
-  `https://www.pulseticker.app/` opens in your browser and sends nothing.
+### What each hook does
+
+- `session.start`: registers the `/pulse` command and, in a terminal session,
+  starts the quote refresh.
+- `session.attach` and `session.detach` (Claude Desktop only): start the refresh
+  when a Desktop window attaches and stop it when the last one detaches.
+- `session.end`: stops the refresh.
+- `command.run`, matched to `/pulse` only: the one call it sees is the person
+  typing `/pulse`. It reads the arguments (`add`, `remove`, `refresh`, `off`,
+  `on`, `help` or none), updates the watchlist in the plugin store or opens and
+  closes the panel, and answers with one short line such as `Added AAPL.`. It
+  never runs, rewrites or forwards the command, and never sees other commands.
+- `ui.render` for `AbovePrompt` and for its own `pulse-quotes` pane: draws the
+  quote band above the prompt and the `/pulse` panel.
+
+It has no hook on Claude's tool calls, prompts, permission checks or messages,
+so it never sees, changes or approves them.
+
+### What it fetches
+
+HTTPS `GET` requests, at two calls, each with its https address and its options
+object written at the call:
+
+- `https://query1.finance.yahoo.com/v8/finance/chart/<symbol>?interval=1d&range=1d&includePrePost=false`
+  for each watched stock or index, at least one second apart.
+- `https://data-api.binance.vision/api/v3/ticker/24hr?symbols=<pairs>` for the
+  watched crypto pairs, up to 100 pairs per request.
+
+They run once per refresh round, 60 seconds after the previous round ends, while
+the band or panel can show prices, plus rounds you request with Refresh.
+Responses are read only as quote data: nothing in them is run, opened or treated
+as a command.
+
+### What it sends and where
+
+- **Hosts it contacts:** `query1.finance.yahoo.com` (Yahoo Finance) and
+  `data-api.binance.vision` (Binance). No other hosts.
+- **What it sends:** the watched symbols in the request address, a
+  `Pulse-CC/<version>` user agent and `Accept: application/json`. No token,
+  cookie, account, watchlist name or other data.
+- The panel's link to `https://www.pulseticker.app/` opens in your browser only
+  when you click it; the mod sends nothing there itself.
+
+### What it runs
+
+Nothing. It calls no tools (no shell, agent or MCP tool), runs no commands,
+starts no processes and spawns no agents.
+
+### What it reads and stores
+
+Its plugin store holds the watchlist and paused setting described above. It has
+no configuration options and reads no environment variables, files or
+credentials.
 
 ## Development and verification
 

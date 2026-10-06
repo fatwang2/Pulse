@@ -242,10 +242,10 @@ function startWatch($: EngineInterface, watch: Watchlist): Promise<void> {
     after: (ms, callback) => $.clock.after(ms, callback),
     // The only two hosts the mod contacts, each written whole at its call.
     fetchYahoo: path => $.http.fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${path}`, {
-      headers: { 'User-Agent': 'Pulse-CC/0.4.0', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.4.1', Accept: 'application/json' },
     }),
     fetchBinance: query => $.http.fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?${query}`, {
-      headers: { 'User-Agent': 'Pulse-CC/0.4.0', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.4.1', Accept: 'application/json' },
     }),
     redraw: () => $.ui.invalidate('ui.render'),
   })

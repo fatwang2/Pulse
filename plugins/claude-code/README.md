@@ -101,21 +101,19 @@ or port configuration is needed. The configuration dialog also lists
    in Claude Code's configuration dialog, then save. Apply the reload if prompted
    and reopen `/pulse`.
 
-Claude Desktop's local **Code** tab cannot show that dialog, so the card has a
-token field instead: paste the token and press **Save**. Pulse passes it on
-standard input to `claude plugin configure --values-stdin`, which saves it the
-same way the dialog does. Start a new session to connect. The field shows the
-token as you type.
-
-<img src="https://raw.githubusercontent.com/fatwang2/Pulse/main/assets/readme/pulse-cc-desktop-setup.png" width="360" alt="Pulse CC first-connection card in Claude Desktop with a token field and Save button">
+Claude Desktop's local **Code** tab cannot show that dialog. On Desktop, open
+a terminal, run `claude`, then `/plugin configure pulse-cc`. Paste the token
+into **Pulse Mac token**, save, and start a new Desktop session to connect.
+Desktop and the terminal share the same plugin configuration on your Mac.
 
 The token is optional: leave it empty to keep using your own watchlist.
 Claude Code saves the token in its secure credential store. The plugin never
-saves the token in its watchlist store or sends it as command text or arguments.
+reads, saves or sends the token itself; Claude Code's MCP connection uses it.
 
 Once connected, the checklist is replaced by your Mac watchlist groups. Press
 **Show** beside a ticker to include it above the prompt; press **✓ Shown** to
-hide it again. Use **Update token** when you rotate the token in Pulse Mac.
+hide it again. Use **Update token** in the terminal, or `/plugin configure
+pulse-cc` in a terminal session for Desktop, when you rotate the token in Pulse Mac.
 
 ![Pulse CC panel connected to Pulse Mac through MCP, with watchlist groups and display selections](https://raw.githubusercontent.com/fatwang2/Pulse/main/assets/readme/pulse-cc-mac-panel.png)
 
@@ -247,36 +245,41 @@ See the [Pulse privacy policy](https://www.pulseticker.app/privacy#pulse-cc).
 ## What the mod runs
 
 Pulse CC is a Claude Code mod: functions in `hooks/register.tsx` that Claude
-Code calls in its own process. Everything it does goes through the mods API.
+Code calls in its own process. Everything it does goes through the mods API,
+and every host call is written out in that one file.
 
-- **Events it handles:** `session.start` registers `/pulse` and, in a terminal
-  session, starts the quote refresh. `session.attach` and `session.detach`
-  start and stop the refresh when Claude Desktop connects or disconnects.
-  `session.end` stops it. `command.run` answers `/pulse`. `ui.render` draws the
-  band above the prompt and the `/pulse` panel. It has no hook on Claude's tool
-  calls, prompts, or permission checks.
-- **Network requests:** HTTPS `GET` requests to
-  `query1.finance.yahoo.com` for stock and index symbols and to
-  `data-api.binance.vision` for crypto pairs, about once a minute while prices
-  are shown, plus manual refreshes. They contain only the symbols. No other
-  hosts.
-- **Tool calls:** in Pulse Mac mode only, it calls the `list_watchlists` and
-  `get_quotes` tools of its own bundled Pulse Mac connection about every five
-  seconds, at the address in **Pulse Mac MCP address** (by default
-  `127.0.0.1:41927`, your own Mac). These calls are made by the plugin, not by
+- **Hooks and what they do:** `session.start` registers `/pulse` and, in a
+  terminal session, starts the quote refresh. `session.attach` and
+  `session.detach` start and stop the refresh when Claude Desktop connects or
+  disconnects. `session.end` stops it. `command.run` answers `/pulse` and no
+  other command. `ui.render` draws the band above the prompt and the `/pulse`
+  panel. It has no hook on Claude's tool calls, prompts, permission checks or
+  messages, so it never sees, changes or approves them.
+- **What it fetches and sends, and where:** HTTPS `GET` requests to exactly two
+  fixed addresses, each written whole at its call:
+  `https://query1.finance.yahoo.com/v8/finance/chart/<symbol>` for stocks and
+  indices, and `https://data-api.binance.vision/api/v3/ticker/24hr?symbols=<pairs>`
+  for crypto pairs. A request carries only the watched symbols, a
+  `Pulse-CC/<version>` user agent and `Accept: application/json`; no token,
+  cookie, account or other data. They run about once a minute while prices are
+  shown, plus manual refreshes. It contacts no other hosts, and responses are
+  read only as quote data: nothing in them is run or treated as a command.
+- **Tools it calls itself:** in Pulse Mac mode only, the two read-only tools
+  `list_watchlists` and `get_quotes` of its own bundled Pulse Mac MCP server
+  (`plugin:pulse-cc:pulse`), about every five seconds while the band or panel
+  is live, and once when you select Pulse Mac or press Refresh. The server is at
+  **Pulse Mac MCP address**, by default `127.0.0.1:41927`, your own Mac. The
+  tool names are fixed text; `get_quotes` receives only the instrument
+  references you chose to show. These calls are made by the plugin, not by
   Claude, and go through your permission settings as described above. It never
-  calls Pulse Mac's write tools.
-- **Commands and programs:** in the terminal, **Paste token** runs
-  `/plugin configure pulse-cc`, which opens Claude Code's configuration dialog.
-  In Claude Desktop, **Save** runs `claude plugin list --json` to find this
-  plugin's id, then `claude plugin configure <id> --values-stdin` with the token
-  on standard input. It starts `claude` from the path in `CLAUDE_CODE_EXECPATH`,
-  which Claude Code sets to its own executable, and falls back to `claude` on
-  your `PATH`. It runs no other commands or programs.
+  calls Pulse Mac's write tools or any other server's tools.
+- **Commands it runs:** one, written as fixed text: in the terminal, pressing
+  **Paste token** or **Update token** runs `/plugin configure pulse-cc`, which
+  opens Claude Code's own configuration dialog. Nothing runs it otherwise.
+- **Programs:** none. It starts no processes and runs no shell commands.
 - **Local data:** its plugin store holds the watchlist and display settings
-  described above. The only environment variable it reads is
-  `CLAUDE_CODE_EXECPATH`, which is not a credential. The links to
-  `pulseticker.app` in the panel open in your browser and send nothing.
+  described above. It reads no environment variables and no files. The links
+  to `pulseticker.app` in the panel open in your browser and send nothing.
 
 ## Development and verification
 

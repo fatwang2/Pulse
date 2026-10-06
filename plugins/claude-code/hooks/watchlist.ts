@@ -1,7 +1,7 @@
 import type { HttpResponse, McpToolResult, Timer } from 'claude-code'
-import { decodeQuote, normalizeSymbol, quoteURL, YahooError } from './yahoo'
+import { decodeQuote, normalizeSymbol, quotePath, YahooError } from './yahoo'
 import type { Quote } from './yahoo'
-import { BINANCE_BATCH, BinanceError, decodeTickers, isCryptoPair, tickersURL } from './binance'
+import { BINANCE_BATCH, BinanceError, decodeTickers, isCryptoPair, tickersQuery } from './binance'
 import { decodeMacQuotes, decodeWatchlists, instruments, MacError, readMacPreferences, readPermissionRefusal, symbolKey } from './mac'
 import type { MacGroup, MacPreferences, PermissionBlock, SymbolRef } from './mac'
 
@@ -17,7 +17,8 @@ export type Host = {
   now: () => Promise<number>
   sleep: (ms: number) => Promise<void>
   after: (ms: number, callback: () => Promise<void>) => Timer
-  fetch: (url: string) => Promise<HttpResponse>
+  fetchYahoo: (path: string) => Promise<HttpResponse>
+  fetchBinance: (query: string) => Promise<HttpResponse>
   redraw: () => void
 }
 
@@ -240,18 +241,18 @@ export class Watchlist {
     await this.poll(manual)
   }
 
-  private async request(url: string, current: () => boolean) {
+  private async request(path: string, current: () => boolean) {
     const api = this.api!
     const wait = 1000 - ((await api.now()) - this.lastRequestAt)
     if (wait > 0) await api.sleep(wait)
     if (!current()) return undefined
     this.lastRequestAt = await api.now()
     if (!current()) return undefined
-    return api.fetch(url)
+    return api.fetchYahoo(path)
   }
 
   private async fetchQuote(symbol: string, current: () => boolean): Promise<void> {
-    const response = await this.request(quoteURL(symbol), current)
+    const response = await this.request(quotePath(symbol), current)
     if (!response || !current()) return
     const now = await this.api!.now()
     if (!current()) return
@@ -337,7 +338,7 @@ export class Watchlist {
 
   private async fetchCrypto(pairs: string[], current: () => boolean): Promise<void> {
     const api = this.api!
-    const response = await api.fetch(tickersURL(pairs))
+    const response = await api.fetchBinance(tickersQuery(pairs))
     if (!current()) return
     const quotes = decodeTickers(pairs, response, await api.now())
     if (!current()) return

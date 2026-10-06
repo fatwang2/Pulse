@@ -1,8 +1,8 @@
 import type { HttpResponse } from 'claude-code'
 import type { Quote } from './yahoo'
 
-// Binance's public market-data host, the same Spot source Pulse Mac uses. No key.
-const TICKER_URL = 'https://data-api.binance.vision/api/v3/ticker/24hr'
+// Binance's public market-data host (`data-api.binance.vision`), the same Spot
+// source Pulse Mac uses. No key.
 export const BINANCE_BATCH = 100
 
 export class BinanceError extends Error {
@@ -20,9 +20,9 @@ export function binanceSymbol(pair: string): string {
   return pair.replace('/', '')
 }
 
-/** One request for up to BINANCE_BATCH pairs: `symbols=["BTCUSDT","ETHUSDT"]`. */
-export function tickersURL(pairs: string[]): string {
-  return `${TICKER_URL}?symbols=${encodeURIComponent(JSON.stringify(pairs.map(binanceSymbol)))}`
+/** The query of one request for up to BINANCE_BATCH pairs: `symbols=["BTCUSDT","ETHUSDT"]`. */
+export function tickersQuery(pairs: string[]): string {
+  return `symbols=${encodeURIComponent(JSON.stringify(pairs.map(binanceSymbol)))}`
 }
 
 const positive = (value: number): boolean => Number.isFinite(value) && value > 0

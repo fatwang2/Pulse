@@ -10,19 +10,13 @@ const HELP = '/pulse · /pulse source cc|mac · /pulse add AAPL · /pulse remove
 export const register: Register = (on, options) => {
   const intervalSeconds = 60
   const macIntervalSeconds = 5
-  let hasToken = typeof options.macToken === 'string' && !!options.macToken.trim()
+  const hasToken = typeof options.macToken === 'string' && !!options.macToken.trim()
   const link: MacLink = { server: 'plugin:pulse-cc:pulse', hasToken }
   const watch = new Watchlist(intervalSeconds * 1000, macIntervalSeconds * 1000)
   let input = ''
-  // Desktop cannot show the /plugin configure dialog, so its token field saves
-  // through the same host command non-interactively (secure storage). The typed
-  // value travels only on that command's stdin and is never kept or shown.
-  let token = ''
   // Desktop keeps a field's typed text while the drawn value stays '', so a
   // cleared field is redrawn under a new key to discard it.
   let fieldRound = 0
-  let editingToken = false
-  let notice = ''
   let error = ''
   let macGroupID: string | undefined
 
@@ -152,36 +146,15 @@ export const register: Register = (on, options) => {
     const redraw = () => $.ui.invalidate('ui.render')
     const action = (task: () => Promise<unknown>) => { void act(task).finally(redraw) }
     const addTicker = () => action(async () => { await watch.add(input); input = ''; fieldRound++ })
+    // The terminal opens the host's configuration dialog, which keeps the token
+    // in secure storage. Desktop cannot show that dialog, so its card names the
+    // same command for a terminal session instead of saving the token itself.
     const configure = () => action(async () => {
-      if (desktop) { editingToken = true; return }
       await $.ui.close({ id: PANE })
-      await $.command.run({ command: 'plugin', args: `configure ${$.plugin.name}` })
+      await $.command.run({ command: 'plugin', args: 'configure pulse-cc' })
     })
-    const saveToken = (value: string) => action(async () => {
-      const typed = value.trim()
-      token = ''
-      fieldRound++
-      notice = ''
-      if (!typed) throw new Error('Paste the token from Pulse Mac → Settings → Agent access.')
-      const claude = await $.env.get('CLAUDE_CODE_EXECPATH') || 'claude'
-      const listed = await $.process.run([claude, 'plugin', 'list', '--json'], { stdin: '', timeoutMs: 20_000 })
-      const id = listed.exitCode === 0 ? pluginID(listed.stdout, $.plugin.root) : undefined
-      if (!id) throw new Error('Could not find this plugin\'s settings. Run /plugin configure pulse-cc in a terminal.')
-      const saved = await $.process.run([claude, 'plugin', 'configure', id, '--values-stdin'],
-        { stdin: JSON.stringify({ macToken: typed }), timeoutMs: 20_000 })
-      if (saved.exitCode !== 0) throw new Error('Could not save the token. Run /plugin configure pulse-cc in a terminal.')
-      hasToken = link.hasToken = true
-      editingToken = false
-      // The plugin's options and its MCP server read the token when a session
-      // loads them, and Desktop cannot run /reload-plugins.
-      notice = 'Token saved. Start a new session to connect.'
-    })
-    const tokenField = <Box key={`token-field-${fieldRound}`} gap={1} alignItems="center" marginTop={1}>
-      <Box flexGrow={1} flexShrink={1}>
-        <Input key={`mac-token-${fieldRound}`} placeholder="Paste the Pulse Mac token" value={token} submitLabel="Save" autoFocus
-          onInput={value => { token = value }} onSubmit={saveToken} />
-      </Box>
-    </Box>
+    const configureHint = <Text wrap="wrap">In a terminal, run <Text bold>claude</Text>, then <Text bold>/plugin configure pulse-cc</Text>.
+      Paste into <Text bold>Pulse Mac token</Text>, save, and start a new session here.</Text>
     const mac = watch.source === 'mac'
     const paused = watch.preferences.paused
     const needsSetup = mac && !watch.macConnected && !watch.groups.length
@@ -316,16 +289,15 @@ export const register: Register = (on, options) => {
         <Box flexDirection="column" marginTop={rowGap}>
           <Text wrap="wrap"><Text color="cyan">{'1  '}</Text><Link href="https://www.pulseticker.app/"><Text color="cyan">Download Pulse Mac ↗</Text></Link>, then open it.</Text>
           <Text wrap="wrap"><Text color="cyan">{'2  '}</Text>Enable MCP in <Text bold>Settings → Agent access</Text> and copy the token.</Text>
-          {desktop ? <Text wrap="wrap"><Text color="cyan">{'3  '}</Text>Paste it below and press <Text bold>Save</Text>.</Text>
+          {desktop ? <Text wrap="wrap"><Text color="cyan">{'3  '}</Text>Save it in Claude Code's configuration:</Text>
             : <Text wrap="wrap"><Text color="cyan">{'3  '}</Text>Click <Text bold>{hasToken ? 'Update token' : 'Paste token'}</Text> below to open configuration.</Text>}
         </Box>
-        {desktop ? <Box marginTop={1}>{tokenField}</Box> : <Box marginTop={1}>
+        {desktop ? <Box marginTop={1}>{configureHint}</Box> : <Box marginTop={1}>
           <Button key="mac-configure" label={hasToken ? 'Update token' : 'Paste token'} variant="primary" onPress={configure} />
         </Box>}
-        <Box marginTop={gap}><Text dimColor wrap="wrap">{desktop ? 'Saved in Claude Code\'s secure storage, never in Pulse settings.'
+        <Box marginTop={gap}><Text dimColor wrap="wrap">{desktop ? 'Claude Code keeps it in secure storage, never in Pulse settings.'
           : 'In the window that opens, paste into Pulse Mac token and save. Then reopen /pulse.'}
           {' The local connection is included; keep Pulse Mac open.'}</Text></Box>
-        {notice && <Box marginTop={gap}><Text color="success" wrap="wrap">{notice}</Text></Box>}
         {watch.message && !watch.message.startsWith('Could not reach Pulse Mac.') && !watch.message.startsWith('Paste your Pulse Mac token')
           && <Text color="warning" wrap="wrap">{watch.message}</Text>}
       </Box>}
@@ -370,11 +342,12 @@ export const register: Register = (on, options) => {
       <Box key="footer" flexDirection="column" marginTop={space}>
         {mac && !needsSetup && <Box gap={2} alignItems="center" flexWrap="wrap">
           <Text dimColor wrap="wrap">{`MCP ${link.server} · Keep Pulse Mac open with Agent access enabled.`}</Text>
-          {!(desktop && editingToken) && <Button key="mac-configure" label="Update token" dimColor onPress={configure} />}
+          {!desktop && <Button key="mac-configure" label="Update token" dimColor onPress={configure} />}
           {!watch.macConnected && <Link href="https://github.com/fatwang2/Pulse/tree/main/plugins/claude-code#connect-pulse-mac"><Text color="cyan">Connection guide ↗</Text></Link>}
         </Box>}
-        {mac && !needsSetup && desktop && editingToken && tokenField}
-        {mac && !needsSetup && notice && <Text color="success" wrap="wrap">{notice}</Text>}
+        {mac && !needsSetup && desktop && <Box key="mac-token-hint" marginTop={gap}>
+          <Text dimColor wrap="wrap">To update the token, run <Text bold>/plugin configure pulse-cc</Text> in a terminal Claude Code session.</Text>
+        </Box>}
         <Text dimColor wrap="wrap">
           {mac ? 'Pulse Mac · Cached app quotes · Provider timestamps · Times are local · '
             : watch.preferences.symbols.some(isCryptoPair)
@@ -386,18 +359,6 @@ export const register: Register = (on, options) => {
       </Box>
     </Box>
   })
-}
-
-// The full plugin id (name@marketplace, or name@inline for a local folder) is
-// what `claude plugin configure` takes; match it by this plugin's own root.
-function pluginID(listJSON: string, root: string): string | undefined {
-  try {
-    const listed: unknown = JSON.parse(listJSON)
-    const plugins = Array.isArray(listed) ? listed : []
-    const match = plugins.find((plugin: { installPath?: unknown, enabled?: unknown }) =>
-      plugin.installPath === root && plugin.enabled !== false) as { id?: unknown } | undefined
-    return typeof match?.id === 'string' ? match.id : undefined
-  } catch { return undefined }
 }
 
 function changeColor(change: number | null): string | undefined {
@@ -422,8 +383,12 @@ function startWatch($: EngineInterface, watch: Watchlist, mac: MacLink): Promise
     now: () => $.clock.now(),
     sleep: ms => $.clock.sleep(ms),
     after: (ms, callback) => $.clock.after(ms, callback),
-    fetch: url => $.http.fetch(url, {
-      headers: { 'User-Agent': 'Pulse-CC/0.3.7', Accept: 'application/json' },
+    // The only two hosts the mod contacts, each written whole at its call.
+    fetchYahoo: path => $.http.fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${path}`, {
+      headers: { 'User-Agent': 'Pulse-CC/0.3.8', Accept: 'application/json' },
+    }),
+    fetchBinance: query => $.http.fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?${query}`, {
+      headers: { 'User-Agent': 'Pulse-CC/0.3.8', Accept: 'application/json' },
     }),
     redraw: () => $.ui.invalidate('ui.render'),
   })

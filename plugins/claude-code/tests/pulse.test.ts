@@ -5,8 +5,11 @@ import { SETTINGS_KEY } from '../hooks/watchlist'
 import { MAC_SETTINGS_KEY, decodeMacQuotes, decodeWatchlists, readMacPreferences } from '../hooks/mac'
 import type { MacGroup } from '../hooks/mac'
 import type { McpToolResult } from 'claude-code'
-import { decodeQuote, formatBandPrice, formatPrice, formatStaleDate, normalizeSymbol, quoteURL, YahooError } from '../hooks/yahoo'
-import { BinanceError, decodeTickers, isCryptoPair, tickersURL } from '../hooks/binance'
+import { decodeQuote, formatBandPrice, formatPrice, formatStaleDate, normalizeSymbol, quotePath, YahooError } from '../hooks/yahoo'
+import { BinanceError, decodeTickers, isCryptoPair, tickersQuery } from '../hooks/binance'
+
+// The URL the mod's one Binance call builds from its fixed address.
+const tickersURL = (pairs: string[]) => `https://data-api.binance.vision/api/v3/ticker/24hr?${tickersQuery(pairs)}`
 
 const PLUGIN = 'pulse-cc'
 const NOW = 1_790_965_500_000
@@ -77,7 +80,7 @@ test('Yahoo decoding uses previous close, preserves unknown delay, and rejects a
   expect(() => decodeQuote('AAPL', response('AAPL', 0), NOW)).toThrow('incomplete quote')
   expect(normalizeSymbol('00700.hk')).toBe('0700.HK')
   expect(normalizeSymbol('600519.SH')).toBe('600519.SS')
-  expect(quoteURL('^GSPC')).toContain('%5EGSPC')
+  expect(quotePath('^GSPC').startsWith('%5EGSPC?')).toBe(true)
   expect(() => normalizeSymbol('https://example.com')).toThrow()
   expect(formatStaleDate(NOW - 60_000, NOW)).toBe('')
   expect(formatStaleDate(NOW - 3 * 86_400_000, NOW)).toMatch(/^[A-Z][a-z]{2} \d{1,2}$/)
@@ -645,8 +648,8 @@ test('unconnected Mac shows download and setup links, then reveals watchlists af
       expect(await pane.find({ type: 'Text', text: /In the window that opens, paste into Pulse Mac token and save/ })).toBeDefined()
       expect((await pane.find({ key: 'mac-configure' }))?.text).toBe('Paste token')
     } else {
-      expect(await pane.find({ type: 'Text', text: /Paste it below and press Save/ })).toBeDefined()
-      expect(await pane.find({ key: 'mac-token-0' })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /Save it in Claude Code's configuration/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /\/plugin configure pulse-cc/ })).toBeDefined()
     }
     expect(await pane.find({ type: 'Text', text: /Follow the guide to add the server/ })).toBe(undefined)
     expect(await pane.find({ key: `mac-group-select-${GROUP_A}` })).toBe(undefined)
@@ -824,7 +827,7 @@ test('Mac source and display selection survive reload while quotes are read anew
   expect(saved.get(SETTINGS_KEY)).toEqual({ version: 1, symbols: ['MSFT'], paused: false })
 })
 
-test('Paste token opens native configuration in the terminal and saves through the host CLI on desktop, never in Pulse settings', async ($, on) => {
+test('Paste token opens native configuration in the terminal; desktop names the command and runs nothing', async ($, on) => {
   const { clock, saved } = host(on, ['MSFT'])
   const state = macHost(on, saved)
   state.refusal = 'auth'
@@ -836,17 +839,8 @@ test('Paste token opens native configuration in the terminal and saves through t
     }
     return next(e)
   })
-  const root = decodeURIComponent(new URL('..', import.meta.url).pathname).replace(/\/$/, '')
-  on('env.get', () => ({ value: '/Apps/claude' }))
-  const runs: { argv: readonly string[]; stdin?: string }[] = []
-  on('process.run', (_, e) => {
-    runs.push({ argv: e.argv, stdin: e.init?.stdin })
-    const stdout = e.argv[2] === 'list' ? JSON.stringify([
-      { id: 'pulse-cc@pulse', enabled: false, installPath: '/elsewhere' },
-      { id: 'pulse-cc@inline', enabled: true, installPath: root },
-    ]) : 'Saved.'
-    return { value: { exitCode: 0, stdout, stderr: '' } }
-  })
+  let runs = 0
+  on('process.run', () => { runs++; return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } } })
   await $.session.start(START); await clock.settle()
 
   const terminal = await $.ui.mount({ ...PANE, surface: 'terminal' })
@@ -856,25 +850,14 @@ test('Paste token opens native configuration in the terminal and saves through t
   await terminal.unmount()
   expect(commands).toEqual([{ command: 'plugin', args: 'configure pulse-cc' }])
 
-  // Desktop has no configuration dialog: the field saves through the host CLI.
+  // Desktop has no configuration dialog: the card names the terminal command.
   const desktop = await $.ui.mount({ ...PANE, surface: 'desktop' })
   expect(await desktop.find({ key: 'mac-configure' })).toBe(undefined)
-  await desktop.input({ key: 'mac-token-0', text: '   ' }); await clock.settle()
-  expect(await desktop.find({ type: 'Text', text: /Paste the token from Pulse Mac/ })).toBeDefined()
-  expect(runs).toEqual([])
-  await desktop.input({ key: 'mac-token-1', text: ' private-token ' }); await clock.settle()
-  expect(runs).toEqual([
-    { argv: ['/Apps/claude', 'plugin', 'list', '--json'], stdin: '' },
-    { argv: ['/Apps/claude', 'plugin', 'configure', 'pulse-cc@inline', '--values-stdin'], stdin: '{"macToken":"private-token"}' },
-  ])
-  // Desktop cannot run /reload-plugins; the panel asks for a new session instead.
-  expect(commands.some(command => command.command === 'reload-plugins')).toBe(false)
-  // The saved field is redrawn under a new key, so Desktop discards what was typed.
-  expect(await desktop.find({ key: 'mac-token-1' })).toBe(undefined)
-  expect((await desktop.find({ key: 'mac-token-2' }))?.props.value ?? '').toBe('')
-  expect(await desktop.find({ type: 'Text', text: /private-token/ })).toBe(undefined)
-  expect(await desktop.find({ type: 'Text', text: /Token saved\. Start a new session to connect\./ })).toBeDefined()
+  expect(await desktop.find({ type: 'Input' })).toBe(undefined)
+  expect(await desktop.find({ type: 'Text', text: /\/plugin configure pulse-cc/ })).toBeDefined()
   await desktop.unmount()
+  expect(commands.length).toBe(1)
+  expect(runs).toBe(0)
   expect(JSON.stringify([...saved.entries()])).not.toContain('token')
 })
 

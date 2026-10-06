@@ -8,7 +8,8 @@
   band and a management panel; do not display charts or mini trends.
 - Use Claude Code Mods APIs, not Node imports or direct filesystem/network
   access. Write each host call explicitly in `hooks/register.tsx` so the
-  host's static analyzer can inventory it.
+  host's static analyzer can inventory it, with each fetch's https origin and
+  options written at the call and each command as fixed text.
 - Preserve saved watchlists. Pause, removal, exit and reload must discard
   late results and prevent duplicate refresh loops.
 - Crypto pairs (`BTC/USDT`) read Binance's public Spot data API only, batched,
@@ -18,10 +19,11 @@
 - Validate with `claude plugin validate` and exercise behavior with
   `claude plugin test plugins/claude-code` from the repository root.
 - Keep generated `.claude-plugin/types/` files out of Git. The MCP token is an
-  optional sensitive userConfig field. The terminal uses the host configuration
-  dialog; Desktop, which cannot show it, passes the token on stdin to
-  `claude plugin configure --values-stdin`. Never put credentials in the
-  watchlist store, prompt, logs or process arguments.
+  optional sensitive userConfig field. The terminal opens the host
+  configuration dialog with the fixed `/plugin configure pulse-cc`; Desktop,
+  which cannot show it, names that command for a terminal session. Never run
+  processes, read environment variables, or put credentials in the watchlist
+  store, prompt or logs: the directory flags each of them.
 - Claude Desktop runs a headless session (`isInteractive` false) and attaches
   later: register `/pulse` unconditionally and start polling on
   `session.attach`. Desktop draws a cell far smaller than a terminal row, so

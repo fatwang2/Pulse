@@ -30,10 +30,12 @@ export function normalizeSymbol(input: string): string {
   return symbol
 }
 
-/** Only quote metadata is used; daily bars avoid unnecessary minute-history payloads. */
-export function quoteURL(symbol: string): string {
-  return 'https://query1.finance.yahoo.com/v8/finance/chart/'
-    + encodeURIComponent(normalizeSymbol(symbol)) + '?interval=1d&range=1d&includePrePost=false'
+/**
+ * The chart path after `https://query1.finance.yahoo.com/v8/finance/chart/`.
+ * Only quote metadata is used; daily bars avoid unnecessary minute-history payloads.
+ */
+export function quotePath(symbol: string): string {
+  return encodeURIComponent(normalizeSymbol(symbol)) + '?interval=1d&range=1d&includePrePost=false'
 }
 
 const positive = (value: unknown): value is number =>

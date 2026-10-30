@@ -23,7 +23,14 @@ downloads, and current purchase terms, or get Pulse from the
 Pulse for Mac is a paid app with a **30-day full-feature trial**, followed by
 a **one-time purchase**. See [pricing and downloads](https://www.pulseticker.app/buy).
 
-![Pulse for Mac — track stocks and markets from your menu bar](assets/readme/pulse-mac-og-en.png)
+![Pulse for Mac: a watchlist with live quotes and sparklines, opened from the menu bar](assets/readme/pulse-mac-01-en.png)
+
+<p>
+  <img src="assets/readme/pulse-mac-02-en.png" width="49%" alt="Symbol detail with a daily chart, buy and sell markers, and the position">
+  <img src="assets/readme/pulse-mac-05-en.png" width="49%" alt="Holdings with day and total P&amp;L summed by currency">
+  <img src="assets/readme/pulse-mac-03-en.png" width="49%" alt="Trade log with realized P&amp;L for each sell">
+  <img src="assets/readme/pulse-mac-04-en.png" width="49%" alt="Local MCP server settings for AI agents">
+</p>
 
 The current Mac application and website are developed in a private repository.
 Their current source is not included here. The historical Mac edition through

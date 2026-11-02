@@ -1,9 +1,9 @@
 # Pulse public repository
 
-This repository hosts Pulse for Omarchy and Pulse for Claude Code. Current
+This repository hosts Pulse for Omarchy, Pulse for Claude Code and Pulse for Herdr. Current
 commercial Mac and website source belongs in the private Pulse repository.
 
-- Keep `omarchy` and `plugins/claude-code` independent; follow their
+- Keep `omarchy`, `plugins/claude-code` and `herdr` independent; follow their
   scoped AGENTS.md instructions and run checks appropriate to the changed edition.
 - Do not restore current Mac source, website source, signing material, private
   SDKs, or app publishing workflows here.

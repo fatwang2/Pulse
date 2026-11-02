@@ -1,4 +1,4 @@
-// node --test herdr/tests  (quotes.js and watchlist.js import nothing from Herdr)
+// node --test herdr/tests/*.test.mjs  (quotes.js and watchlist.js import nothing from Herdr)
 import test from "node:test";
 import assert from "node:assert/strict";
 import {

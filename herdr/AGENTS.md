@@ -7,7 +7,7 @@
   `Intl`. Never keep a `cx` past its callback; the refresh loop owns the one
   from its `cx.spawn`.
 - Keep `quotes.js` and `watchlist.js` free of Herdr imports so
-  `node --test herdr/tests` can run them.
+  `node --test herdr/tests/*.test.mjs` can run them.
 - The only hosts are `query1.finance.yahoo.com` and `data-api.binance.vision`.
   No `exec`, `hc` or file access. Keep README, RECIPE and code in step on
   hosts, storage and behavior.

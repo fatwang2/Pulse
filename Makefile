@@ -11,7 +11,7 @@ test-omarchy:
 	$(MAKE) -C omarchy test
 
 test-herdr:
-	node --test herdr/tests
+	node --test herdr/tests/*.test.mjs
 
 validate: test
 	git diff --check

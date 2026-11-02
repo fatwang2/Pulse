@@ -42,7 +42,7 @@ account or analytics. See the [Pulse privacy policy](https://www.pulseticker.app
 ## Development
 
 ```sh
-node --test herdr/tests
+node --test herdr/tests/*.test.mjs
 ```
 
 The tests cover symbol rules, decoding, formatting and the refresh loop

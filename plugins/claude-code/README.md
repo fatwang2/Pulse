@@ -46,6 +46,15 @@ claude plugin update pulse-cc@pulse
 
 Restart Claude Code or run `/reload-plugins` to apply the update.
 
+## Pulse for Mac
+
+Pulse CC comes from the makers of
+[Pulse for Mac](https://www.pulseticker.app/?utm_source=claude-code&utm_medium=readme&utm_content=section):
+quotes in your Mac menu bar, with intraday and candlestick charts, multiple
+watchlists and position P&L. Free for 30 days, then a one-time purchase.
+
+<a href="https://www.pulseticker.app/?utm_source=claude-code&utm_medium=readme&utm_content=screenshot"><img src="https://www.pulseticker.app/press/pulse-mac-01.png" width="560" alt="Pulse for Mac in the macOS menu bar"></a>
+
 ## Use
 
 | Command | Action |
@@ -66,8 +75,9 @@ over a weekend, is labelled with its date so it never reads as today's. Narrow p
 the field's submit button. Press `r` or `p` while the panel has focus; input
 fields keep ordinary typing. Press Escape to return to the prompt.
 The panel uses native controls on Claude Desktop and text controls in the
-terminal; both draw the same layout. The footer links to
-[pulseticker.app](https://www.pulseticker.app/).
+terminal; both draw the same layout. The footer links to Pulse for Mac on
+[pulseticker.app](https://www.pulseticker.app/?utm_source=claude-code&utm_medium=readme&utm_content=panel),
+and so does an empty watchlist.
 
 In the terminal, a fullscreen session docks the panel beside the conversation:
 
@@ -188,8 +198,11 @@ as a command.
 - **What it sends:** the watched symbols in the request address, a
   `Pulse-CC/<version>` user agent and `Accept: application/json`. No token,
   cookie, account, watchlist name or other data.
-- The panel's link to `https://www.pulseticker.app/` opens in your browser only
-  when you click it; the mod sends nothing there itself.
+- The panel's Pulse for Mac links (in the footer, and under an empty watchlist)
+  open `https://www.pulseticker.app/` in your browser only when you click them,
+  tagged `utm_source=claude-code&utm_medium=plugin` and `utm_content=panel` or
+  `empty` so the site can count visits from the plugin. The mod sends nothing
+  there itself, and the links carry no watchlist or other data.
 
 ### What it runs
 

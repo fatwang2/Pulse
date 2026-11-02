@@ -7,7 +7,7 @@ import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { closeOverlay, exec, nextCommand, openOverlay, props, setShared, settings, shared, theme } from "herdr";
 import { Watchlist, INTERVAL_MS } from "./watchlist.js";
 import {
-  PULSE_URL, SESSION_LABELS, chartGeometry, formatBandPrice, formatChange, formatPrice, formatStaleDate, formatTime,
+  PULSE_URLS, SESSION_LABELS, chartGeometry, formatBandPrice, formatChange, formatPrice, formatStaleDate, formatTime,
   isCryptoPair, marketSession,
 } from "./quotes.js";
 
@@ -21,8 +21,8 @@ const LOGO = "mods/pulse/icon.svg";
 const brand = () => (settings().dark === false ? "#1066C6" : "#6AB0FF");
 
 // The site, in the system's browser: the one program the mod runs, and only on a click.
-function openSite() {
-  exec("open", [PULSE_URL]).catch(() => {});
+function openSite(place) {
+  exec("open", [PULSE_URLS[place]]).catch(() => {});
 }
 
 export default class Pulse extends View {
@@ -173,7 +173,7 @@ export default class Pulse extends View {
   promo(t, id, compact) {
     return h_flex().id(id).gap(compact ? 7 : 10).items_center().cursor_pointer().rounded(compact ? 0 : 8)
       .when(!compact, (el) => el.p(12).bg(t.raised).hover((s) => s.bg(t.hover)))
-      .on_click(() => openSite())
+      .on_click(() => openSite(compact ? "panel" : "detail"))
       .child(image(LOGO).flex_none().w(compact ? 16 : 30).h(compact ? 16 : 30).rounded(compact ? 4 : 7))
       .child(v_flex().flex_1().min_w(0).gap(1)
         .child(div().font_semibold().text_size(compact ? 11.5 : 12.5).text_color(brand()).truncate().child("Pulse for Mac"))

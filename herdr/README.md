@@ -1,7 +1,7 @@
 # Pulse for Herdr
 
 A [Herdr](https://herdr.dev) mod from the makers of
-[Pulse for Mac](https://www.pulseticker.app/?ref=herdr): a stock and crypto
+[Pulse for Mac](https://www.pulseticker.app/?utm_source=herdr&utm_medium=readme): a stock and crypto
 watchlist docked beside your agents. Each ticker shows its price, its change
 and today's line; click one for its day: a chart, the open, high, low and
 previous close, and whether its market is open. Stocks and indices come from
@@ -60,7 +60,7 @@ them. Crypto changes and lines are 24-hour. A quote from an earlier day
 carries its date.
 
 Want quotes in your menu bar, with charts and positions? That's
-[Pulse for Mac](https://www.pulseticker.app/?ref=herdr).
+[Pulse for Mac](https://www.pulseticker.app/?utm_source=herdr&utm_medium=readme).
 
 ## Privacy
 
@@ -68,7 +68,9 @@ The watchlist is saved in Herdr's own shared state on your computer. Watching
 a ticker sends it to Yahoo Finance; watching a pair sends it to Binance. The
 mod contacts no other host, reads no files and has no account or analytics.
 The one program it runs is `open`, and only when you click a Pulse link: it
-opens `https://www.pulseticker.app/?ref=herdr` in your browser. See the
+opens `https://www.pulseticker.app/` in your browser, tagged
+`utm_source=herdr&utm_medium=mod` and `utm_content=panel` or `detail` for
+the link you clicked. See the
 [Pulse privacy policy](https://www.pulseticker.app/privacy).
 
 ## Development

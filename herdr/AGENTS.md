@@ -13,7 +13,7 @@
 - Keep `quotes.js` and `watchlist.js` free of Herdr imports so
   `node --test herdr/tests/*.test.mjs` can run them.
 - The only hosts are `query1.finance.yahoo.com` and `data-api.binance.vision`.
-  The only program is `open` with `PULSE_URL`, and only on a click on a Pulse
+  The only program is `open` with a `PULSE_URLS` link, and only on a click on a Pulse
   link. No `hc` or file access. Keep README, RECIPEs and code in step on
   hosts, programs, storage and behavior.
 - Promote Pulse for Mac only; name no other edition.

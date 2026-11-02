@@ -1,6 +1,6 @@
 # Herdr + Pulse
 
-Herdr's default window with a stock and crypto watchlist docked on the right, from the makers of [Pulse for Mac](https://www.pulseticker.app/?ref=herdr). Spaces and agents on the left, your tab in the middle, and beside it Pulse: prices, changes and today's line for each ticker, a click away from the ticker's day.
+Herdr's default window with a stock and crypto watchlist docked on the right, from the makers of [Pulse for Mac](https://www.pulseticker.app/?utm_source=herdr&utm_medium=readme). Spaces and agents on the left, your tab in the middle, and beside it Pulse: prices, changes and today's line for each ticker, a click away from the ticker's day.
 
 ![Herdr + Pulse](preview.png)
 

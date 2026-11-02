@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   binanceUrl, decodeBinance, decodeYahoo, formatBandPrice, formatChange, formatPrice, formatStaleDate,
-  normalizeSymbol, yahooUrl, binanceKlinesUrl, decodeKlines, marketSession, chartGeometry, formatTime, STARTER_SYMBOLS,
+  normalizeSymbol, yahooUrl, binanceKlinesUrl, decodeKlines, marketSession, chartGeometry, formatTime, STARTER_SYMBOLS, PULSE_URLS,
 } from "../pulse/mods/pulse/quotes.js";
 import { Watchlist, readPreferences } from "../pulse/mods/pulse/watchlist.js";
 
@@ -206,4 +206,15 @@ test("the layout folder carries the same mod", async () => {
   for (const name of readdirSync(mod)) assert.ok(readFileSync(new URL(name, mod)).equals(readFileSync(new URL(name, copy))), name);
   const layout = JSON.parse(readFileSync(new URL("../pulse-layout/layouts/herdr-pulse.json", import.meta.url), "utf8"));
   assert.match(JSON.stringify(layout), /"mod":"pulse"/);
+});
+
+test("the site links say where the click came from", () => {
+  for (const [place, url] of Object.entries(PULSE_URLS)) {
+    const link = new URL(url);
+    assert.equal(link.host, "www.pulseticker.app");
+    assert.equal(link.searchParams.get("utm_source"), "herdr");
+    assert.equal(link.searchParams.get("utm_medium"), "mod");
+    assert.equal(link.searchParams.get("utm_content"), place);
+  }
+  assert.deepEqual(Object.keys(PULSE_URLS).sort(), ["detail", "panel"]);
 });

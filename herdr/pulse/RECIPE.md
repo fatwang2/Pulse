@@ -1,6 +1,6 @@
 # Pulse
 
-A stock and crypto watchlist docked beside your agents, from the makers of [Pulse for Mac](https://www.pulseticker.app/?ref=herdr). Every ticker shows its price, its signed change and today's line; click one for its day: a chart, the open, high, low and previous close, and whether its market is open. Prices refresh every 60 seconds. Dock it as a short strip at the top or bottom and it becomes a one-line quote band.
+A stock and crypto watchlist docked beside your agents, from the makers of [Pulse for Mac](https://www.pulseticker.app/?utm_source=herdr&utm_medium=readme). Every ticker shows its price, its signed change and today's line; click one for its day: a chart, the open, high, low and previous close, and whether its market is open. Prices refresh every 60 seconds. Dock it as a short strip at the top or bottom and it becomes a one-line quote band.
 
 ![Pulse](preview.png)
 
@@ -38,7 +38,7 @@ A panel 300 to 320px wide in the theme's `chrome` background with `foreground` t
 - **Adding**: Enter in the field adds the ticker. Input is upper-cased and checked: Yahoo symbols (`AAPL`, `BRK-B`, `^GSPC`, `7203.T`) or Binance pairs written `BASE/QUOTE`. `700.HK` becomes `0700.HK`; `600519.SH` becomes `600519.SS`. Company names and anything URL-like are refused with an inline error. A duplicate says it is already there. The field clears on success.
 - **Removing**: `×` removes the ticker and its cached quote at once.
 - **Detail**: a click on a row with a quote opens the dialog with that quote as it was; Esc or `×` closes it. A row without a quote does nothing.
-- **Pulse for Mac**: a click on either link opens `https://www.pulseticker.app/?ref=herdr` in the system's browser.
+- **Pulse for Mac**: a click on either link opens the Pulse site in the system's browser: `https://www.pulseticker.app/?utm_source=herdr&utm_medium=mod&utm_content=panel` from the panel footer, `https://www.pulseticker.app/?utm_source=herdr&utm_medium=mod&utm_content=detail` from the dialog's card.
 - **Copies**: an edit in one copy (add, remove, pause) shows in every other copy at once, and stops that copy's round in flight.
 - **Refreshing**: a round starts right after any edit, then 60 seconds after the previous round ends. Pairs go first, up to 100 per Binance request, then one 24-hour line request per pair. Stocks go one at a time to Yahoo, at least one second apart; one request brings the quote and today's line. A pair Binance doesn't know fails only itself: a failed batch is retried pair by pair. A failed line request keeps the last line.
 - **Rate limits**: a Yahoo 429 stops the round, marks the remaining stocks `Refresh deferred`, and holds stock requests for at least 60 seconds, doubling on repeats up to 15 minutes. Crypto keeps refreshing through the cooldown. Refresh respects the cooldown for stocks.
@@ -59,7 +59,7 @@ A panel 300 to 320px wide in the theme's `chrome` background with `foreground` t
   - `https://query1.finance.yahoo.com/v8/finance/chart/<symbol>?interval=5m&range=1d&includePrePost=false`: `chart.result[0].meta` (`regularMarketPrice`, `regularMarketTime`, `previousClose` else `chartPreviousClose`, `currency`, `longName`/`shortName`, `exchangeDataDelayedBy`, `regularMarketDayHigh`/`Low`, `currentTradingPeriod.pre/regular/post`) and `indicators.quote[0]` (`close` for the line, the first `open`). A response whose `meta.symbol` differs from the request is rejected.
   - `https://data-api.binance.vision/api/v3/ticker/24hr?symbols=["BTCUSDT",...]`: `lastPrice`, `prevClosePrice`, `openPrice`, `highPrice`, `lowPrice`, `closeTime`.
   - `https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=96`: closes (index 4) for the 24-hour line.
-- **Program**: `exec("open", ["https://www.pulseticker.app/?ref=herdr"])`, only when a Pulse link is clicked.
+- **Program**: `exec("open", [url])` with one of the two fixed `PULSE_URLS` in `quotes.js`, only when a Pulse link is clicked.
 - Herdr functions: `theme`, `settings`, `shared`, `setShared`, `nextCommand`, `props`, `openOverlay`, `closeOverlay`, `exec` (for `open` only). No `hc`, no files outside the mod.
 
 ## Watch out

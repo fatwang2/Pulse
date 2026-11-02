@@ -1,0 +1,52 @@
+{
+  "name": "opencode-pulse-ticker",
+  "version": "0.1.0",
+  "description": "Stock and crypto quotes in the opencode sidebar, from the makers of Pulse for Mac",
+  "type": "module",
+  "license": "MIT",
+  "author": "fatwang2",
+  "homepage": "https://github.com/fatwang2/Pulse/tree/main/opencode#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fatwang2/Pulse.git",
+    "directory": "opencode"
+  },
+  "bugs": {
+    "url": "https://github.com/fatwang2/Pulse/issues"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "tui",
+    "sidebar",
+    "stocks",
+    "crypto",
+    "ticker",
+    "watchlist"
+  ],
+  "exports": {
+    "./tui": "./src/tui.tsx"
+  },
+  "files": [
+    "src",
+    "preview.png",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "opencode": ">=1.15.0"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.15.0",
+    "@opentui/solid": ">=0.4.5",
+    "solid-js": ">=1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "@opencode-ai/plugin": { "optional": true },
+    "@opentui/solid": { "optional": true },
+    "solid-js": { "optional": true }
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  }
+}

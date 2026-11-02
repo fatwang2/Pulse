@@ -1,6 +1,6 @@
-.PHONY: test test-claude test-omarchy test-herdr validate
+.PHONY: test test-claude test-omarchy test-herdr test-raycast validate
 
-test: test-claude test-omarchy test-herdr
+test: test-claude test-omarchy test-herdr test-raycast
 
 test-claude:
 	claude plugin validate plugins/claude-code
@@ -12,6 +12,9 @@ test-omarchy:
 
 test-herdr:
 	node --test herdr/tests/*.test.mjs
+
+test-raycast:
+	cd raycast && npm ci && npm test && npm run lint && npm run build
 
 validate: test
 	git diff --check

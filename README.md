@@ -70,7 +70,8 @@ provider limits, privacy, and local development.
 
 An [opencode](https://opencode.ai) plugin: a stock and crypto watchlist in the
 session sidebar, with today's line on every row and a detail view with the
-day's open, high, low and previous close.
+day's open, high, low and previous close, plus a one-line quote band above the
+prompt.
 
 <img src="opencode/preview.png" alt="Pulse in the opencode sidebar" width="720">
 

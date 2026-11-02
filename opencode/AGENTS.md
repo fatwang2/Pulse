@@ -4,7 +4,7 @@
   `exports["./tui"]` = `src/tui.tsx`). opencode compiles the TSX with its own
   Solid runtime, so ship source, no build step and no runtime dependencies.
   Use only `@opencode-ai/plugin/tui` APIs that exist since opencode 1.15
-  (`slots`, `keymap.registerLayer`, `kv`, `lifecycle`, `ui`), and test in a real
+  (`slots`, `keymap.registerLayer`, `kv`, `lifecycle`, `ui`, including `ui.Prompt`), and test in a real
   opencode before release.
 - `src/quotes.js` and `src/watchlist.js` are copies of the Herdr mod's
   (`herdr/pulse/mods/pulse/`): only the header comment and `PULSE_URLS` differ,
@@ -17,4 +17,7 @@
   line, the README); name no other edition. Links carry `utm_source=opencode`.
 - Respect Yahoo cooldowns; never show cached data as fresh or unknown delay as
   real time. Crypto never waits on Yahoo.
+- The quote band shows quotes only, never a Pulse for Mac link. In
+  `session_prompt` (replace mode) return `null` unless the placement is
+  `above`, so opencode keeps its own prompt; an empty `<Show>` would hide it.
 - `preview.png` must be a screenshot of the real plugin running in opencode.

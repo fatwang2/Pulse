@@ -15,6 +15,16 @@ const VERSION = "0.1.0"
 // The watchlist and the panel's open state, in opencode's persisted key-value store.
 const STORE = "pulse.watchlist.v1"
 const OPEN = "pulse.sidebar.open"
+const PLACEMENT = "pulse.band.placement"
+// Where the one-line quote band goes; the sidebar panel is always there.
+const PLACEMENTS = {
+  above: "Above the prompt (on the home screen, below it)",
+  right: "Right of the model name in the prompt (first two)",
+  bottom: "Bottom line of the window",
+  off: "Off (sidebar only)",
+} as const
+type Placement = keyof typeof PLACEMENTS
+const isPlacement = (value: unknown): value is Placement => typeof value === "string" && value in PLACEMENTS
 const HEADERS = { "User-Agent": `Pulse-opencode/${VERSION}`, Accept: "application/json" }
 // Pulse's blue: the bright one on dark themes, the text-safe one on light.
 const brand = (api: TuiPluginApi) => (api.theme.mode() === "light" ? "#1066C6" : "#6AB0FF")
@@ -174,6 +184,35 @@ function Panel(props: { api: TuiPluginApi; watch: Watch; tick: () => number }) {
   )
 }
 
+/** One line of quotes: symbol, price, change. Only what has a quote; cut at the edge. */
+function Band(props: { api: TuiPluginApi; watch: Watch; tick: () => number; max?: number }) {
+  const theme = () => props.api.theme.current
+  const items = createMemo(() => {
+    props.tick()
+    return props.watch.preferences.symbols
+      .filter((symbol) => props.watch.quotes[symbol])
+      .slice(0, props.max ?? Infinity)
+      .map((symbol) => props.watch.quotes[symbol])
+  })
+  const color = (change: number | null) =>
+    change === null ? theme().textMuted : change >= 0 ? theme().success : theme().error
+  return (
+    <Show when={items().length > 0}>
+      <text wrapMode="none" truncate flexShrink={1} minWidth={0}>
+        <For each={items()}>
+          {(quote, index) => (
+            <>
+              <span style={{ fg: theme().textMuted }}>{(index() ? "  " : "") + quote.symbol} </span>
+              <span style={{ fg: theme().text }}>{formatBandPrice(quote)} </span>
+              <span style={{ fg: color(quote.changePercent) }}>{formatChange(quote.changePercent)}</span>
+            </>
+          )}
+        </For>
+      </text>
+    </Show>
+  )
+}
+
 const tui: TuiPlugin = async (api, options) => {
   const [tick, setTick] = createSignal(0)
   const signal = api.lifecycle.signal
@@ -245,11 +284,80 @@ const tui: TuiPlugin = async (api, options) => {
     ],
   } as Parameters<TuiPluginApi["keymap"]["registerLayer"]>[0])
 
+  // The person's pick (kept in kv) wins over the tui.json option; "above" by default.
+  const [placement, setPlacement] = createSignal<Placement>(
+    isPlacement(api.kv.get(PLACEMENT, undefined))
+      ? api.kv.get<Placement>(PLACEMENT)
+      : isPlacement(options?.placement) ? (options.placement as Placement) : "above",
+  )
+  const showPlacement = () =>
+    api.ui.dialog.replace(() => (
+      <api.ui.DialogSelect
+        title="Pulse quote band"
+        current={placement()}
+        options={(Object.keys(PLACEMENTS) as Placement[]).map((value) => ({ title: PLACEMENTS[value], value }))}
+        onSelect={(option) => {
+          api.ui.dialog.clear()
+          setPlacement(option.value)
+          api.kv.set(PLACEMENT, option.value)
+        }}
+      />
+    ))
+  const band = (max?: number) => <Band api={api} watch={watch} tick={tick} max={max} />
+
+  api.keymap.registerLayer({
+    commands: [
+      {
+        namespace: "palette", name: "pulse.placement", title: "Pulse: move the quote band", category: "Pulse",
+        slashName: "pulse-band", run: showPlacement,
+      },
+    ],
+  } as Parameters<TuiPluginApi["keymap"]["registerLayer"]>[0])
+
   api.slots.register({
     order: 300,
     slots: {
       sidebar_content() {
         return <Panel api={api} watch={watch} tick={tick} />
+      },
+      // opencode has no slot above the prompt: in "above", this draws the band and
+      // opencode's own Prompt under it. Otherwise it draws nothing, so opencode keeps its prompt.
+      session_prompt(_ctx, props) {
+        // Nothing (not an empty Show) unless "above": opencode then draws its own prompt.
+        if (placement() !== "above") return null
+        return (
+          <box>
+            <box paddingLeft={2} flexDirection="row">{band()}</box>
+            <api.ui.Prompt
+              sessionID={props.session_id}
+              visible={props.visible}
+              disabled={props.disabled}
+              onSubmit={props.on_submit}
+              ref={props.ref}
+              right={<api.ui.Slot name="session_prompt_right" session_id={props.session_id} />}
+            />
+          </box>
+        )
+      },
+      home_bottom() {
+        return (
+          <Show when={placement() === "above"}>
+            <box flexDirection="row" justifyContent="center" paddingTop={1}>{band()}</box>
+          </Show>
+        )
+      },
+      session_prompt_right() {
+        return <Show when={placement() === "right"}>{band(2)}</Show>
+      },
+      home_prompt_right() {
+        return <Show when={placement() === "right"}>{band(2)}</Show>
+      },
+      app_bottom() {
+        return (
+          <Show when={placement() === "bottom"}>
+            <box flexDirection="row" paddingLeft={2} paddingRight={2}>{band()}</box>
+          </Show>
+        )
       },
     },
   })

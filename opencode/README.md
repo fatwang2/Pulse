@@ -2,8 +2,8 @@
 
 An [opencode](https://opencode.ai) plugin from the makers of
 [Pulse for Mac](https://www.pulseticker.app/?utm_source=opencode&utm_medium=readme): a stock and
-crypto watchlist in the session sidebar. Each ticker shows its price, today's
-line and its change; click one for its day: the open, high, low and previous
+crypto watchlist in the session sidebar, and a one-line quote band above the
+prompt. Each ticker in the sidebar shows its price, today's line and its change; click one for its day: the open, high, low and previous
 close, and whether its market is open. Stocks and indices come from Yahoo
 Finance, crypto pairs (`BTC/USDT`) from Binance's public Spot data.
 
@@ -27,9 +27,22 @@ pass it as an option:
 
 ```json
 {
-  "plugin": [["opencode-pulse-ticker", { "symbols": ["AAPL", "0700.HK", "^GSPC", "BTC/USDT"] }]]
+  "plugin": [["opencode-pulse-ticker", { "symbols": ["AAPL", "0700.HK", "^GSPC", "BTC/USDT"], "placement": "above" }]]
 }
 ```
+
+`placement` sets where the quote band goes; `/pulse-band` changes it later:
+
+| `placement` | Where |
+| --- | --- |
+| `above` (default) | A line above the prompt in a session; on the home screen, below the prompt |
+| `right` | Right of the model name inside the prompt, first two tickers |
+| `bottom` | The bottom line of the window, on every screen |
+| `off` | No band; the sidebar only |
+
+opencode has no slot above the prompt, so `above` draws opencode's own prompt
+with the band on top of it. If another plugin also replaces the prompt, you may
+see two; pick another placement with `/pulse-band`.
 
 ## Use
 
@@ -39,6 +52,7 @@ pass it as an option:
 | `/pulse-remove` | Pick a ticker to remove |
 | `/pulse-refresh` | Refresh now |
 | `/pulse-pause` | Pause or resume automatic refresh |
+| `/pulse-band` | Move the quote band, or turn it off |
 
 The same commands are in the command palette (`ctrl+p`) under Pulse. Click a
 row for its detail, and the "Pulse" heading to fold the panel.

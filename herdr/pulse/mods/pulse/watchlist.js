@@ -1,7 +1,8 @@
 // The watchlist and its refresh loop. Herdr's APIs come in through `host`,
 // so tests drive it under Node with a fake clock and network.
 import {
-  BINANCE_BATCH, QuoteError, binanceUrl, decodeBinance, decodeYahoo, isCryptoPair, normalizeSymbol, yahooUrl,
+  BINANCE_BATCH, QuoteError, STARTER_SYMBOLS, binanceKlinesUrl, binanceUrl, decodeBinance, decodeKlines, decodeYahoo,
+  isCryptoPair, normalizeSymbol, yahooUrl,
 } from "./quotes.js";
 
 export const INTERVAL_MS = 60_000;
@@ -9,7 +10,9 @@ export const INTERVAL_MS = 60_000;
 export const YAHOO_SPACING_MS = 1_000;
 
 export function readPreferences(value) {
-  const saved = value && typeof value === "object" ? value : null;
+  // Nothing saved yet: a starter list, until the first edit saves the person's own.
+  if (value === undefined || value === null) return { version: 1, symbols: [...STARTER_SYMBOLS], paused: false };
+  const saved = typeof value === "object" ? value : null;
   const symbols = [];
   if (saved?.version === 1 && Array.isArray(saved.symbols)) {
     for (const raw of saved.symbols) {
@@ -206,8 +209,12 @@ export class Watchlist {
       if (!current()) return;
       const quotes = decodeBinance(list, response, this.host.now());
       for (const pair of list) {
-        if (quotes[pair]) { this.quotes[pair] = quotes[pair]; delete this.errors[pair]; }
-        else this.errors[pair] = "Binance returned no quote for this pair.";
+        if (quotes[pair]) {
+          // Keep the last line until a new one arrives.
+          quotes[pair].series = this.quotes[pair]?.series ?? [];
+          this.quotes[pair] = quotes[pair];
+          delete this.errors[pair];
+        } else this.errors[pair] = "Binance returned no quote for this pair.";
       }
     };
     const fail = (list, error) => {
@@ -223,6 +230,17 @@ export class Watchlist {
           try { await fetchPairs([pair]); } catch (cause) { if (current()) fail([pair], cause); }
         }
       } else fail(pairs, error);
+    }
+    if (!current()) return;
+    this.host.changed();
+    // The 24-hour line, one request a pair; a failure only leaves the line as it was.
+    for (const pair of pairs) {
+      if (!current()) return;
+      if (!this.quotes[pair]) continue;
+      try {
+        const series = decodeKlines(await this.get(binanceKlinesUrl(pair)));
+        if (current() && this.quotes[pair]) this.quotes[pair].series = series;
+      } catch { /* The quote itself is fine. */ }
     }
     if (current()) this.host.changed();
   }

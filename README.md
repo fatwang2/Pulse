@@ -4,13 +4,14 @@
 
 [Website](https://www.pulseticker.app/) · [Mac App Store](https://apps.apple.com/app/id6812160110) · [Feedback](https://github.com/fatwang2/Pulse/issues)
 
-Pulse is available for Mac, Claude Code, and Omarchy. The Mac app is closed source;
-this repository maintains the MIT-licensed Claude Code plugin and Omarchy edition.
+Pulse is available for Mac, Claude Code, Herdr, and Omarchy. The Mac app is closed source;
+this repository maintains the MIT-licensed Claude Code plugin, Herdr mod and Omarchy edition.
 
 | Edition | Source | Get started |
 | --- | --- | --- |
 | **Pulse for Mac** | Closed source | [Website and downloads](https://www.pulseticker.app/) · [Mac App Store](https://apps.apple.com/app/id6812160110) |
 | **Pulse for Claude Code** | Open-source plugin, MIT | [Installation and commands](plugins/claude-code/README.md) |
+| **Pulse for Herdr** | Open-source mod and layout, MIT | [Installation and features](herdr/README.md) |
 | **Pulse for Omarchy** | Open source, MIT | [Installation and features](omarchy/README.md) |
 
 ## Pulse for Mac
@@ -63,6 +64,23 @@ Restart Claude Code or run `/reload-plugins`, then add a stock with
 to manage your watchlist.
 See the [Claude Code guide](plugins/claude-code/README.md) for commands,
 provider limits, privacy, and local development.
+
+## Pulse for Herdr
+
+A [Herdr](https://herdr.dev) mod: a stock and crypto watchlist docked beside
+your agents, with today's line on every row and a detail view with the day's
+chart, open, high, low and previous close. Comes as a mod and as a
+"Herdr + Pulse" layout.
+
+<img src="herdr/pulse-layout/preview.png" alt="Pulse for Herdr beside a terminal in Herdr" width="720">
+
+Ask the agent running in Herdr:
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add this layout: https://github.com/fatwang2/Pulse/tree/main/herdr/pulse-layout
+```
+
+See the [Herdr guide](herdr/README.md) for the mod on its own, usage and privacy.
 
 ## Pulse for Omarchy
 

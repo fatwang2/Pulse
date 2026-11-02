@@ -142,3 +142,20 @@ test("removing a ticker drops its quote; pause stops automatic rounds", async ()
   await tick(host);
   await run;
 });
+
+test("another copy's edit is picked up at once", async () => {
+  const host = fakeHost((url) => chart({ ...AAPL, symbol: decodeURIComponent(url.split("/chart/")[1].split("?")[0]) }));
+  const a = new Watchlist(host);
+  const b = new Watchlist(host);
+  a.add("AAPL");
+  assert.equal(b.sync(), true);
+  assert.deepEqual(b.preferences.symbols, ["AAPL"]);
+  assert.equal(b.sync(), false);
+  a.pause(true);
+  b.sync();
+  assert.equal(b.preferences.paused, true);
+  a.remove("AAPL");
+  b.quotes.AAPL = {};
+  b.sync();
+  assert.equal(b.quotes.AAPL, undefined);
+});

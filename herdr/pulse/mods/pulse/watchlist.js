@@ -104,6 +104,17 @@ export class Watchlist {
     wake?.();
   }
 
+  /** Picks up another copy's edit of the shared list at once (the main view calls it on render). */
+  sync() {
+    const preferences = readPreferences(this.host.load());
+    if (JSON.stringify(preferences) === JSON.stringify(this.preferences)) return false;
+    this.adopt(preferences);
+    this.revision++;
+    this.dirty = true;
+    this.poke();
+    return true;
+  }
+
   adopt(preferences) {
     this.preferences = preferences;
     const keep = new Set(preferences.symbols);

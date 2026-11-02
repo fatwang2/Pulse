@@ -18,8 +18,14 @@ Read ~/.config/herdr-app/AGENTS.md, then add this mod: https://github.com/fatwan
 ```
 
 Or copy `pulse/mods/pulse/` to `~/.config/herdr-app/mods/pulse/` and run
-`herdr-app check ~/.config/herdr-app/mods/pulse`. It docks on the right the
-first time Herdr sees it.
+`herdr-app check ~/.config/herdr-app/mods/pulse`. In a layout of your own it
+docks on the right the first time Herdr sees it. Herdr's shipped layouts
+(`main`, the default) don't take new docks, so open it beside your terminal
+there:
+
+```sh
+herdr-app do pane.split --direction right --mod pulse
+```
 
 ## Use
 

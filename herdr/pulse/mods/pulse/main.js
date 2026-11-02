@@ -78,6 +78,8 @@ export default class Pulse extends View {
   }
 
   render() {
+    // Herdr re-renders every copy when shared state changes: adopt another copy's edit now.
+    this.watch.sync();
     const t = theme();
     const root = (this.size && this.size.height < BAND_HEIGHT ? h_flex() : v_flex())
       .id("pulse").size_full().bg(t.chrome).text_color(t.foreground).text_size(12.5)

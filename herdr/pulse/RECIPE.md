@@ -26,6 +26,7 @@ A panel docked on the right, 300px wide, in the theme's `chrome` background with
 - Agent status plays no part: the panel looks the same whatever agents are doing.
 - **Adding**: Enter in the field adds the ticker. Input is upper-cased and checked: Yahoo symbols (`AAPL`, `BRK-B`, `^GSPC`, `7203.T`) or Binance pairs written `BASE/QUOTE`. `700.HK` becomes `0700.HK`; `600519.SH` becomes `600519.SS`. Company names and anything URL-like are refused with an inline error. A duplicate says it is already there. The field clears on success.
 - **Removing**: `×` removes the ticker and its cached quote at once.
+- **Copies**: an edit in one copy (add, remove, pause) shows in every other copy at once, and stops that copy's round in flight.
 - **Refreshing**: a round starts right after any edit, then 60 seconds after the previous round ends. Pairs go first, up to 100 per Binance request. Stocks go one at a time to Yahoo, at least one second apart. A pair Binance doesn't know fails only itself: a failed batch is retried pair by pair.
 - **Rate limits**: a Yahoo 429 stops the round, marks the remaining stocks `Refresh deferred`, and holds stock requests for at least 60 seconds, doubling on repeats up to 15 minutes. Crypto keeps refreshing through the cooldown. Refresh respects the cooldown for stocks.
 - **Pause / Resume**: automatic rounds stop and start; Refresh still runs one round while paused. Cached quotes stay.
@@ -34,9 +35,9 @@ A panel docked on the right, 300px wide, in the theme's `chrome` background with
 
 ## Built from
 
-- **One mod**, `mods/pulse/`, no layout. `mod.json`: `{ "place": "right", "size": 300, "title": "Pulse" }`, so the first time Herdr sees it, it docks on the right.
+- **One mod**, `mods/pulse/`, no layout. `mod.json`: `{ "place": "right", "size": 300, "title": "Pulse" }`, so the first time a layout of the person's own shows, it docks on the right. As a pane in any tab: `pane.split {direction: "right", mod: "pulse"}`.
 - `main.js`: the view (`gpui-kit` `div`, `gpui-base` `h_flex`, `v_flex`, `InputState` + `Input`), sized with `on_size_change` to pick panel or band. Colors only from `theme()`.
-- `watchlist.js`: the list and the refresh loop, with no Herdr imports. Herdr's APIs are passed in as a host: `load`/`save`, `fetch`, `now`, `sleep`, `changed`. The loop runs in one `cx.spawn` for the copy's whole life, sleeping with that task's `cx.sleep` and redrawing with its `cx.notify()`. Edits are synchronous; each bumps a revision so a round in flight drops late results, and wakes the loop.
+- `watchlist.js`: the list and the refresh loop, with no Herdr imports. Herdr's APIs are passed in as a host: `load`/`save`, `fetch`, `now`, `sleep`, `changed`. The loop runs in one `cx.spawn` for the copy's whole life, sleeping with that task's `cx.sleep` and redrawing with its `cx.notify()`. Edits are synchronous; each bumps a revision so a round in flight drops late results, and wakes the loop. `render` calls `sync()`, which adopts another copy's edit of the shared list the same way (Herdr re-renders every copy on `setShared`).
 - `quotes.js`: symbol rules, the two URLs, decoding, and number and date formatting by hand (no `Intl` in Herdr's runtime).
 - **Storage**: `shared("pulse.watchlist.v1")` / `setShared(...)`, persisted by Herdr and seen by every copy: `{ version: 1, symbols: [...], paused }`. The loop re-reads it each round. Quotes are memory only.
 - **Network**: `fetch` GETs, with headers `User-Agent: Pulse-Herdr/<version>` and `Accept: application/json`, to two hosts only:
@@ -49,6 +50,8 @@ A panel docked on the right, 300px wide, in the theme's `chrome` background with
 - The mod reaches the network (Yahoo Finance and Binance, nothing else) and runs no programs.
 - Herdr's `fetch` response has no headers, so Yahoo's `Retry-After` can't be read; the 60-second floor stands in for it.
 - Yahoo's chart endpoint is unofficial and may be unavailable in some regions. Prices are regular-session, not pre- or after-hours. Never label cached data as fresh or unknown delay as real time.
+- Herdr's shipped layouts (`main`) don't take a new mod's `mod.json` dock (Herdr 0.1.12); only a layout of the person's own does. On `main`, open it with `pane.split`.
+- Without `sync()` on render, a copy kept its old list and paused state until its next round, up to 60 seconds.
 - Each shown copy runs its own refresh loop, and timers keep running while a copy is hidden. One copy is the intended setup; a second copy doubles the requests.
 - `toLocaleString` options are ignored in Herdr's QuickJS: format prices with grouping and 2 decimals (2 to 4 significant digits below 1) by hand.
 - Keep the change colors on `ansi2`/`ansi1`; a theme's own `done` color isn't necessarily green.
@@ -61,4 +64,5 @@ A panel docked on the right, 300px wide, in the theme's `chrome` background with
 - Adding `AAPL`, `0700.HK` and `BTC/USDT` shows three rows with prices within a few seconds; `Apple` shows an error and adds nothing.
 - `×` removes a row immediately; Pause stops automatic requests and Refresh still runs one round.
 - Resizing the block below 72px shows the one-line band; taller shows the panel again.
+- Pausing in one copy shows `Auto-refresh paused` in every copy at once.
 - Restarting Herdr keeps the watchlist and paused state.

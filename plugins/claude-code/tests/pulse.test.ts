@@ -505,3 +505,34 @@ test('a saved Pulse Mac selection from 0.3 falls back to the independent watchli
   await band.unmount()
   expect(await command($, 'source mac')).toEqual({ text: expect.stringContaining('/pulse add AAPL') })
 })
+
+test('Pulse for Mac links sit in the panel footer, under an empty list and in help, never in the prompt band', async ($, on) => {
+  const { clock } = host(on, [])
+  on('http.fetch', () => ({ value: response() }))
+  await $.session.start(START)
+  await clock.settle()
+  expect((await command($, 'help')).text).toMatch(/Pulse for Mac, pulseticker\.app$/)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    await command($, '')
+    const pane = await $.ui.mount({ ...PANE, surface })
+    const links = (await pane.findAll({ type: 'Link' })).map(link => String(link.props.href))
+    expect(links).toEqual([
+      'https://www.pulseticker.app/?utm_source=claude-code&utm_medium=plugin&utm_content=empty',
+      'https://www.pulseticker.app/?utm_source=claude-code&utm_medium=plugin&utm_content=panel',
+    ])
+    expect(await pane.find({ type: 'Text', text: /Menu bar quotes, charts and positions/ })).toBeDefined()
+    await command($, '')
+    await pane.unmount()
+  }
+  await command($, 'add AAPL')
+  await clock.settle()
+  await command($, '')
+  const pane = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await pane.findAll({ type: 'Link' })).map(link => String(link.props.href)))
+    .toEqual(['https://www.pulseticker.app/?utm_source=claude-code&utm_medium=plugin&utm_content=panel'])
+  await pane.unmount()
+  const band = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await band.find({ type: 'Link' })).toBe(undefined)
+  expect(await band.find({ type: 'Text', text: /Pulse for Mac|pulseticker/ })).toBe(undefined)
+  await band.unmount()
+})

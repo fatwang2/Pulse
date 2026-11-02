@@ -4,7 +4,11 @@ import { formatChange, formatPrice, formatBandPrice, formatStaleDate } from './y
 import { isCryptoPair } from './binance'
 
 export const PANE = 'pulse-quotes'
-const HELP = '/pulse · /pulse add AAPL · /pulse remove AAPL · /pulse refresh · /pulse off · /pulse on'
+const HELP = '/pulse · /pulse add AAPL · /pulse remove AAPL · /pulse refresh · /pulse off · /pulse on\n' +
+  'Quotes in your Mac menu bar, with charts and positions: Pulse for Mac, pulseticker.app'
+// The site, tagged with where the click came from. Opened only when the person clicks.
+const SITE_PANEL = 'https://www.pulseticker.app/?utm_source=claude-code&utm_medium=plugin&utm_content=panel'
+const SITE_EMPTY = 'https://www.pulseticker.app/?utm_source=claude-code&utm_medium=plugin&utm_content=empty'
 
 export const register: Register = on => {
   const intervalSeconds = 60
@@ -186,6 +190,9 @@ export const register: Register = on => {
 
       <Box key="watchlist" flexDirection="column" marginTop={rowGap}>
         {!ccCount && <Text dimColor wrap="wrap">Your watchlist is empty. Add a ticker above.</Text>}
+        {!ccCount && <Box key="empty-mac" marginTop={1}><Text dimColor wrap="wrap">
+          Want quotes in your menu bar? <Link href={SITE_EMPTY}>Pulse for Mac</Link>
+        </Text></Box>}
         {watch.preferences.symbols.map((symbol, index) => {
           const quote = watch.quotes[symbol]
           const failed = watch.errors[symbol]
@@ -219,9 +226,11 @@ export const register: Register = on => {
       <Box key="footer" flexDirection="column" marginTop={space}>
         <Text dimColor wrap="wrap">
           {watch.preferences.symbols.some(isCryptoPair)
-            ? 'Yahoo Finance · Binance Spot · Stocks: regular session, exchange delays vary · Crypto: 24h change · Times are local · '
-            : 'Yahoo Finance · Regular-session quotes · Exchange delays vary · Times are local · '}
-          <Link href="https://www.pulseticker.app/">pulseticker.app</Link>
+            ? 'Yahoo Finance · Binance Spot · Stocks: regular session, exchange delays vary · Crypto: 24h change · Times are local'
+            : 'Yahoo Finance · Regular-session quotes · Exchange delays vary · Times are local'}
+        </Text>
+        <Text key="mac" wrap="wrap">
+          <Link href={SITE_PANEL}>Pulse for Mac</Link><Text dimColor> · Menu bar quotes, charts and positions ↗</Text>
         </Text>
         {!desktop && <Text dimColor wrap="wrap">Tab: move between controls · Enter: activate · Esc: return to prompt</Text>}
       </Box>
@@ -242,10 +251,10 @@ function startWatch($: EngineInterface, watch: Watchlist): Promise<void> {
     after: (ms, callback) => $.clock.after(ms, callback),
     // The only two hosts the mod contacts, each written whole at its call.
     fetchYahoo: path => $.http.fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${path}`, {
-      headers: { 'User-Agent': 'Pulse-CC/0.4.1', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.5.0', Accept: 'application/json' },
     }),
     fetchBinance: query => $.http.fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?${query}`, {
-      headers: { 'User-Agent': 'Pulse-CC/0.4.1', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.5.0', Accept: 'application/json' },
     }),
     redraw: () => $.ui.invalidate('ui.render'),
   })

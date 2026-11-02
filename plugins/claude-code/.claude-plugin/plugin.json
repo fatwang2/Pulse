@@ -1,7 +1,7 @@
 {
   "name": "pulse-cc",
   "displayName": "Pulse CC",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Stock and crypto quotes above the Claude Code prompt, with a /pulse panel to manage your watchlist.",
   "author": {
     "name": "fatwang2",

@@ -14,7 +14,7 @@ export interface ChartOptions {
 }
 
 const WIDTH = 800;
-const HEIGHT = 250;
+const HEIGHT = 290;
 const PLOT = { left: 8, right: 110, top: 16, bottom: 46 };
 
 const COLORS = {

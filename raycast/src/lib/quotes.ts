@@ -226,8 +226,9 @@ export function decodeSpark(symbols: string[], body: unknown, now: number): Reco
     const answer = answers[symbol];
     if (!answer || typeof answer.symbol !== "string" || answer.symbol.toUpperCase() !== symbol.toUpperCase()) continue;
     const closes = Array.isArray(answer.close) ? answer.close.filter(positive) : [];
-    // The last bar's close; `fulldayPrice` can disagree with the chart's regularMarketPrice.
-    const price = closes[closes.length - 1];
+    // The last bar's close; `fulldayPrice` can disagree with the chart's regularMarketPrice,
+    // so it only stands in when nothing has traded today.
+    const price = closes.length ? closes[closes.length - 1] : answer.fulldayPrice;
     if (!positive(price)) continue;
     const close = positive(answer.previousClose)
       ? answer.previousClose

@@ -226,7 +226,9 @@ export default function Command() {
                 id={`${section.title}:${instrument.symbol}`}
                 icon={icon(instrument)}
                 title={instrument.symbol}
-                subtitle={instrument.name === instrument.symbol ? undefined : instrument.name}
+                subtitle={
+                  instrument.name === instrument.symbol ? (instrument.exchange ?? "Yahoo Finance") : instrument.name
+                }
                 accessories={
                   showingDetail
                     ? undefined
@@ -386,13 +388,10 @@ function QuoteMetadata({ quote, instrument }: { quote: Quote; instrument: Instru
           color={changeColor(quote.changePercent)}
         />
       </List.Item.Detail.Metadata.TagList>
-      <List.Item.Detail.Metadata.Label title={crypto ? "24h Open" : "Open"} text={price(quote.open)} />
-      <List.Item.Detail.Metadata.Label title={crypto ? "24h High" : "Day High"} text={price(quote.high)} />
-      <List.Item.Detail.Metadata.Label title={crypto ? "24h Low" : "Day Low"} text={price(quote.low)} />
-      <List.Item.Detail.Metadata.Label
-        title={crypto ? "Price 24h Ago" : "Previous Close"}
-        text={price(quote.previousClose)}
-      />
+      <List.Item.Detail.Metadata.Label title="Open" text={price(quote.open)} />
+      <List.Item.Detail.Metadata.Label title="High" text={price(quote.high)} />
+      <List.Item.Detail.Metadata.Label title="Low" text={price(quote.low)} />
+      <List.Item.Detail.Metadata.Label title={crypto ? "24h Ago" : "Prev Close"} text={price(quote.previousClose)} />
       <List.Item.Detail.Metadata.Separator />
       <List.Item.Detail.Metadata.Label
         title="Market"

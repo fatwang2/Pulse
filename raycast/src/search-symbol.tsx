@@ -354,7 +354,8 @@ function QuoteDetail({ instrument }: { instrument: Instrument }) {
     <List.Item.Detail
       isLoading={isLoading}
       markdown={detailMarkdown(instrument, quote)}
-      metadata={<QuoteMetadata quote={quote} instrument={instrument} />}
+      // A fresh key per quote: Raycast can keep a label at the width of the value it showed before.
+      metadata={<QuoteMetadata key={`${quote.symbol}:${quote.fetchedAt}`} quote={quote} instrument={instrument} />}
     />
   );
 }

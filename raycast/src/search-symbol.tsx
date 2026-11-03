@@ -76,6 +76,8 @@ function typedInstrument(query: string, index: SymbolIndex | undefined): Instrum
     if (index && index.pairs.size > 0 && !index.pairs.has(symbol)) return null;
     return { symbol, market: "crypto", kind: "crypto", name: symbol.split("/")[0], exchange: "Binance Spot" };
   }
+  // A typed "^FTSE" is an index whatever its exchange, so the Indices filter keeps it.
+  if (symbol.startsWith("^")) return { symbol, market: "index", kind: "index", name: symbol, exchange: null };
   return { symbol, market: "us", kind: "equity", name: symbol, exchange: null };
 }
 
@@ -114,7 +116,12 @@ export default function Command() {
     revalidate: reloadIndex,
   } = usePromise(loadIndex, [], {
     onError: (error) => {
-      showToast({ style: Toast.Style.Failure, title: "Could not load the symbol list", message: error.message });
+      showToast({
+        style: Toast.Style.Failure,
+        title: "Could not load the symbol list",
+        message: error.message,
+        primaryAction: { title: "Retry", onAction: () => reloadIndex() },
+      });
     },
   });
 
@@ -294,12 +301,6 @@ function InstrumentActions(props: {
           url={quotePageUrl(instrument.symbol)}
           onOpen={() => remember(instrument.symbol)}
         />
-        <Action
-          title={props.showingDetail ? "Hide Chart" : "Show Chart"}
-          icon={Icon.Sidebar}
-          shortcut={{ modifiers: ["cmd"], key: "d" }}
-          onAction={props.toggleDetail}
-        />
         <Action.CopyToClipboard
           title="Copy Symbol"
           content={instrument.symbol}
@@ -313,6 +314,14 @@ function InstrumentActions(props: {
             shortcut={Keyboard.Shortcut.Common.CopyName}
           />
         )}
+      </ActionPanel.Section>
+      <ActionPanel.Section>
+        <Action
+          title={props.showingDetail ? "Hide Chart" : "Show Chart"}
+          icon={Icon.Sidebar}
+          shortcut={{ modifiers: ["cmd"], key: "d" }}
+          onAction={props.toggleDetail}
+        />
       </ActionPanel.Section>
       <ActionPanel.Section>
         <Action.OpenInBrowser title="Pulse for Mac" icon={Icon.AppWindowSidebarRight} url={PULSE_FOR_MAC_URL} />

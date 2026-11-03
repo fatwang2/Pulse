@@ -1,6 +1,6 @@
-.PHONY: test test-claude test-omarchy test-herdr validate
+.PHONY: test test-claude test-omarchy test-herdr test-opencode validate
 
-test: test-claude test-omarchy test-herdr
+test: test-claude test-omarchy test-herdr test-opencode
 
 test-claude:
 	claude plugin validate plugins/claude-code
@@ -12,6 +12,9 @@ test-omarchy:
 
 test-herdr:
 	node --test herdr/tests/*.test.mjs
+
+test-opencode:
+	node --test opencode/tests/*.test.mjs
 
 validate: test
 	git diff --check

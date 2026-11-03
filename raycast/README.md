@@ -36,22 +36,3 @@ on Yahoo Finance directly; a pair like `ETH/BTC` is priced on Binance.
 
 Want these prices in your menu bar all day, with watchlists, charts and
 positions? See [Pulse for Mac](https://www.pulseticker.app/?utm_source=raycast&utm_medium=extension&utm_content=readme).
-
-## Development
-
-```sh
-npm install
-npm run dev      # opens the extension in Raycast
-npm test         # search, catalog and quote tests
-npm run lint
-```
-
-## Releasing
-
-The Raycast Store takes extensions as pull requests to `raycast/extensions`.
-`.github/workflows/release-raycast.yml` submits this folder: push a tag
-`raycast-v<date>` (for example `raycast-v2026.11.03`) or start it from the
-Actions tab. After the `raycast` environment approval, the job prints a
-one-time GitHub device code; open `https://github.com/login/device`, sign in
-with your passkey and enter it. No token is stored. The first run opens a
-draft PR; mark it "Ready for review". Later runs update the same submission.

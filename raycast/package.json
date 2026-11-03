@@ -9,11 +9,13 @@
     "Finance"
   ],
   "license": "MIT",
+  "platforms": [
+    "macOS"
+  ],
   "commands": [
     {
       "name": "search-symbol",
       "title": "Search Symbol",
-      "subtitle": "Pulse",
       "description": "Find a stock, index or crypto pair by ticker or by name in English, Chinese, Japanese or Korean, and see its price and today's chart.",
       "mode": "view",
       "keywords": [

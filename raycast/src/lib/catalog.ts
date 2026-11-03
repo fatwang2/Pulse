@@ -1,6 +1,7 @@
 // Pulse's symbol catalog and Binance's pair directory, kept on disk and
 // refreshed at most once a day. The catalog download is conditional
 // (If-None-Match), so a day with no listing changes costs an empty response.
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { CatalogDocument, CryptoPairs } from "./search";
@@ -31,7 +32,7 @@ async function readJSON<T>(path: string): Promise<T | null> {
 
 /** Write next to the target, then rename, so a crash never leaves half a file. */
 async function writeAtomically(path: string, text: string): Promise<void> {
-  const temporary = `${path}.${process.pid}.tmp`;
+  const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(temporary, text, "utf8");
   await rename(temporary, path);
 }

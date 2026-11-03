@@ -4,7 +4,8 @@ This repository hosts Pulse for Omarchy, Pulse for Claude Code, Pulse for openco
 commercial Mac and website source belongs in the private Pulse repository.
 
 - Keep `omarchy`, `plugins/claude-code`, `opencode`, `herdr` and `raycast` independent; follow their
-  scoped AGENTS.md instructions and run checks appropriate to the changed edition.
+  scoped AGENTS.md instructions (Raycast's live in docs/raycast.md, since the
+  Store ships everything in raycast/) and run checks appropriate to the changed edition.
 - Do not restore current Mac source, website source, signing material, private
   SDKs, or app publishing workflows here.
 - Preserve historical Git commits, version tags, MIT notices, free DMG/ZIP assets,

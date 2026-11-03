@@ -81,7 +81,8 @@ bottom of the window.
 
 <img src="opencode/preview.png" alt="Pulse in the opencode sidebar" width="720">
 
-Add it to `~/.config/opencode/tui.json` and restart opencode:
+In opencode v2, run `opencode plugin add opencode-pulse-ticker`. In opencode v1
+(1.15+), add it to `~/.config/opencode/tui.json` and restart opencode:
 
 ```json
 { "plugin": ["opencode-pulse-ticker"] }

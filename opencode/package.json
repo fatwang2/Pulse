@@ -1,6 +1,6 @@
 {
   "name": "opencode-pulse-ticker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Stock and crypto quotes in the opencode sidebar, from the makers of Pulse for Mac",
   "type": "module",
   "license": "MIT",

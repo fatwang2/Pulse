@@ -58,5 +58,5 @@ test("the detail names its source and never calls an unknown delay real time", (
 
 test("the User-Agent version matches package.json, which drives the npm release", () => {
   const { version } = JSON.parse(readFileSync(here("../package.json"), "utf8"));
-  assert.match(readFileSync(here("../src/tui.tsx"), "utf8"), new RegExp(`const VERSION = "${version.replace(/\./g, "\\.")}"`));
+  assert.match(readFileSync(here("../src/view.tsx"), "utf8"), new RegExp(`const VERSION = "${version.replace(/\./g, "\\.")}"`));
 });

@@ -1,0 +1,66 @@
+name: Release Pulse for opencode
+
+# Publishes opencode/ to npm as opencode-pulse-ticker when a merge to main
+# carries a version in opencode/package.json that npm does not have yet.
+# Auth: npm trusted publishing (OIDC, no secret) once it is set up for this
+# workflow on npmjs.com; until then an NPM_TOKEN repository secret.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'opencode/package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-opencode
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'fatwang2/Pulse'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # the opencode-v<version> tag
+      id-token: write # npm trusted publishing and provenance
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Use an npm that supports trusted publishing
+        run: npm install --global npm@11.6.2
+      - name: Read the version
+        id: version
+        run: |
+          name=$(node -p "require('./opencode/package.json').name")
+          version=$(node -p "require('./opencode/package.json').version")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "$name@$version is already on npm; nothing to publish."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Test
+        if: steps.version.outputs.published == 'false'
+        run: make test-herdr test-opencode
+      - name: Publish to npm
+        if: steps.version.outputs.published == 'false'
+        working-directory: opencode
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
+      - name: Tag the release
+        if: steps.version.outputs.published == 'false'
+        env:
+          TAG: opencode-v${{ steps.version.outputs.version }}
+        run: |
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "$TAG"

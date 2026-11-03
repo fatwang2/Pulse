@@ -55,3 +55,8 @@ test("the detail names its source and never calls an unknown delay real time", (
   assert.match(pair, /Binance rate limited requests\./);
   assert.match(detailText({ ...stock, delaySeconds: 900 }, undefined, now), /delayed 15 min/);
 });
+
+test("the User-Agent version matches package.json, which drives the npm release", () => {
+  const { version } = JSON.parse(readFileSync(here("../package.json"), "utf8"));
+  assert.match(readFileSync(here("../src/tui.tsx"), "utf8"), new RegExp(`const VERSION = "${version.replace(/\./g, "\\.")}"`));
+});

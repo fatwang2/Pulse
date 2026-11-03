@@ -21,3 +21,8 @@
   slots opencode adds content to (`app_bottom`, `*_prompt_right`). Never replace
   opencode's own UI (`session_prompt`, `home_prompt`, `home_logo` etc.).
 - `preview.png` must be a screenshot of the real plugin running in opencode.
+- Releases: bump `version` in `package.json` and `VERSION` in `src/tui.tsx`
+  together (a test checks they match) and merge to main.
+  `.github/workflows/release-opencode.yml` then tests, publishes to npm with
+  provenance and tags `opencode-v<version>`; it skips a version npm already has.
+  Never publish from a branch or by hand.

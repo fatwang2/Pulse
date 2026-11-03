@@ -1,6 +1,6 @@
 {
   "name": "opencode-pulse-ticker",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Stock and crypto quotes in the opencode sidebar, from the makers of Pulse for Mac",
   "type": "module",
   "license": "MIT",
@@ -25,10 +25,10 @@
     "watchlist"
   ],
   "exports": {
-    "./tui": "./src/tui.tsx"
+    "./tui": "./dist/tui.js"
   },
   "files": [
-    "src",
+    "dist",
     "preview.png",
     "README.md",
     "LICENSE"
@@ -42,11 +42,24 @@
     "solid-js": ">=1.9.0"
   },
   "peerDependenciesMeta": {
-    "@opencode-ai/plugin": { "optional": true },
-    "@opentui/solid": { "optional": true },
-    "solid-js": { "optional": true }
+    "@opencode-ai/plugin": {
+      "optional": true
+    },
+    "@opentui/solid": {
+      "optional": true
+    },
+    "solid-js": {
+      "optional": true
+    }
   },
   "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepack": "node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/preset-typescript": "^7.29.7",
+    "babel-preset-solid": "^1.9.16"
   }
 }

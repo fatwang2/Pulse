@@ -33,6 +33,10 @@ jobs:
           fi
       - name: Test
         run: make test-herdr test-opencode
+      - name: Install build tools
+        # Babel and Solid's preset compile src/ to dist/ (npm runs the build on prepack).
+        working-directory: opencode
+        run: npm ci --no-audit --no-fund
       - name: Publish to npm
         # Authenticates with npm trusted publishing (OIDC); no token is stored anywhere.
         # Skips a version that is already on npm.

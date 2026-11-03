@@ -67,6 +67,9 @@ jobs:
           node-version: '24'
       - name: Test the Herdr mod and the opencode plugin (shared quote code)
         run: make test-herdr test-opencode
+      - name: Build the opencode plugin
+        working-directory: opencode
+        run: npm ci --no-audit --no-fund && npm run build
 
   raycast:
     runs-on: ubuntu-latest

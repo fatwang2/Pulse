@@ -7,7 +7,7 @@ import { PULSE_URLS, formatBandPrice, formatChange } from "./quotes.js"
 import { SPARK_WIDTH, detailText, sparkline } from "./format.js"
 
 export const ID = "pulse-ticker"
-export const VERSION = "0.2.0"
+export const VERSION = "0.2.1"
 export const HEADERS = { "User-Agent": `Pulse-opencode/${VERSION}`, Accept: "application/json" }
 // Pulse's blue: the bright one on dark themes, the text-safe one on light.
 export const brandColor = (mode: string) => (mode === "light" ? "#1066C6" : "#6AB0FF")

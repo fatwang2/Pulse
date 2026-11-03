@@ -18,9 +18,8 @@ const OPEN = "pulse.sidebar.open"
 const PLACEMENT = "pulse.band.placement"
 // Where the one-line quote band goes; the sidebar panel is always there.
 const PLACEMENTS = {
-  above: "Above the prompt (on the home screen, below it)",
-  right: "Right of the model name in the prompt (first two)",
   bottom: "Bottom line of the window",
+  right: "Right of the model name in the prompt (first two)",
   off: "Off (sidebar only)",
 } as const
 type Placement = keyof typeof PLACEMENTS
@@ -284,11 +283,11 @@ const tui: TuiPlugin = async (api, options) => {
     ],
   } as Parameters<TuiPluginApi["keymap"]["registerLayer"]>[0])
 
-  // The person's pick (kept in kv) wins over the tui.json option; "above" by default.
+  // The person's pick (kept in kv) wins over the tui.json option; "bottom" by default.
   const [placement, setPlacement] = createSignal<Placement>(
     isPlacement(api.kv.get(PLACEMENT, undefined))
       ? api.kv.get<Placement>(PLACEMENT)
-      : isPlacement(options?.placement) ? (options.placement as Placement) : "above",
+      : isPlacement(options?.placement) ? (options.placement as Placement) : "bottom",
   )
   const showPlacement = () =>
     api.ui.dialog.replace(() => (
@@ -319,32 +318,6 @@ const tui: TuiPlugin = async (api, options) => {
     slots: {
       sidebar_content() {
         return <Panel api={api} watch={watch} tick={tick} />
-      },
-      // opencode has no slot above the prompt: in "above", this draws the band and
-      // opencode's own Prompt under it. Otherwise it draws nothing, so opencode keeps its prompt.
-      session_prompt(_ctx, props) {
-        // Nothing (not an empty Show) unless "above": opencode then draws its own prompt.
-        if (placement() !== "above") return null
-        return (
-          <box>
-            <box paddingLeft={2} flexDirection="row">{band()}</box>
-            <api.ui.Prompt
-              sessionID={props.session_id}
-              visible={props.visible}
-              disabled={props.disabled}
-              onSubmit={props.on_submit}
-              ref={props.ref}
-              right={<api.ui.Slot name="session_prompt_right" session_id={props.session_id} />}
-            />
-          </box>
-        )
-      },
-      home_bottom() {
-        return (
-          <Show when={placement() === "above"}>
-            <box flexDirection="row" justifyContent="center" paddingTop={1}>{band()}</box>
-          </Show>
-        )
       },
       session_prompt_right() {
         return <Show when={placement() === "right"}>{band(2)}</Show>

@@ -17,13 +17,10 @@
 - Follow Raycast's Store rules: US English UI, Title Case action titles,
   `CHANGELOG.md` with `{PR_MERGE_DATE}`, `package-lock.json` committed,
   `npm run lint` and `npm run build` clean before publishing.
-- Releases go through `.github/workflows/release-raycast.yml` (tag
-  `raycast-v*` or manual run, environment `raycast`): GitHub sign-in by device
-  code approved with the owner's passkey, then `ray publish`. Never store a
-  GitHub token for it.
+- Publish only from the owner's Mac mini (see Releasing). Never from CI or a
+  fresh machine, and never store a GitHub token.
 
 ## Development
-
 
 ```sh
 npm install
@@ -34,10 +31,19 @@ npm run lint
 
 ## Releasing
 
-The Raycast Store takes extensions as pull requests to `raycast/extensions`.
-`.github/workflows/release-raycast.yml` submits this folder: push a tag
-`raycast-v<date>` (for example `raycast-v2026.11.03`) or start it from the
-Actions tab. After the `raycast` environment approval, the job prints a
-one-time GitHub device code; open `https://github.com/login/device`, sign in
-with your passkey and enter it. No token is stored. The first run opens a
-draft PR; mark it "Ready for review". Later runs update the same submission.
+The Raycast Store takes extensions as pull requests to `raycast/extensions`,
+and `ray publish` opens or updates that pull request. It keeps its own clone
+of the fork in `~/.config/raycast/public-extensions-fork` and updates the open
+submission only from the machine holding that clone. A fresh machine (or a CI
+runner) rebuilds the `ext/pulse` branch, which closes the open submission and
+opens a new one. So publish from the Mac mini only:
+
+```sh
+cd raycast
+GIT_CONFIG_COUNT=2 \
+  GIT_CONFIG_KEY_0=user.name GIT_CONFIG_VALUE_0=fatwang2 \
+  GIT_CONFIG_KEY_1=user.email GIT_CONFIG_VALUE_1=fatwang2@users.noreply.github.com \
+  GITHUB_ACCESS_TOKEN="$(gh auth token)" npx ray publish
+```
+
+The token is gh's existing sign-in and is used for this command only.

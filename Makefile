@@ -17,7 +17,7 @@ test-opencode:
 	node --test opencode/tests/*.test.mjs
 
 test-raycast:
-	cd raycast && npm ci && npm test && npm run typecheck && npm run lint && npm run build
+	cd raycast && npm ci && npm test && npm run lint && npm run build && npm run typecheck
 
 validate: test
 	git diff --check

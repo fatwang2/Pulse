@@ -10,6 +10,7 @@ this repository maintains the MIT-licensed Claude Code plugin, Herdr mod and Oma
 | Edition | Source | Get started |
 | --- | --- | --- |
 | **Pulse for Mac** | Closed source | [Website and downloads](https://www.pulseticker.app/) · [Mac App Store](https://apps.apple.com/app/id6812160110) |
+| **Pulse MCP** | Built into Pulse for Mac (docs only) | [Tools and client setup](mcp/README.md) |
 | **Pulse for Claude Code** | Open-source plugin, MIT | [Installation and commands](plugins/claude-code/README.md) |
 | **Pulse for Herdr** | Open-source mod and layout, MIT | [Installation and features](herdr/README.md) |
 | **Pulse for Omarchy** | Open source, MIT | [Installation and features](omarchy/README.md) |
@@ -23,6 +24,11 @@ downloads, and current purchase terms, or get Pulse from the
 
 Pulse for Mac is a paid app with a **30-day full-feature trial**, followed by
 a **one-time purchase**. See [pricing and downloads](https://www.pulseticker.app/buy).
+
+Pulse for Mac includes **Pulse MCP**, a local MCP server that gives Claude Code,
+Claude Desktop, Cursor, Codex, VS Code and other MCP clients quotes, symbol
+search, watchlists and positions over `127.0.0.1`. See the
+[Pulse MCP guide](mcp/README.md) for its 15 tools and client configs.
 
 ![Pulse for Mac: a watchlist with live quotes and sparklines, opened from the menu bar](assets/readme/pulse-mac-01-en.png)
 

@@ -1,0 +1,84 @@
+name: Release Pulse for Raycast
+
+# Submits raycast/ to the Raycast Store: `ray publish` forks raycast/extensions
+# under the approving account and opens (or updates) the submission PR there.
+#
+# Start it by pushing a tag raycast-v<date or number> (e.g. raycast-v2026.11.03),
+# or from the Actions tab. No token is stored anywhere: the job asks GitHub for a
+# one-time device code, prints it in the log and the run summary, and waits for
+# you to approve it at https://github.com/login/device (signed in with your
+# passkey). The token it gets lives only in this job.
+on:
+  push:
+    tags: ["raycast-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.repository == 'fatwang2/Pulse'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: raycast # add required reviewers on this environment to approve each submission
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Test, lint and build
+        run: make test-raycast
+      - name: Sign in to GitHub with a device code and publish
+        working-directory: raycast
+        env:
+          # The Raycast CLI's own GitHub OAuth app, the same one `npm run publish` uses on a Mac.
+          RAYCAST_GITHUB_CLIENT_ID: e69bae0ec90f5e838555
+        run: |
+          set -euo pipefail
+          # JSON bodies, exactly as the Raycast CLI sends them.
+          post() { curl -fsS -X POST "$1" -H 'Accept: application/json' -H 'Content-Type: application/json' -d "$2"; }
+          device="$(post https://github.com/login/device/code \
+            "$(jq -nc --arg id "$RAYCAST_GITHUB_CLIENT_ID" '{client_id: $id, scope: "repo"}')")"
+          code="$(jq -r .user_code <<<"$device")"
+          device_code="$(jq -r .device_code <<<"$device")"
+          interval="$(jq -r .interval <<<"$device")"
+          expires="$(jq -r .expires_in <<<"$device")"
+          url="$(jq -r .verification_uri <<<"$device")"
+          echo "::notice title=Approve the Raycast submission::Open ${url} and enter ${code} (valid for $((expires / 60)) minutes)."
+          {
+            echo "### Approve the Raycast submission"
+            echo
+            echo "Open ${url}, sign in with your passkey, and enter **${code}**."
+            echo "The code is valid for $((expires / 60)) minutes."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          token=""
+          deadline=$(( $(date +%s) + expires ))
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            sleep "$interval"
+            answer="$(post https://github.com/login/oauth/access_token \
+              "$(jq -nc --arg id "$RAYCAST_GITHUB_CLIENT_ID" --arg code "$device_code" \
+                '{client_id: $id, device_code: $code, grant_type: "urn:ietf:params:oauth:grant-type:device_code"}')")"
+            error="$(jq -r '.error // empty' <<<"$answer")"
+            case "$error" in
+              "") token="$(jq -r .access_token <<<"$answer")"; break ;;
+              authorization_pending) ;;
+              slow_down) interval=$(( interval + 5 )) ;;
+              *) echo "GitHub refused the device code: ${error}" >&2; exit 1 ;;
+            esac
+          done
+          if [ -z "$token" ]; then
+            echo "The device code expired before it was approved." >&2
+            exit 1
+          fi
+          echo "::add-mask::${token}"
+
+          login="$(curl -fsS https://api.github.com/user -H "Authorization: Bearer ${token}" | jq -r .login)"
+          echo "Approved by ${login}."
+          git config --global user.name "${login}"
+          git config --global user.email "${login}@users.noreply.github.com"
+          # `ray publish` skips its own interactive GitHub sign-in when this is set.
+          GITHUB_ACCESS_TOKEN="$token" npx ray publish

@@ -45,3 +45,13 @@ npm run dev      # opens the extension in Raycast
 npm test         # search, catalog and quote tests
 npm run lint
 ```
+
+## Releasing
+
+The Raycast Store takes extensions as pull requests to `raycast/extensions`.
+`.github/workflows/release-raycast.yml` submits this folder: push a tag
+`raycast-v<date>` (for example `raycast-v2026.11.03`) or start it from the
+Actions tab. After the `raycast` environment approval, the job prints a
+one-time GitHub device code; open `https://github.com/login/device`, sign in
+with your passkey and enter it. No token is stored. The first run opens a
+draft PR; mark it "Ready for review". Later runs update the same submission.

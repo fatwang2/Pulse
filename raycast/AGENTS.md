@@ -17,3 +17,7 @@
 - Follow Raycast's Store rules: US English UI, Title Case action titles,
   `CHANGELOG.md` with `{PR_MERGE_DATE}`, `package-lock.json` committed,
   `npm run lint` and `npm run build` clean before publishing.
+- Releases go through `.github/workflows/release-raycast.yml` (tag
+  `raycast-v*` or manual run, environment `raycast`): GitHub sign-in by device
+  code approved with the owner's passkey, then `ray publish`. Never store a
+  GitHub token for it.

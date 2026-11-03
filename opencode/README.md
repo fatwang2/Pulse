@@ -83,6 +83,9 @@ Point `tui.json` at your checkout and restart opencode after each change:
 ```
 
 `node --test opencode/tests/*.test.mjs` from the repository root runs the tests.
+To release, bump the version in `package.json` and `src/tui.tsx`, merge, and
+push the tag `opencode-v<version>`: GitHub Actions publishes to npm with
+provenance (trusted publishing, no token) and creates a GitHub release.
 `src/quotes.js` and `src/watchlist.js` are shared with the Herdr mod; see
 [AGENTS.md](AGENTS.md).
 

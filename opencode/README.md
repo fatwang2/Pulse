@@ -96,9 +96,11 @@ Want the same watchlist in your menu bar, with charts and positions?
 
 ## Development
 
-In opencode v2, link your checkout into a project's `.opencode/plugins/`
-(`ln -s /path/to/Pulse/opencode .opencode/plugins/pulse`); v2 reloads it on
-save. In v1, point `tui.json` at it and restart opencode after each change:
+Run `npm install` and `npm run build` in `opencode/`; the package loads
+`dist/`, compiled from `src/`. In opencode v2, link your checkout into a
+project's `.opencode/plugins/` (`ln -s /path/to/Pulse/opencode
+.opencode/plugins/pulse`). In v1, point `tui.json` at it. Rebuild and restart
+opencode after each change:
 
 ```json
 { "plugin": ["/path/to/Pulse/opencode"] }

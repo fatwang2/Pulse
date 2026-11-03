@@ -1,9 +1,14 @@
 # Pulse for opencode
 
 - An opencode TUI plugin (npm package `opencode-pulse-ticker`, entry
-  `exports["./tui"]` = `src/tui.tsx`) for both opencode lines. opencode compiles
-  the TSX with its own Solid runtime, so ship source, no build step and no
-  runtime dependencies. `src/tui.tsx` exports `{ id, tui, setup }`: v1
+  `exports["./tui"]` = `src/tui.tsx`) for both opencode lines. Source is TSX in
+  `src/`; `npm run build` (`scripts/build.mjs`, run on prepack) compiles it to
+  `dist/` with Solid's universal transform for `@opentui/solid`, which is what
+  the package exports. opencode v2 does not compile TSX under `node_modules`,
+  so the published package must be JavaScript; `solid-js` and `@opentui/solid`
+  stay imports that opencode provides. No runtime dependencies. Test the packed
+  package from a `node_modules` path, not only a checkout: a local directory is
+  compiled by opencode and hides build problems. `src/tui.tsx` exports `{ id, tui, setup }`: v1
   (`opencode-ai` 1.15+) calls `tui` (`src/v1.tsx`: `@opencode-ai/plugin/tui`
   `slots`, `keymap.registerLayer`, `kv`, `lifecycle`, `ui`), v2 (`@opencode/cli`
   2.x) calls `setup` (`src/v2.tsx`: `@opencode/plugin/tui` `ui.slot`,

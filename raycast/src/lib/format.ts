@@ -12,13 +12,22 @@ function significant(price: number): string {
   return text;
 }
 
-export function formatNumber(price: number): string {
-  const [whole, fraction] = (price < 1 ? significant(price) : price.toFixed(2)).split(".");
-  return group(whole) + (fraction === undefined ? "" : "." + fraction);
+// Prices in these currencies are quoted in whole units: 229,000 KRW, not 229,000.00.
+const WHOLE_UNITS = new Set(["JPY", "KRW"]);
+
+export function formatNumber(price: number, currency: string | null = null): string {
+  const whole = currency !== null && WHOLE_UNITS.has(currency) && Number.isInteger(price);
+  const [integer, fraction] = (price < 1 ? significant(price) : price.toFixed(whole ? 0 : 2)).split(".");
+  return group(integer) + (fraction === undefined ? "" : "." + fraction);
+}
+
+/** A chart's axis label: no cents once the price runs to four digits. */
+export function formatAxis(price: number): string {
+  return price >= 1000 ? group(Math.round(price).toString()) : formatNumber(price);
 }
 
 export function formatPrice(price: number, currency: string | null): string {
-  return currency ? `${formatNumber(price)} ${currency}` : formatNumber(price);
+  return currency ? `${formatNumber(price, currency)} ${currency}` : formatNumber(price);
 }
 
 export function formatChange(value: number | null | undefined): string {

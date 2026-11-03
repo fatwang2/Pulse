@@ -15,7 +15,7 @@ import { useCachedPromise, useCachedState, usePromise } from "@raycast/utils";
 import { useEffect, useMemo, useState } from "react";
 import { CatalogStore } from "./lib/catalog";
 import { chartMarkdown, chartSvg } from "./lib/chart";
-import { SESSION_LABELS, formatChange, formatDelay, formatPrice, formatTimestamp } from "./lib/format";
+import { SESSION_LABELS, formatChange, formatDelay, formatNumber, formatPrice, formatTimestamp } from "./lib/format";
 import { Quote, RowQuote, fetchBinanceRows, fetchQuote, fetchSparkQuotes } from "./lib/quotes";
 import { SymbolIndex, readerLanguage } from "./lib/search";
 import {
@@ -144,10 +144,11 @@ export default function Command() {
     const looksLikeTicker = typed !== null && (/[./^=]/.test(query) || hits.length === 0);
     const extra =
       typed && looksLikeTicker && allowed(typed) && !hits.some((hit) => hit.symbol === typed.symbol) ? [typed] : [];
-    return [
-      { title: "Results", items: hits },
-      { title: "Look Up Directly", items: extra },
-    ];
+    // `^FTSE` or `EURUSD=X` names an instrument outright; lead with it rather than with name matches.
+    const direct = { title: "Look Up Directly", items: extra };
+    const results = { title: "Results", items: hits };
+    const exactCode = hits.some((hit) => hit.symbol.toUpperCase() === typed?.symbol);
+    return /[\^=]/.test(query) && !exactCode ? [direct, results] : [results, direct];
   }, [index, searchText, filter, language, recent]);
 
   const visible = useMemo(() => sections.flatMap((section) => section.items.map((item) => item.symbol)), [sections]);
@@ -366,25 +367,25 @@ function detailMarkdown(instrument: Instrument, quote: Quote): string {
     appearance: environment.appearance === "light" ? "light" : "dark",
     time: (timestamp) => formatTimestamp(timestamp, now),
   });
+  // One line above the chart keeps the whole chart above the metadata.
   return [
-    `### ${title}`,
-    `**${formatPrice(quote.price, quote.currency)}**  ${formatChange(quote.changePercent)}`,
+    `**${title}** · ${formatPrice(quote.price, quote.currency)} · ${formatChange(quote.changePercent)}`,
     svg ? chartMarkdown(svg) : "_No chart for today yet._",
   ].join("\n\n");
 }
 
 function QuoteMetadata({ quote, instrument }: { quote: Quote; instrument: Instrument }) {
   const now = Date.now();
-  const price = (value: number | null) => (value === null ? "—" : formatPrice(value, null));
+  const price = (value: number | null) => (value === null ? "—" : formatNumber(value, quote.currency));
   const crypto = quote.source === "Binance Spot";
   return (
     <List.Item.Detail.Metadata>
-      <List.Item.Detail.Metadata.Label title="Price" text={formatPrice(quote.price, quote.currency)} />
-      <List.Item.Detail.Metadata.Label
-        title={crypto ? "24h Change" : "Change"}
-        text={{ value: formatChange(quote.changePercent), color: changeColor(quote.changePercent) }}
-      />
-      <List.Item.Detail.Metadata.Separator />
+      <List.Item.Detail.Metadata.TagList title={crypto ? "24h Change" : "Change"}>
+        <List.Item.Detail.Metadata.TagList.Item
+          text={formatChange(quote.changePercent)}
+          color={changeColor(quote.changePercent)}
+        />
+      </List.Item.Detail.Metadata.TagList>
       <List.Item.Detail.Metadata.Label title={crypto ? "24h Open" : "Open"} text={price(quote.open)} />
       <List.Item.Detail.Metadata.Label title={crypto ? "24h High" : "Day High"} text={price(quote.high)} />
       <List.Item.Detail.Metadata.Label title={crypto ? "24h Low" : "Day Low"} text={price(quote.low)} />
@@ -395,7 +396,9 @@ function QuoteMetadata({ quote, instrument }: { quote: Quote; instrument: Instru
       <List.Item.Detail.Metadata.Separator />
       <List.Item.Detail.Metadata.Label
         title="Market"
-        text={[quote.exchangeName ?? marketTag(instrument), SESSION_LABELS[quote.session]].join(" · ")}
+        text={[quote.exchangeName ?? marketTag(instrument), quote.currency, SESSION_LABELS[quote.session]]
+          .filter(Boolean)
+          .join(" · ")}
       />
       <List.Item.Detail.Metadata.Label
         title="Last Update"

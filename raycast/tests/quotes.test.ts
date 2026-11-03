@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { chartSvg } from "../src/lib/chart";
-import { formatChange, formatNumber, formatPrice } from "../src/lib/format";
+import { formatAxis, formatChange, formatNumber, formatPrice } from "../src/lib/format";
 import { decodeSpark, decodeYahooChart } from "../src/lib/quotes";
 
 const now = Date.UTC(2026, 10, 2, 16, 0);
@@ -59,7 +59,7 @@ test("decodes a spark batch, skipping symbols it did not answer", () => {
   const rows = decodeSpark(
     ["AAPL", "0700.HK", "NOPE"],
     {
-      AAPL: { symbol: "AAPL", close: [200, 202], previousClose: 200, fulldayPrice: 202 },
+      AAPL: { symbol: "AAPL", close: [200, 202], previousClose: 200, fulldayPrice: 190 },
       "0700.HK": { symbol: "0700.HK", close: [390, 392.2], chartPreviousClose: 383.6 },
     },
     now,
@@ -76,6 +76,10 @@ test("formats prices the way Pulse does", () => {
   assert.equal(formatChange(1.234), "+1.23%");
   assert.equal(formatChange(-0.5), "-0.50%");
   assert.equal(formatChange(null), "—");
+  assert.equal(formatPrice(229000, "KRW"), "229,000 KRW");
+  assert.equal(formatPrice(3051.5, "JPY"), "3,051.50 JPY");
+  assert.equal(formatAxis(78164.01), "78,164");
+  assert.equal(formatAxis(397.2), "397.20");
 });
 
 test("draws a chart only with two or more points", () => {

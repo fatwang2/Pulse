@@ -1,5 +1,5 @@
 // Today's line as an SVG, for the detail pane's markdown.
-import { formatNumber } from "./format";
+import { formatAxis } from "./format";
 import type { Point } from "./quotes";
 
 export interface ChartOptions {
@@ -14,8 +14,8 @@ export interface ChartOptions {
 }
 
 const WIDTH = 800;
-const HEIGHT = 340;
-const PLOT = { left: 8, right: 120, top: 20, bottom: 52 };
+const HEIGHT = 250;
+const PLOT = { left: 8, right: 110, top: 16, bottom: 46 };
 
 const COLORS = {
   light: { up: "#1A8F4C", down: "#D93A40", grid: "#D7DCE3", text: "#5B6573", reference: "#8A94A3" },
@@ -93,7 +93,7 @@ export function chartSvg(options: ChartOptions): string | null {
     const ry = y(reference);
     parts.push(
       `<line x1="${PLOT.left}" y1="${ry}" x2="${WIDTH - PLOT.right}" y2="${ry}" stroke="${colors.reference}" stroke-width="2" stroke-dasharray="6 6"/>`,
-      `<text x="${labelX}" y="${ry + 7}" fill="${colors.reference}" ${font}>${escape(formatNumber(reference))}</text>`,
+      `<text x="${labelX}" y="${ry + 7}" fill="${colors.reference}" ${font}>${escape(formatAxis(reference))}</text>`,
     );
   }
   parts.push(
@@ -101,10 +101,12 @@ export function chartSvg(options: ChartOptions): string | null {
     `<circle cx="${x(series[series.length - 1].time)}" cy="${y(last)}" r="6" fill="${line}"/>`,
   );
   // High and low, unless they would sit on the reference label.
+  const placed = reference ? [y(reference)] : [];
   for (const value of [high, low]) {
-    if (reference && Math.abs(y(value) - y(reference)) < 24) continue;
+    if (placed.some((taken) => Math.abs(y(value) - taken) < 24)) continue;
+    placed.push(y(value));
     parts.push(
-      `<text x="${labelX}" y="${y(value) + 7}" fill="${colors.text}" ${font}>${escape(formatNumber(value))}</text>`,
+      `<text x="${labelX}" y="${y(value) + 7}" fill="${colors.text}" ${font}>${escape(formatAxis(value))}</text>`,
     );
   }
   parts.push(

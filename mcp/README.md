@@ -1,5 +1,7 @@
 # Pulse MCP
 
+[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/github-com-fatwang2-pulse-tree-main-mcp)
+
 **A local MCP server for stock and crypto quotes, watchlists and positions, built into
 [Pulse for Mac](https://www.pulseticker.app/mcp?utm_source=github&utm_medium=mcp-readme).**
 

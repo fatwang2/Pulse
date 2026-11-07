@@ -1,0 +1,1168 @@
+<bar protocol-version="0" version="1.0.0" id="pulse" title="Pulse for Metrix.Bar"
+     category="finance" description="A lightweight edition of Pulse for Mac: a stock and crypto watchlist with intraday charts, from Yahoo Finance and Binance."
+     license="MIT" homepage="https://www.pulseticker.app/" refresh="1m" material="glass"
+     icon="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjEzNCAyMTUgNzU2IDU4MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iNzIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE3MCA1MTJIMjkyQzMxNiA1MTIgMzI4IDQ3NiAzNDggNDc2QzM3MSA0NzYgMzgzIDUzNyA0MDUgNTM3QzQyNSA1MzcgNDQ0IDQyMyA0OTMgMjc4QzUwMiAyNTEgNTIwIDI1MSA1MjkgMjgwTDYyNyA3MjhDNjM0IDc1OSA2NTQgNzU5IDY2NiA3MzBMNzM4IDUyMEM3NDQgNTAzIDc1NiA0OTggNzc0IDQ5OEg4NTQiLz48L3N2Zz4=">
+  <permissions>
+    <network origin="https://query1.finance.yahoo.com" />
+    <network origin="https://data-api.binance.vision" />
+    <network origin="https://www.pulseticker.app" />
+  </permissions>
+  <inputs>
+    <input name="symbols" type="string" label="Starting watchlist" default="AAPL, NVDA, ^GSPC, 0700.HK, BTC/USDT" required="true"
+           help="Add, remove and reorder tickers in the panel with the + button. Editing this field replaces the panel's watchlist with these Yahoo Finance tickers or Binance Spot pairs: AAPL, 0700.HK, 600519.SS, ^GSPC, BTC/USDT." />
+    <input name="menubar" type="select" label="Menu bar" default="quote">
+      <option value="quote" label="First ticker's quote" />
+      <option value="icon" label="Pulse icon only" />
+    </input>
+    <input name="colors" type="select" label="Up / down colors" default="green-up">
+      <option value="green-up" label="Green up, red down" />
+      <option value="red-up" label="Red up, green down" />
+    </input>
+  </inputs>
+  <docs><![CDATA[Pulse for Metrix.Bar shows a watchlist of stocks, indices and crypto pairs with today's line for each, and a detail view with the day's chart, open, high, low and previous close.
+
+Press + in the panel to search by ticker or company name in English, Chinese, Japanese or Korean (AAPL, Tencent, 腾讯, 600519, BTC) and add to the watchlist. Search runs on your computer over Pulse's symbol catalog, downloaded from pulseticker.app at most once a day; what you type is not sent anywhere. Right-click a row to move it to the top, reorder it or remove it; the first one is shown in the menu bar. The watchlist is kept on your computer. The "Starting watchlist" setting takes Yahoo Finance tickers (AAPL, 0700.HK, 600519.SS, 7203.T, ^GSPC, GC=F) or Binance Spot pairs written BASE/QUOTE (BTC/USDT); editing it replaces the panel's list.
+
+Quotes refresh every minute and may be delayed by the exchange. Stocks come from Yahoo Finance, crypto from Binance's public Spot data. Pulse for Metrix.Bar is a free, lightweight edition. The full experience is Pulse for Mac: positions with today's and total P&L, US pre-market and after-hours charts, 5-minute to monthly candlesticks with volume, a rotating menu bar ticker, named watchlists, and a local MCP server for AI agents. Every feature is free to try for 30 days: https://www.pulseticker.app/]]></docs>
+  <script apis="shell match-media localStorage"><![CDATA[
+// Pulse for Metrix.Bar. MIT License, Copyright (c) SuperAgents, LLC.
+// Quote decoding and symbol rules follow Pulse for Herdr (fatwang2/Pulse, herdr/pulse/mods/pulse/quotes.js);
+// sizes, colors and layout follow Pulse for Mac's watchlist.
+
+const h = (type, props, ...children) =>
+  ({type, props: props || {}, children: children.flat().filter(c => c != null && c !== false && c !== "")});
+
+// ---------------------------------------------------------------- strings
+
+const LANG = (() => {
+  try { return String((navigator.languages && navigator.languages[0]) || navigator.language || "en").toLowerCase().startsWith("zh") ? "zh" : "en"; }
+  catch { return "en"; }
+})();
+
+const STRINGS = {
+  en: {
+    refresh: "Refresh", back: "Back", retry: "Try again",
+    empty: "Your watchlist is empty.", addFirst: "Add a ticker",
+    add: "Add or edit tickers", searchHint: "Ticker or company name", done: "Done",
+    yourList: n => `Watchlist · ${n}`, firstInMenuBar: "The first one shows in the menu bar. Right-click a row to reorder it.",
+    examples: "Try AAPL, Tencent, 600519, 7203 or BTC",
+    loadingSymbols: "Loading symbols…", noResults: q => `No results for “${q}”`, searchFailed: "Search is unavailable right now. Type a full ticker to add it.",
+    addAsIs: s => `Add ${s}`, added: "Added", full: "The watchlist holds up to 30 tickers",
+    moveTop: "Move to Top", moveUp: "Move Up", moveDown: "Move Down", remove: "Remove",
+    healthy: "Quotes healthy", failed: "Couldn't update quotes", updated: t => `Updated ${t}`,
+    cta: "Get the full Pulse for Mac", ctaMenu: "Get the Full Pulse for Mac…",
+    ctaTip: "Positions and P&L, extended-hours charts, candlesticks, a rotating menu bar ticker and more. Free for 30 days.",
+    upsellTitle: "More in Pulse for Mac", upsellBody: "Candlesticks from 5 minutes to monthly, US pre-market and after hours, and your P&L.",
+    upsellAction: "Try free for 30 days",
+    price: "Price", intraday: "Intraday", last24h: "Last 24 hours", noChart: "No intraday data yet",
+    marketData: "Market Data", open: "Open", high: "High", low: "Low", prevClose: "Prev Close", range: "Range %", volume: "Volume",
+    sessions: {open: "Market open", pre: "Pre-market", post: "After hours", closed: "Market closed", "24h": "Trades 24h"},
+    refreshEvery: "60s refresh", realtime: "Real-time", delayed: m => `Delayed ${m} min`, asOf: t => `As of ${t}`,
+    markets: {us: "US", hk: "HK", sh: "SH", sz: "SZ", crypto: "Crypto", metal: "Metals", jp: "JP", kr: "KR", tw: "TW"},
+    errors: {
+      invalid: "Not a ticker or pair", notFound: "Ticker not found", noQuote: "No quote available",
+      rateLimited: "Rate limited, retrying soon", unreadable: "Unreadable response", http: "Request failed",
+      network: "Network unavailable", invalidPair: "No such Binance pair",
+    },
+  },
+  zh: {
+    refresh: "刷新", back: "返回", retry: "重试",
+    empty: "自选列表是空的", addFirst: "添加标的",
+    add: "添加或管理自选", searchHint: "代码或公司名称", done: "完成",
+    yourList: n => `自选 · ${n}`, firstInMenuBar: "第一个显示在菜单栏，右键行情可以调整顺序",
+    examples: "试试 AAPL、腾讯、600519、茅台或 BTC",
+    loadingSymbols: "正在载入代码表…", noResults: q => `没有找到“${q}”`, searchFailed: "搜索暂时不可用，可以输入完整代码直接添加",
+    addAsIs: s => `添加 ${s}`, added: "已添加", full: "自选最多 30 个",
+    moveTop: "置顶", moveUp: "上移", moveDown: "下移", remove: "移除",
+    healthy: "行情正常", failed: "行情更新失败", updated: t => `更新于 ${t}`,
+    cta: "解锁完整版 Pulse for Mac", ctaMenu: "获取完整版 Pulse for Mac…",
+    ctaTip: "持仓与盈亏、美股盘前盘后分时、K 线图、菜单栏轮播行情等完整功能，免费试用 30 天",
+    upsellTitle: "在 Pulse for Mac 中查看更多", upsellBody: "5 分钟到月 K 的蜡烛图、美股盘前盘后分时，以及你的持仓盈亏。",
+    upsellAction: "免费试用 30 天",
+    price: "价格", intraday: "分时", last24h: "近 24 小时", noChart: "暂无分时数据",
+    marketData: "行情数据", open: "开盘", high: "最高", low: "最低", prevClose: "昨收", range: "振幅", volume: "成交量",
+    sessions: {open: "交易中", pre: "盘前", post: "盘后", closed: "已收盘", "24h": "24 小时交易"},
+    refreshEvery: "每 60 秒刷新", realtime: "实时", delayed: m => `延迟 ${m} 分钟`, asOf: t => `报价时间 ${t}`,
+    markets: {us: "美股", hk: "港股", sh: "沪", sz: "深", crypto: "加密", metal: "贵金属", jp: "日股", kr: "韩股", tw: "台股"},
+    errors: {
+      invalid: "不是有效的代码", notFound: "找不到该代码", noQuote: "暂无报价",
+      rateLimited: "请求过于频繁，稍后重试", unreadable: "数据无法解析", http: "请求失败",
+      network: "网络不可用", invalidPair: "Binance 没有这个交易对",
+    },
+  },
+};
+const T = STRINGS[LANG];
+
+// ---------------------------------------------------------------- appearance
+
+let dark = false;
+try {
+  const query = globalThis.matchMedia("(prefers-color-scheme: dark)");
+  dark = query.matches;
+  query.addEventListener("change", e => { dark = e.matches; $metrix.invalidate(); });
+} catch { /* light palette */ }
+
+// Pulse for Mac's ChangePalette.
+const RED = "#F04245", GREEN = "#0AA859";
+// macOS system colors, light / dark, as Pulse for Mac's MarketBadge uses them.
+const BADGE = {
+  us: ["#007AFF", "#0A84FF"], hk: ["#5856D6", "#5E5CE6"], sh: ["#FF9500", "#FF9F0A"], sz: ["#30B0C7", "#40C8E0"],
+  crypto: ["#AF52DE", "#BF5AF2"], metal: ["#A2845E", "#AC8E68"], jp: ["#FF2D55", "#FF375F"], kr: ["#32ADE6", "#64D2FF"],
+  tw: ["#00C7BE", "#63E6E2"],
+};
+// A light accent wash; the theme's accentSubtle reads too heavy on a large card.
+const accentWash = (strong = false) => dark ? (strong ? "#0A84FF40" : "#0A84FF29") : (strong ? "#007AFF24" : "#007AFF14");
+const badgeColor = market => (BADGE[market] || BADGE.us)[dark ? 1 : 0];
+
+const WIDTH = 340;
+const PULSE_URL = "https://www.pulseticker.app/?utm_source=metrixbar&utm_medium=dashboard&utm_content=";
+
+// The Pulse waveform (PulseUI PulseWaveformMark geometry) and Lucide icons (ISC).
+const LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="134 215 756 580" fill="none" stroke="currentColor" stroke-width="72" stroke-linecap="round" stroke-linejoin="round"><path d="M170 512H292C316 512 328 476 348 476C371 476 383 537 405 537C425 537 444 423 493 278C502 251 520 251 529 280L627 728C634 759 654 759 666 730L738 520C744 503 756 498 774 498H854"/></svg>`;
+const LOGO_URI = "data:image/svg+xml;base64," + Buffer.from(LOGO).toString("base64");
+const lucide = body => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const ICON = {
+  refresh: lucide(`<path d="M3 12a9 9 0 0 1 9-9a9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5m5 4a9 9 0 0 1-9 9a9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>`),
+  back: lucide(`<path d="m15 18-6-6 6-6"/>`),
+  external: lucide(`<path d="M7 7h10v10M7 17L17 7"/>`),
+  alert: lucide(`<circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>`),
+  plus: lucide(`<path d="M5 12h14M12 5v14"/>`),
+  check: lucide(`<path d="M20 6 9 17l-5-5"/>`),
+  up: lucide(`<path d="m5 12 7-7 7 7M12 19V5"/>`),
+  close: lucide(`<path d="M18 6 6 18M6 6l12 12"/>`),
+  trash: lucide(`<path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>`),
+  search: lucide(`<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>`),
+};
+
+// ---------------------------------------------------------------- symbols
+
+class QuoteError extends Error {
+  constructor(code, options = {}) {
+    super(code);
+    this.code = code;
+    this.retryAfterMs = options.retryAfterMs;
+  }
+}
+const errorText = e => (e && e.code && T.errors[e.code]) || T.errors.http;
+
+/** A Binance Spot pair is written BASE/QUOTE (BTC/USDT); a dash stays a Yahoo symbol (BTC-USD). */
+const isCryptoPair = s => /^[A-Z0-9]{1,20}\/[A-Z0-9]{1,20}$/.test(s);
+
+/** Yahoo tickers or Binance pairs, never company names or URLs. */
+function normalizeSymbol(input) {
+  let symbol = String(input ?? "").trim().toUpperCase();
+  if (isCryptoPair(symbol)) return symbol;
+  if (!/^[A-Z0-9^][A-Z0-9.^=\-]{0,31}$/.test(symbol)) throw new QuoteError("invalid");
+  if (/^\d{6}\.SH$/.test(symbol)) symbol = symbol.replace(/\.SH$/, ".SS");
+  const hk = /^(\d{1,5})\.HK$/.exec(symbol);
+  if (hk) symbol = String(Number(hk[1])).padStart(4, "0") + ".HK";
+  return symbol;
+}
+
+/** Entries in order, deduplicated; a malformed one is kept so its row can say why. */
+function parseWatchlist(text) {
+  const out = [];
+  for (const raw of String(text ?? "").split(/[,，;；\s]+/)) {
+    if (!raw) continue;
+    let symbol = raw.trim().toUpperCase(), invalid = false;
+    try { symbol = normalizeSymbol(raw); } catch { invalid = true; }
+    if (!out.some(e => e.symbol === symbol)) out.push({symbol, invalid});
+    if (out.length >= 30) break;
+  }
+  return out;
+}
+
+const TZ_MARKET = {"America/New_York": "us", "Asia/Hong_Kong": "hk", "Asia/Shanghai": "sh", "Asia/Tokyo": "jp", "Asia/Seoul": "kr", "Asia/Taipei": "tw"};
+const INDEX_MARKET = {"^HSI": "hk", "^HSCE": "hk", "^HSTECH": "hk", "^N225": "jp", "^KS11": "kr", "^KQ11": "kr", "^TWII": "tw", "^TWOII": "tw"};
+
+function marketOf(symbol, timezoneName) {
+  if (isCryptoPair(symbol)) return "crypto";
+  if (/^(GC|SI|PL|PA|HG)=F$/.test(symbol)) return "metal";
+  const suffix = /\.([A-Z]+)$/.exec(symbol);
+  const bySuffix = suffix && {HK: "hk", SS: "sh", SZ: "sz", T: "jp", KS: "kr", KQ: "kr", TW: "tw", TWO: "tw"}[suffix[1]];
+  if (bySuffix) return bySuffix;
+  if (INDEX_MARKET[symbol]) return INDEX_MARKET[symbol];
+  return TZ_MARKET[timezoneName] || "us";
+}
+
+// Lunch breaks are collapsed so a session reads as one continuous line, as in Pulse for Mac.
+// [minutes from the open to the break, length of the break]
+const LUNCH = {hk: [150, 60], sh: [120, 90], sz: [120, 90], jp: [150, 60]};
+
+// ---------------------------------------------------------------- quote sources
+
+const YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/";
+const BINANCE = "https://data-api.binance.vision/api/v3/";
+const positive = v => typeof v === "number" && Number.isFinite(v) && v > 0;
+const cleanText = v => typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f-\u009f]/g, "").trim().slice(0, 100) || null : null;
+
+async function get(url) {
+  let response;
+  try { response = await fetch(url, {signal: AbortSignal.timeout(12000)}); }
+  catch { throw new QuoteError("network"); }
+  // Always drain the body: an unread response keeps its fetch slot.
+  const text = await response.text().catch(() => "");
+  return {status: response.status, ok: response.ok, text, retryAfter: Number(response.headers.get("retry-after"))};
+}
+
+function parse(response) {
+  try { return JSON.parse(response.text); } catch { throw new QuoteError("unreadable"); }
+}
+
+const CORPORATE = /(,?\s+(inc\.?|incorporated|corporation|corp\.?|company|co\.?,?\s*ltd\.?|limited|ltd\.?|plc|n\.?v\.?|s\.?a\.?|ag|se|holdings?|group|class [a-z]))+$/i;
+function displayName(meta, symbol) {
+  const long = cleanText(meta.longName), short = cleanText(meta.shortName);
+  let name = long || short || symbol;
+  const trimmed = name.replace(CORPORATE, "").trim();
+  if (trimmed.length >= 2) name = trimmed;
+  return name;
+}
+
+function decodeYahoo(symbol, response) {
+  if (response.status === 429) {
+    throw new QuoteError("rateLimited", {retryAfterMs: Math.max(60000, (response.retryAfter || 0) * 1000)});
+  }
+  if (response.status === 404) throw new QuoteError("notFound");
+  if (!response.ok) throw new QuoteError("http");
+  const body = parse(response);
+  const result = body?.chart?.result?.[0];
+  const meta = result?.meta;
+  if (body?.chart?.error || !meta) throw new QuoteError("notFound");
+  let returned = null;
+  try { returned = normalizeSymbol(meta.symbol); } catch { /* checked below */ }
+  // Never show another instrument's response under the requested ticker.
+  if (returned !== symbol) throw new QuoteError("noQuote");
+  if (!positive(meta.regularMarketPrice) || !positive(meta.regularMarketTime)) throw new QuoteError("noQuote");
+  const close = positive(meta.previousClose) ? meta.previousClose : meta.chartPreviousClose;
+  const regular = meta.currentTradingPeriod?.regular;
+  const gmtoffset = Number.isFinite(regular?.gmtoffset) ? regular.gmtoffset : (Number.isFinite(meta.gmtoffset) ? meta.gmtoffset : 0);
+  const market = marketOf(symbol, meta.exchangeTimezoneName);
+  const bars = result.indicators?.quote?.[0] ?? {};
+  const stamps = Array.isArray(result.timestamp) ? result.timestamp : [];
+  const points = [];
+  stamps.forEach((t, i) => { if (Number.isFinite(t) && positive(bars.close?.[i])) points.push([t * 1000, bars.close[i]]); });
+  const opens = (bars.open || []).filter(positive);
+  const period = p => Number.isFinite(p?.start) && Number.isFinite(p?.end) && p.end > p.start ? [p.start * 1000, p.end * 1000] : null;
+  const delay = meta.exchangeDataDelayedBy;
+  return {
+    symbol, market, source: "Yahoo Finance",
+    name: market === "us" && meta.instrumentType === "INDEX" ? (cleanText(meta.shortName) || symbol) : displayName(meta, symbol),
+    isIndex: meta.instrumentType === "INDEX" || symbol.startsWith("^"),
+    price: meta.regularMarketPrice,
+    previousClose: positive(close) ? close : null,
+    currency: typeof meta.currency === "string" && /^[A-Z]{3}$/.test(meta.currency) ? meta.currency : null,
+    timestamp: meta.regularMarketTime * 1000,
+    delaySeconds: Number.isFinite(delay) && delay >= 0 ? delay : null,
+    open: opens[0] ?? null,
+    high: positive(meta.regularMarketDayHigh) ? meta.regularMarketDayHigh : null,
+    low: positive(meta.regularMarketDayLow) ? meta.regularMarketDayLow : null,
+    volume: positive(meta.regularMarketVolume) ? meta.regularMarketVolume : null,
+    gmtoffset,
+    periods: {pre: period(meta.currentTradingPeriod?.pre), regular: period(regular), post: period(meta.currentTradingPeriod?.post)},
+    points,
+  };
+}
+
+const CRYPTO_NAMES = {BTC: "Bitcoin", ETH: "Ethereum", SOL: "Solana", BNB: "BNB", XRP: "XRP", DOGE: "Dogecoin", ADA: "Cardano",
+  TRX: "TRON", TON: "Toncoin", AVAX: "Avalanche", LINK: "Chainlink", DOT: "Polkadot", LTC: "Litecoin", SUI: "Sui", PEPE: "Pepe"};
+
+function decodeBinance(pairs, response) {
+  // -1121 Invalid symbol: one unknown or delisted pair fails the whole batch.
+  if (response.status === 400) throw new QuoteError("invalidPair");
+  if (response.status === 429 || response.status === 418) throw new QuoteError("rateLimited", {retryAfterMs: 60000});
+  if (!response.ok) throw new QuoteError("http");
+  const body = parse(response);
+  const wanted = new Map(pairs.map(p => [p.replace("/", ""), p]));
+  const quotes = {};
+  for (const ticker of Array.isArray(body) ? body : [body]) {
+    const pair = typeof ticker?.symbol === "string" ? wanted.get(ticker.symbol) : undefined;
+    if (!pair) continue;
+    const price = Number(ticker.lastPrice), close = Number(ticker.prevClosePrice), time = Number(ticker.closeTime);
+    if (!positive(price) || !positive(time)) continue;
+    const [base, quote] = pair.split("/");
+    quotes[pair] = {
+      symbol: pair, market: "crypto", source: "Binance", name: CRYPTO_NAMES[base] || base, isIndex: false,
+      price,
+      // Against the price 24 hours before the last trade.
+      previousClose: positive(close) ? close : null,
+      currency: quote, timestamp: time, delaySeconds: 0,
+      open: positive(Number(ticker.openPrice)) ? Number(ticker.openPrice) : null,
+      high: positive(Number(ticker.highPrice)) ? Number(ticker.highPrice) : null,
+      low: positive(Number(ticker.lowPrice)) ? Number(ticker.lowPrice) : null,
+      volume: positive(Number(ticker.volume)) ? Number(ticker.volume) : null,
+      gmtoffset: null, periods: null, points: [],
+    };
+  }
+  return quotes;
+}
+
+function decodeKlines(response) {
+  if (!response.ok) throw new QuoteError("http");
+  const body = parse(response);
+  if (!Array.isArray(body)) throw new QuoteError("unreadable");
+  const points = [];
+  for (const bar of body) {
+    if (!Array.isArray(bar)) continue;
+    const t = Number(bar[0]), c = Number(bar[4]);
+    if (Number.isFinite(t) && positive(c)) points.push([t, c]);
+  }
+  return points;
+}
+
+// ---------------------------------------------------------------- refresh loop
+
+let watchlist = [];          // [{symbol, invalid}]
+let quotes = {};             // symbol -> quote
+let errors = {};             // symbol -> QuoteError (the latest attempt failed)
+let roundError = null;       // set when a whole round produced nothing new
+let lastSuccess = 0;
+let yahooCooldownUntil = 0;
+let inFlight = null;
+let selected = null;         // symbol shown in the detail view
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function pool(items, limit, task) {
+  let next = 0;
+  await Promise.all(Array.from({length: Math.min(limit, items.length)}, async () => {
+    while (next < items.length) await task(items[next++]);
+  }));
+}
+
+async function fetchCrypto(pairs) {
+  if (!pairs.length) return 0;
+  let fresh = {};
+  try {
+    fresh = decodeBinance(pairs, await get(`${BINANCE}ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(pairs.map(p => p.replace("/", ""))))}`));
+  } catch (e) {
+    if (e.code !== "invalidPair" || pairs.length === 1) { for (const p of pairs) errors[p] = e; return 0; }
+    // One bad pair fails the batch: ask for each pair alone to find it.
+    await pool(pairs, 2, async pair => {
+      try { Object.assign(fresh, decodeBinance([pair], await get(`${BINANCE}ticker/24hr?symbol=${pair.replace("/", "")}`))); }
+      catch (err) { errors[pair] = err; }
+    });
+  }
+  await pool(Object.keys(fresh), 2, async pair => {
+    try { fresh[pair].points = decodeKlines(await get(`${BINANCE}klines?symbol=${pair.replace("/", "")}&interval=15m&limit=96`)); }
+    catch { fresh[pair].points = quotes[pair]?.points || []; }
+  });
+  for (const pair of pairs) {
+    if (fresh[pair]) { quotes[pair] = fresh[pair]; delete errors[pair]; }
+    else if (!errors[pair]) errors[pair] = new QuoteError("invalidPair");
+  }
+  return Object.keys(fresh).length;
+}
+
+async function fetchStocks(symbols) {
+  if (!symbols.length) return 0;
+  if (Date.now() < yahooCooldownUntil) {
+    for (const s of symbols) errors[s] = new QuoteError("rateLimited");
+    return 0;
+  }
+  let fetched = 0, lastStart = 0;
+  await pool(symbols, 2, async symbol => {
+    if (Date.now() < yahooCooldownUntil) { errors[symbol] = new QuoteError("rateLimited"); return; }
+    // Space Yahoo requests out a little, as every Pulse edition does.
+    const wait = lastStart + 250 - Date.now();
+    lastStart = Math.max(Date.now(), lastStart + 250);
+    if (wait > 0) await sleep(wait);
+    try {
+      const url = `${YAHOO_CHART}${encodeURIComponent(symbol)}?interval=5m&range=1d&includePrePost=false`;
+      quotes[symbol] = decodeYahoo(symbol, await get(url));
+      delete errors[symbol];
+      fetched++;
+    } catch (e) {
+      errors[symbol] = e;
+      if (e.code === "rateLimited") {
+        yahooCooldownUntil = Date.now() + e.retryAfterMs;
+        try { $metrix.schedule(e.retryAfterMs); } catch { /* keep the static interval */ }
+      }
+    }
+  });
+  return fetched;
+}
+
+async function round() {
+  const valid = watchlist.filter(e => !e.invalid).map(e => e.symbol);
+  for (const e of watchlist) if (e.invalid) errors[e.symbol] = new QuoteError("invalid");
+  if (!valid.length) { roundError = null; return; }
+  const [stocks, crypto] = await Promise.all([
+    fetchStocks(valid.filter(s => !isCryptoPair(s))),
+    // Crypto never waits on Yahoo: its rows update as soon as Binance answers.
+    fetchCrypto(valid.filter(isCryptoPair)).then(n => { $metrix.invalidate(); return n; }),
+  ]);
+  if (stocks + crypto > 0) {
+    lastSuccess = Date.now();
+    roundError = null;
+    if (Date.now() >= yahooCooldownUntil) { try { $metrix.schedule(null); } catch { /* static interval */ } }
+  } else {
+    const first = valid.map(s => errors[s]).find(Boolean);
+    roundError = first ? errorText(first) : T.errors.http;
+  }
+}
+
+function run() {
+  if (inFlight) return inFlight;
+  inFlight = round()
+    .catch(e => { roundError = errorText(e); })
+    .finally(() => { inFlight = null; $metrix.invalidate(); });
+  $metrix.invalidate();
+  return inFlight;
+}
+
+// ---------------------------------------------------------------- watchlist store
+
+// The panel owns the watchlist and keeps it in localStorage. The "symbols" setting seeds it;
+// editing that setting replaces the panel's list.
+const STORE_KEY = "pulse.watchlist.v1";
+const MAX_ENTRIES = 30;
+let seed = null;             // the setting value the current watchlist started from
+
+function entryOf(symbol) {
+  let normalized = String(symbol ?? "").trim().toUpperCase(), invalid = false;
+  try { normalized = normalizeSymbol(symbol); } catch { invalid = true; }
+  return {symbol: normalized, invalid};
+}
+
+function loadStore() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+    if (data && typeof data.seed === "string" && Array.isArray(data.items)) return data;
+  } catch { /* start from the setting */ }
+  return null;
+}
+
+function save() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({seed,
+      items: watchlist.map(e => ({symbol: e.symbol}))}));
+  } catch { /* kept for this session only */ }
+}
+
+function prune() {
+  const keep = new Set(watchlist.map(e => e.symbol));
+  for (const record of [quotes, errors]) for (const key of Object.keys(record)) if (!keep.has(key)) delete record[key];
+  if (selected && !keep.has(selected)) selected = null;
+}
+
+/** Loads the watchlist for the current setting; true when it changed. */
+function adopt(env) {
+  const inputs = env.inputs || {};
+  if (!("symbols" in inputs)) return false;
+  const input = String(inputs.symbols ?? "");
+  if (input === seed) return false;
+  const stored = loadStore();
+  if (stored && stored.seed === input) {
+    const out = [];
+    for (const item of stored.items) {
+      const e = entryOf(item?.symbol);
+      if (e.symbol && !out.some(x => x.symbol === e.symbol)) out.push(e);
+      if (out.length >= MAX_ENTRIES) break;
+    }
+    watchlist = out;
+  } else {
+    watchlist = parseWatchlist(input);
+  }
+  seed = input;
+  save();
+  prune();
+  return true;
+}
+
+const entryFor = symbol => watchlist.find(e => e.symbol === symbol);
+const nameOf = symbol => catalogName(symbol) || quotes[symbol]?.name || symbol;
+
+async function refreshSymbols(symbols) {
+  const valid = symbols.filter(s => entryFor(s) && !entryFor(s).invalid);
+  try {
+    await Promise.all([fetchStocks(valid.filter(s => !isCryptoPair(s))), fetchCrypto(valid.filter(isCryptoPair))]);
+  } catch { /* the row shows the error */ }
+  $metrix.invalidate();
+}
+
+function addEntry(symbol) {
+  if (entryFor(symbol)) return;
+  if (watchlist.length >= MAX_ENTRIES) { notice = T.full; $metrix.invalidate(); return; }
+  watchlist.push(entryOf(symbol));
+  save();
+  void refreshSymbols([symbol]);
+  $metrix.invalidate();
+}
+
+function removeEntry(symbol) {
+  watchlist = watchlist.filter(e => e.symbol !== symbol);
+  save();
+  prune();
+  $metrix.invalidate();
+}
+
+function moveEntry(symbol, to) {
+  const from = watchlist.findIndex(e => e.symbol === symbol);
+  if (from < 0) return;
+  const [entry] = watchlist.splice(from, 1);
+  watchlist.splice(clamp(to, 0, watchlist.length), 0, entry);
+  save();
+  $metrix.invalidate();
+}
+
+// ---------------------------------------------------------------- symbol catalog
+
+// Search runs on this computer over Pulse's published symbol catalog, as in Pulse for Mac
+// and Pulse for Raycast: nothing typed in the search field is sent anywhere. The ranking
+// follows the Mac app's SymbolSearchIndex (ported from raycast/src/lib/search.ts):
+// exact over prefix over substring matches, then popularity.
+const CATALOG_URL = "https://www.pulseticker.app/catalog/symbols-v1.json";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The reader's language for names: en, zh-Hans, zh-Hant, ja or ko. */
+const READER = (() => {
+  try {
+    const locale = String((navigator.languages && navigator.languages[0]) || navigator.language || "en").toLowerCase();
+    if (/^zh[-_](hant|tw|hk|mo)/.test(locale)) return "zh-Hant";
+    if (locale.startsWith("zh")) return "zh-Hans";
+    if (locale.startsWith("ja")) return "ja";
+    if (locale.startsWith("ko")) return "ko";
+  } catch { /* English */ }
+  return "en";
+})();
+const NAME_ORDER = {en: ["en"], "zh-Hans": ["zh-Hans", "zh-Hant", "en"], "zh-Hant": ["zh-Hant", "zh-Hans", "en"],
+  ja: ["ja", "en", "zh-Hant", "zh-Hans"], ko: ["ko", "en", "zh-Hant", "zh-Hans"]};
+const LISTING_LANGUAGE = {us: "en", hk: "zh-Hant", tw: "zh-Hant", two: "zh-Hant", sh: "zh-Hans", sz: "zh-Hans", jp: "ja", kr: "ko", kq: "ko"};
+const YAHOO_SUFFIX = {sh: ".SS", sz: ".SZ", jp: ".T", kr: ".KS", kq: ".KQ", tw: ".TW", two: ".TWO"};
+/** The ticker Yahoo Finance prices a catalog listing under. */
+const yahooSymbol = (market, code) => market === "hk" ? code.padStart(4, "0") + ".HK" : code + (YAHOO_SUFFIX[market] || "");
+
+// Pulse's own index list, named in every language Pulse speaks.
+const INDICES = [
+  { symbol: "^GSPC", codes: ["SPX", "GSPC", "SP500"], names: { en: "S&P 500", "zh-Hans": "标普500指数", "zh-Hant": "標普500指數", ja: "S&P 500", ko: "S&P 500" } },
+  { symbol: "^IXIC", codes: ["IXIC", "COMP"], names: { en: "Nasdaq Composite", "zh-Hans": "纳斯达克综合指数", "zh-Hant": "那斯達克綜合指數", ja: "ナスダック総合指数", ko: "나스닥 종합지수" } },
+  { symbol: "^DJI", codes: ["DJI", "DJIA", "DOW"], names: { en: "Dow Jones Industrial Average", "zh-Hans": "道琼斯工业平均指数", "zh-Hant": "道瓊工業平均指數", ja: "ダウ平均", ko: "다우존스 산업평균지수" } },
+  { symbol: "^NDX", codes: ["NDX", "NASDAQ100"], names: { en: "Nasdaq 100", "zh-Hans": "纳斯达克100指数", "zh-Hant": "那斯達克100指數", ja: "ナスダック100", ko: "나스닥 100" } },
+  { symbol: "^VIX", codes: ["VIX"], names: { en: "CBOE Volatility Index", "zh-Hans": "CBOE波动率指数", "zh-Hant": "CBOE波動率指數", ja: "VIX指数", ko: "VIX 변동성지수" } },
+  { symbol: "^RUI", codes: ["RUI"], names: { en: "Russell 1000", "zh-Hans": "罗素1000指数", "zh-Hant": "羅素1000指數", ja: "ラッセル1000", ko: "러셀 1000" } },
+  { symbol: "^RUT", codes: ["RUT"], names: { en: "Russell 2000", "zh-Hans": "罗素2000指数", "zh-Hant": "羅素2000指數", ja: "ラッセル2000", ko: "러셀 2000" } },
+  { symbol: "^HSI", codes: ["HSI"], names: { en: "Hang Seng Index", "zh-Hans": "恒生指数", "zh-Hant": "恒生指數", ja: "ハンセン指数", ko: "항셍지수" } },
+  { symbol: "^HSTECH", codes: ["HSTECH"], names: { en: "Hang Seng TECH Index", "zh-Hans": "恒生科技指数", "zh-Hant": "恒生科技指數", ja: "ハンセンテック指数", ko: "항셍테크지수" } },
+  { symbol: "000001.SS", codes: ["SSEC", "000001.SS"], names: { en: "Shanghai Composite", "zh-Hans": "上证指数", "zh-Hant": "上證指數", ja: "上海総合指数", ko: "상하이종합지수" } },
+  { symbol: "399001.SZ", codes: ["399001", "SZI"], names: { en: "Shenzhen Component Index", "zh-Hans": "深证成指", "zh-Hant": "深證成指", ja: "深セン成分指数", ko: "선전성분지수" } },
+  { symbol: "399006.SZ", codes: ["399006", "CHINEXT"], names: { en: "ChiNext Index", "zh-Hans": "创业板指", "zh-Hant": "創業板指", ja: "創業板指数", ko: "차이넥스트지수" } },
+  { symbol: "^N225", codes: ["N225", "NIKKEI"], names: { en: "Nikkei 225", "zh-Hans": "日经225指数", "zh-Hant": "日經225指數", ja: "日経平均株価", ko: "닛케이 225" } },
+  { symbol: "^KS11", codes: ["KS11", "KOSPI"], names: { en: "KOSPI Composite Index", "zh-Hans": "韩国综合指数", "zh-Hant": "韓國綜合指數", ja: "韓国総合株価指数", ko: "코스피" } },
+  { symbol: "^TWII", codes: ["TWII", "TAIEX"], names: { en: "TAIEX", "zh-Hans": "台湾加权指数", "zh-Hant": "台灣加權指數", ja: "台湾加権指数", ko: "대만 가권지수" } },
+  { symbol: "^TWOII", codes: ["TWOII", "TPEX"], names: { en: "TPEx Index", "zh-Hans": "台湾柜买指数", "zh-Hant": "櫃買指數", ja: "台湾店頭指数", ko: "대만 장외지수" } },
+];
+/** Case, width, accents, spaces and punctuation fold away: ＡＡＰＬ, Nestlé and BRK.B become aapl, nestle and brkb. */
+function fold(raw) {
+  return String(raw).normalize("NFKC").toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "").normalize("NFC")
+    .replace(/[^\p{L}\p{M}\p{N}]/gu, "");
+}
+
+const isText = v => typeof v === "string" && v.trim() !== "";
+const uniqueKeys = keys => [...new Set(keys.filter(k => k.length > 0))];
+const namesOf = n => n && typeof n === "object" && !Array.isArray(n) ? n : {};
+
+function companyName(raw) {
+  const name = cleanText(raw);
+  if (!name) return null;
+  const trimmed = name.replace(CORPORATE, "").trim();
+  return trimmed.length >= 2 ? trimmed : name;
+}
+
+/** The name for this reader, falling back through the scripts they can still read, then the exchange's own. */
+function readerName(candidate) {
+  const order = [...NAME_ORDER[READER]];
+  if (LISTING_LANGUAGE[candidate.market]) order.push(LISTING_LANGUAGE[candidate.market]);
+  for (const language of order) {
+    const name = candidate.names[language];
+    if (isText(name)) return language === "en" ? companyName(name) : cleanText(name);
+  }
+  if (candidate.market === "crypto") return CRYPTO_NAMES[candidate.symbol.split("/")[0]] || candidate.symbol.split("/")[0];
+  return null;
+}
+
+function buildIndex(document) {
+  const candidates = [], bySymbol = new Map();
+  const add = c => { candidates.push(c); bySymbol.set(c.symbol, c); };
+  for (const index of INDICES) {
+    add({symbol: index.symbol, market: marketOf(index.symbol), names: index.names, popularity: 0.95,
+      codes: uniqueKeys([index.symbol, ...index.codes].map(fold)), nameKeys: uniqueKeys(Object.values(index.names).map(fold)), aliasKeys: []});
+  }
+  for (const entry of document.securities) {
+    if (!entry || !LISTING_LANGUAGE[entry.m] || !isText(entry.c)) continue;
+    const symbol = yahooSymbol(entry.m, entry.c);
+    if (bySymbol.has(symbol)) continue;
+    const codes = [entry.c, symbol];
+    if (entry.m === "hk") codes.push(entry.c.padStart(4, "0"), entry.c.padStart(5, "0"), entry.c.padStart(5, "0") + ".HK");
+    if (entry.m === "sh") codes.push("SH" + entry.c, entry.c + ".SH");
+    if (entry.m === "sz") codes.push("SZ" + entry.c);
+    const names = namesOf(entry.n);
+    add({symbol, market: marketOf(symbol), names, popularity: clamp(Number(entry.p) || 0, 0, 1),
+      codes: uniqueKeys(codes.map(fold)), nameKeys: uniqueKeys(Object.values(names).filter(isText).map(fold)),
+      aliasKeys: uniqueKeys((Array.isArray(entry.a) ? entry.a : []).filter(isText).map(fold))});
+  }
+  // The catalog names coins; nearly every listed coin trades against USDT.
+  for (const coin of Array.isArray(document.crypto) ? document.crypto : []) {
+    if (!coin || !isText(coin.b)) continue;
+    const base = coin.b.toUpperCase(), symbol = `${base}/USDT`;
+    if (!isCryptoPair(symbol) || bySymbol.has(symbol)) continue;
+    const names = namesOf(coin.n);
+    add({symbol, market: "crypto", names, popularity: clamp(Number(coin.p ?? 0.1) || 0, 0, 1),
+      codes: uniqueKeys([base, base + "USDT"].map(fold)),
+      nameKeys: uniqueKeys([...Object.values(names).filter(isText), CRYPTO_NAMES[base] || ""].map(fold)),
+      aliasKeys: uniqueKeys((Array.isArray(coin.a) ? coin.a : []).filter(isText).map(fold))});
+  }
+  return {candidates, bySymbol};
+}
+
+// Match kinds, best first: exact code, name, alias; code, name, alias prefix; name substring.
+const EXACT_CODE = 0, EXACT_NAME = 1, EXACT_ALIAS = 2, CODE_PREFIX = 3, NAME_PREFIX = 4, ALIAS_PREFIX = 5, SUBSTRING = 6;
+const tierOf = match => match <= EXACT_ALIAS ? 0 : match <= ALIAS_PREFIX ? 1 : 2;
+
+function searchCatalog(raw, limit = 12) {
+  const query = fold(raw);
+  if (!catalog || !query) return [];
+  // A Latin fragment under three letters is inside half the names in the catalog; one Han character is a word.
+  const substrings = /^[\x20-\x7e]*$/.test(query) ? query.length >= 3 : true;
+  const hits = [];
+  catalog.candidates.forEach((candidate, order) => {
+    let best = null, closeness = 0;
+    const consider = (keys, exact, prefix, substring) => {
+      for (const key of keys) {
+        let found = null;
+        if (key === query) found = exact;
+        else if (key.startsWith(query)) found = prefix;
+        else if (substring !== null && substrings && key.includes(query)) found = substring;
+        if (found === null) continue;
+        const keyCloseness = query.length / Math.max(key.length, 1);
+        if (best === null || found < best || (found === best && keyCloseness > closeness)) { best = found; closeness = keyCloseness; }
+      }
+    };
+    consider(candidate.codes, EXACT_CODE, CODE_PREFIX, null);
+    consider(candidate.nameKeys, EXACT_NAME, NAME_PREFIX, SUBSTRING);
+    consider(candidate.aliasKeys, EXACT_ALIAS, ALIAS_PREFIX, SUBSTRING);
+    if (best !== null) hits.push({candidate, match: best, score: 25 * candidate.popularity + 6 * Math.min(closeness, 1), order});
+  });
+  hits.sort((a, b) => tierOf(a.match) - tierOf(b.match) || b.score - a.score || a.match - b.match || a.order - b.order);
+  return hits.slice(0, limit).map(({candidate}) =>
+    ({symbol: candidate.symbol, market: candidate.market, name: readerName(candidate) || candidate.symbol}));
+}
+
+let catalog = null;          // {candidates, bySymbol}
+let catalogState = "idle";   // "idle", "loading", "ready" or "failed"
+let catalogTag = null, catalogCheckedAt = 0, catalogLoad = null;
+
+function catalogName(symbol) {
+  const candidate = catalog && catalog.bySymbol.get(symbol);
+  return candidate ? readerName(candidate) : null;
+}
+
+/** Downloads the catalog at most once a day, conditionally, and keeps the copy in hand on failure. */
+function ensureCatalog() {
+  if (catalogLoad) return catalogLoad;
+  // A failed first download is retried after ten minutes.
+  if (catalogState !== "idle" && Date.now() - catalogCheckedAt < (catalog ? DAY_MS : 10 * 60 * 1000)) return Promise.resolve(catalog);
+  if (!catalog) catalogState = "loading";
+  catalogLoad = (async () => {
+    try {
+      let response;
+      try {
+        response = await fetch(CATALOG_URL, {signal: AbortSignal.timeout(30000),
+          headers: catalog && catalogTag ? {"If-None-Match": catalogTag} : {}});
+      } catch { throw new QuoteError("network"); }
+      const text = await response.text().catch(() => "");
+      if (response.status === 304 && catalog) return catalog;
+      if (!response.ok) throw new QuoteError("http");
+      let document;
+      try { document = JSON.parse(text); } catch { throw new QuoteError("unreadable"); }
+      if (document?.schema !== 1 || !Array.isArray(document.securities)) throw new QuoteError("unreadable");
+      const next = buildIndex(document);
+      // Never trade the copy in hand for a far smaller one.
+      if (catalog && next.candidates.length < catalog.candidates.length / 2) throw new QuoteError("unreadable");
+      catalog = next;
+      catalogTag = response.headers.get("etag");
+      catalogState = "ready";
+    } catch {
+      if (!catalog) catalogState = "failed";
+    } finally {
+      catalogCheckedAt = Date.now();
+      catalogLoad = null;
+      if (query.trim()) results = searchCatalog(query.trim());
+      $metrix.invalidate();
+    }
+    return catalog;
+  })();
+  return catalogLoad;
+}
+
+// ---------------------------------------------------------------- search view state
+
+let mode = "list";           // "list" or "add"
+let query = "", results = [], notice = "";
+
+function setQuery(value) {
+  query = String(value ?? "");
+  notice = "";
+  const q = query.trim();
+  results = q ? searchCatalog(q) : [];
+  if (q && !catalog) void ensureCatalog();
+  $metrix.invalidate();
+}
+
+/** Return adds the top result not yet in the list, or the text itself when it is a well-formed ticker. */
+function submitQuery(value) {
+  const q = String(value ?? query).trim();
+  if (!q) return;
+  const found = searchCatalog(q);
+  let symbol = null;
+  try { symbol = normalizeSymbol(q); } catch { /* not a ticker */ }
+  // A ticker written out in full (GC=F, ETH/BTC, 7203.T) means itself, even where it prefixes a listing.
+  const typed = symbol && (found.some(r => r.symbol === symbol) || /[./=^]/.test(symbol)) ? symbol : null;
+  const top = found.find(r => !entryFor(r.symbol));
+  if (typed) addEntry(typed);
+  else if (top) addEntry(top.symbol);
+  else if (symbol) addEntry(symbol);
+  else return;
+  setQuery("");
+}
+
+function openAdd() { mode = "add"; selected = null; setQuery(""); void ensureCatalog(); }
+function closeAdd() { mode = "list"; setQuery(""); }
+
+// ---------------------------------------------------------------- formatting
+
+const FRACTION = {crypto: [2, 8], jp: [0, 2], kr: [0, 2], tw: [0, 2]};
+
+/** Pulse for Mac's PriceFormatter.price: round to the market's maximum places, trim zeros to its minimum, no grouping. */
+function formatPrice(value, market) {
+  if (!Number.isFinite(value)) return "—";
+  let [min, max] = FRACTION[market] || [2, 3];
+  if (market === "crypto" && value < 1) {
+    // Keep 4 significant digits on small coins: 0.00000441 must not round to 0.
+    max = Math.min(12, Math.max(max, 3 - Math.floor(Math.log10(value))));
+  }
+  let text = value.toFixed(max);
+  while (text.includes(".") && text.split(".")[1].length > min && text.endsWith("0")) text = text.slice(0, -1);
+  return text.endsWith(".") ? text.slice(0, -1) : text;
+}
+const changePercent = q => positive(q.previousClose) ? (q.price - q.previousClose) / q.previousClose * 100 : null;
+const formatPercent = v => v === null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
+const formatChange = (q) => {
+  if (!positive(q.previousClose)) return "—";
+  const d = q.price - q.previousClose;
+  return `${d > 0 ? "+" : d < 0 ? "-" : ""}${formatPrice(Math.abs(d), q.market)}`;
+};
+function formatVolume(v) {
+  if (!positive(v)) return "—";
+  if (LANG === "zh") {
+    if (v >= 1e8) return `${(v / 1e8).toFixed(2)}亿`;
+    if (v >= 1e4) return `${(v / 1e4).toFixed(1)}万`;
+    return String(Math.round(v));
+  }
+  if (v >= 1e9) return `${(v / 1e9).toFixed(2)}B`;
+  if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+  return String(Math.round(v));
+}
+const pad2 = n => String(n).padStart(2, "0");
+const localTime = ms => { const d = new Date(ms); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+const exchangeTime = (ms, offset) => {
+  if (!Number.isFinite(offset)) return localTime(ms);
+  const d = new Date(ms + offset * 1000);
+  return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+};
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function staleDate(ms) {
+  const q = new Date(ms), now = new Date();
+  if (q.getFullYear() === now.getFullYear() && q.getMonth() === now.getMonth() && q.getDate() === now.getDate()) return "";
+  return LANG === "zh" ? `${q.getMonth() + 1}月${q.getDate()}日` : `${MONTHS[q.getMonth()]} ${q.getDate()}`;
+}
+
+function session(q) {
+  if (!q.periods) return "24h";
+  const now = Date.now(), within = r => r && now >= r[0] && now < r[1];
+  if (within(q.periods.regular)) return "open";
+  if (within(q.periods.pre)) return "pre";
+  if (within(q.periods.post)) return "post";
+  return "closed";
+}
+
+/** Short menu bar name, as Pulse for Mac: US tickers by code, everything else by its first five characters. */
+function shortName(q) {
+  if (q.market === "crypto") return q.symbol.split("/")[0];
+  if (q.market === "us" && !q.isIndex) return q.symbol;
+  return [...nameOf(q.symbol)].slice(0, 5).join("").trim();
+}
+
+// Width estimates for the shared title / metric columns (Pulse for Mac's WatchRowColumnLayout).
+const textWidth = (s, size, digitRatio = 0.6) => [...String(s)].reduce((w, ch) =>
+  w + (/[\u2E80-\uFFEF]/.test(ch) ? size : /[0-9.+\-%,]/.test(ch) ? size * digitRatio : size * 0.56), 0);
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+
+// ---------------------------------------------------------------- chart geometry
+
+/** Session slots of five minutes, lunch collapsed; null when the quote has no regular session. */
+function sessionAxis(q) {
+  const regular = q.periods?.regular;
+  if (!regular) return null;
+  const totalMinutes = (regular[1] - regular[0]) / 60000;
+  const lunch = LUNCH[q.market] && totalMinutes > LUNCH[q.market][0] + LUNCH[q.market][1] ? LUNCH[q.market] : null;
+  const minuteOf = t => {
+    let m = (t - regular[0]) / 60000;
+    if (lunch && m > lunch[0]) m = Math.max(lunch[0], m - lunch[1]);
+    return m;
+  };
+  const tradingMinutes = totalMinutes - (lunch ? lunch[1] : 0);
+  const slots = Math.max(1, Math.round(tradingMinutes / 5));
+  const labelAt = i => {
+    let m = i * 5;
+    if (lunch && m >= lunch[0]) m += lunch[1];
+    return exchangeTime(regular[0] + m * 60000, q.gmtoffset);
+  };
+  return {slots, x: t => clamp(minuteOf(t) / 5, 0, slots), labelAt};
+}
+
+/** Points, domains and labels for the list sparkline and the detail chart. */
+function chartData(q) {
+  const raw = q.points || [];
+  if (raw.length < 2) return null;
+  const axis = sessionAxis(q);
+  // Only bars from the quote's own session belong on the line.
+  const series = axis ? raw.filter(([t]) => t >= q.periods.regular[0] - 60000 && t <= q.periods.regular[1]) : raw;
+  if (series.length < 2) return null;
+  let lo = Math.min(...series.map(p => p[1])), hi = Math.max(...series.map(p => p[1]));
+  if (positive(q.previousClose)) { lo = Math.min(lo, q.previousClose); hi = Math.max(hi, q.previousClose); }
+  const pad = Math.max((hi - lo) * 0.08, hi * 0.0005, 0.0001);
+  const points = axis
+    ? series.map(([t, y]) => ({x: axis.x(t), y, label: exchangeTime(t, q.gmtoffset), valueLabel: formatPrice(y, q.market)}))
+    : series.map(([t, y], i) => ({x: i, y, label: localTime(t), valueLabel: formatPrice(y, q.market)}));
+  const slots = axis ? axis.slots : series.length - 1;
+  const labels = Array.from({length: slots + 1}, (_, i) => axis ? axis.labelAt(i) : localTime(series[Math.min(i, series.length - 1)][0]));
+  return {points, xDomain: [0, slots], yDomain: [lo - pad, hi + pad], labels};
+}
+
+// ---------------------------------------------------------------- view
+
+let redUp = false;
+const tint = v => v === null || v === 0 || !Number.isFinite(v) ? "textMuted" : (v > 0) === redUp ? RED : GREEN;
+
+function iconButton(svg, tip, onClick, spinning, key) {
+  return h("Column", {...(key ? {key} : {}), width: 24, height: 22, radius: 5, alignItems: "center", justify: "center", tooltip: tip, onClick,
+      hover: {background: "surfaceHover"}, pressed: {background: "surfacePressed"}},
+    h("Icon", {svg, fontSize: 12, width: 12, height: 12, shrink: 0, textColor: "textMuted",
+      ...(spinning ? {keyframes: {duration: 800, repeat: -1, ease: "linear", frames: [{at: 0, rotate: 0}, {at: 1, rotate: 360}]}} : {})}));
+}
+
+function marketBadge(market) {
+  const color = badgeColor(market);
+  return h("Box", {paddingX: 3.5, paddingY: 1, radius: 3, background: color + "21", shrink: 0},
+    h("Text", {fontSize: 9, fontWeight: 600, textColor: color, singleLine: true}, T.markets[market] || market.toUpperCase()));
+}
+
+function sparkline(q, color, height, detail) {
+  const data = chartData(q);
+  if (!data) {
+    return detail
+      ? h("Column", {height, alignItems: "center", justify: "center"}, h("Text", {fontSize: 11, textColor: "textMuted"}, T.noChart))
+      : h("Box", {grow: 1, basis: 0, minWidth: 0, height});
+  }
+  return h("Chart", {
+    type: "area", height, curve: "linear", strokeWidth: detail ? 1.5 : 1.2, xKind: "category", labels: data.labels,
+    xDomain: data.xDomain, yDomain: data.yDomain, appear: false,
+    ...(detail
+      ? {grid: true, gridStyle: "dashed", hover: true, xTicks: 4, yTicks: 4, fillWidth: true}
+      : {axes: false, grid: false, hover: false, grow: 1, basis: 0, minWidth: 0, ignoreInput: true}),
+    referenceLines: positive(q.previousClose)
+      ? [{value: q.previousClose, color: dark ? "#8E8E9370" : "#8E8E9359"}] : [],
+    series: [{name: q.symbol, color, fill: {from: 0.16, to: 0.01}, points: data.points}],
+  });
+}
+
+function rowMenu(symbol, index) {
+  const last = watchlist.length - 1;
+  return [
+    {label: T.moveTop, disabled: index === 0, onClick: () => moveEntry(symbol, 0)},
+    {label: T.moveUp, disabled: index === 0, onClick: () => moveEntry(symbol, index - 1)},
+    {label: T.moveDown, disabled: index === last, onClick: () => moveEntry(symbol, index + 1)},
+    {separator: true},
+    {label: T.remove, onClick: () => removeEntry(symbol)},
+  ];
+}
+
+function titleColumn(name, market, code, props) {
+  return h("Column", {gap: 2.5, ...props},
+    h("Text", {fontSize: 12.5, fontWeight: 500, singleLine: true, ...(name.length > 14 ? {tooltip: name} : {})}, name),
+    h("Row", {gap: 4, alignItems: "center"},
+      marketBadge(market),
+      h("Text", {fontSize: 10, textColor: "textMuted", singleLine: true, tw: "font-mono"}, code)));
+}
+
+function row(entry, index, titleWidth, metricWidth) {
+  const q = quotes[entry.symbol], err = errors[entry.symbol];
+  const market = q ? q.market : marketOf(entry.symbol);
+  const pct = q ? changePercent(q) : null;
+  const color = tint(pct);
+  const name = nameOf(entry.symbol);
+  return h("Row", {key: entry.symbol, gap: 8, padding: 8, radius: 7, alignItems: "center", fillWidth: true,
+      hover: {background: "surfaceHover"}, pressed: {background: "surfacePressed"}, contextMenu: rowMenu(entry.symbol, index),
+      ...(err && q ? {tooltip: errorText(err)} : {}),
+      ...(q ? {onClick: () => { selected = entry.symbol; $metrix.invalidate(); }} : {})},
+    titleColumn(name, market, entry.symbol, {width: titleWidth, shrink: 0}),
+    q ? sparkline(q, color, 30, false)
+      : h("Column", {grow: 1, basis: 0, minWidth: 0, height: 30, justify: "center"},
+          err ? h("Text", {fontSize: 10.5, textColor: "textMuted", singleLine: true}, errorText(err))
+              : h("Box", {height: 2, radius: 1, background: "surfaceHover"})),
+    h("Column", {width: metricWidth, gap: 2.5, alignItems: "end", shrink: 0},
+      h("Text", {fontSize: 12.5, fontWeight: 600, fontFeatures: "tnum", singleLine: true, contentTransition: {numeric: true}},
+        q ? formatPrice(q.price, q.market) : "—"),
+      h("Text", {fontSize: 10.5, fontWeight: 600, fontFeatures: "tnum", singleLine: true, textColor: color, contentTransition: {numeric: true}},
+        q ? formatPercent(pct) : err ? "" : "…")));
+}
+
+function header(refresh) {
+  return h("Row", {alignItems: "center", gap: 8, paddingLeft: 12, paddingRight: 8, paddingTop: 14, paddingBottom: 6},
+    h("Row", {width: 17, height: 13, justify: "end", alignItems: "center"},
+      h("Icon", {svg: LOGO, width: 15, height: 11.5, fontSize: 12, textColor: "accent", shrink: 0})),
+    h("Text", {fontSize: 12.5, fontWeight: 600}, "Pulse"),
+    h("Spacer"),
+    h("Row", {gap: 2, alignItems: "center"},
+      iconButton(ICON.plus, T.add, openAdd, false, "add"),
+      iconButton(ICON.refresh, T.refresh, refresh, !!inFlight)));
+}
+
+function footer(refresh) {
+  const failed = !!roundError;
+  return h("Row", {alignItems: "center", gap: 5, height: 22, paddingLeft: 12, paddingRight: 8, paddingBottom: 4},
+    h("Box", {width: 6, height: 6, radius: 3, background: failed ? "#FF9500" : "#34C759CC", shrink: 0}),
+    h("Text", {fontSize: 11, textColor: "textMuted", singleLine: true, shrink: 1},
+      failed ? T.failed : lastSuccess ? T.updated(localTime(lastSuccess)) : T.healthy),
+    failed && Object.keys(quotes).length ? iconButton(ICON.refresh, T.retry, refresh, !!inFlight) : null,
+    h("Spacer"),
+    h("Row", {gap: 3, alignItems: "center", paddingX: 4, height: 20, radius: 5, tooltip: T.ctaTip,
+        hover: {background: "surfaceHover"}, onClick: () => $metrix.openURL(PULSE_URL + "footer")},
+      h("Text", {fontSize: 11, fontWeight: 500, textColor: "accent", singleLine: true}, failed ? "Pulse for Mac" : T.cta),
+      h("Icon", {svg: ICON.external, width: 10, height: 10, fontSize: 10, textColor: "accent", shrink: 0})));
+}
+
+function skeletonRows() {
+  const bone = (w, ht) => h("Box", {width: w, height: ht, radius: 3, background: "surfaceHover"});
+  return [0, 1, 2, 3].map(i => h("Row", {key: `bone-${i}`, gap: 8, padding: 8, alignItems: "center"},
+    h("Column", {width: 80, gap: 5}, bone(64, 11), bone(48, 9)),
+    h("Box", {grow: 1, basis: 0, height: 22, radius: 4, background: "surfaceHover"}),
+    h("Column", {width: 54, gap: 5, alignItems: "end"}, bone(48, 11), bone(36, 9))));
+}
+
+function listView(refresh) {
+  let body;
+  if (!watchlist.length) {
+    body = h("Column", {padding: [28, 20], gap: 10, alignItems: "center"},
+      h("Text", {fontSize: 12.5, fontWeight: 600, textAlign: "center"}, T.empty),
+      h("Text", {fontSize: 11.5, textColor: "textMuted", textAlign: "center", wrap: true}, T.examples),
+      h("Button", {onClick: openAdd}, T.addFirst));
+  } else if (!Object.keys(quotes).length && !Object.keys(errors).length) {
+    body = h("Column", {gap: 1, paddingX: 4}, skeletonRows());
+  } else if (!Object.keys(quotes).length && roundError) {
+    body = h("Column", {padding: [24, 16], gap: 8, alignItems: "center"},
+      h("Icon", {svg: ICON.alert, width: 20, height: 20, fontSize: 20, textColor: "danger"}),
+      h("Text", {fontSize: 12.5, fontWeight: 600, textAlign: "center", wrap: true}, roundError),
+      h("Button", {onClick: refresh}, T.retry));
+  } else {
+    // One shared title column and one metric column for every row, sized by the widest entry.
+    let titleWidth = 48, metricWidth = 48;
+    for (const e of watchlist) {
+      const q = quotes[e.symbol];
+      const name = nameOf(e.symbol);
+      const badge = textWidth(T.markets[q ? q.market : marketOf(e.symbol)] || "", 9.5, 0.64) + 7;
+      // Monospaced code: every character is a digit-width cell.
+      const code = [...e.symbol].length * 10 * 0.62;
+      titleWidth = Math.max(titleWidth, textWidth(name, 12.5) + 2, badge + 4 + code + 2);
+      if (q) metricWidth = Math.max(metricWidth, textWidth(formatPrice(q.price, q.market), 12.5, 0.66) + 4, textWidth(formatPercent(changePercent(q)), 10.5, 0.66) + 4);
+    }
+    titleWidth = Math.ceil(clamp(titleWidth, 48, 116));
+    metricWidth = Math.ceil(clamp(metricWidth, 48, 104));
+    body = h("Column", {gap: 1, paddingX: 4, paddingBottom: 4}, watchlist.map((e, i) => row(e, i, titleWidth, metricWidth)));
+  }
+  return h("Scroll", {grow: 1, minHeight: 0, fillWidth: true}, body);
+}
+
+function detailView(q, refresh) {
+  const back = () => { selected = null; $metrix.invalidate(); };
+  const pct = changePercent(q), color = tint(pct), s = session(q), stale = staleDate(q.timestamp);
+  const stat = (label, value) => h("Column", {gap: 2},
+    h("Text", {fontSize: 10.5, textColor: "textMuted"}, label),
+    h("Text", {fontSize: 12.5, fontWeight: 600, fontFeatures: "tnum", singleLine: true}, value));
+  const range = positive(q.high) && positive(q.low) && positive(q.previousClose) ? `${((q.high - q.low) / q.previousClose * 100).toFixed(2)}%` : "—";
+  const delayText = q.delaySeconds > 0 ? T.delayed(Math.round(q.delaySeconds / 60)) : q.delaySeconds === 0 ? T.realtime : "";
+  const quoteTime = q.gmtoffset === null ? localTime(q.timestamp) : exchangeTime(q.timestamp, q.gmtoffset);
+  const section = title => h("Text", {fontSize: 11.5, fontWeight: 600, textColor: "textMuted"}, title);
+  return h("Column", {grow: 1, minHeight: 0, fillWidth: true},
+    h("Row", {alignItems: "center", gap: 6, paddingLeft: 8, paddingRight: 8, paddingTop: 14, paddingBottom: 6},
+      iconButton(ICON.back, T.back, back),
+      h("Text", {fontSize: 13, fontWeight: 600, singleLine: true, shrink: 1}, nameOf(q.symbol)),
+      marketBadge(q.market),
+      h("Text", {fontSize: 10.5, textColor: "textMuted", singleLine: true, tw: "font-mono"}, q.symbol),
+      h("Spacer"),
+      h("Row", {gap: 2, alignItems: "center", shrink: 0},
+        iconButton(ICON.trash, T.remove, () => { removeEntry(q.symbol); selected = null; }, false, "remove"),
+        iconButton(ICON.refresh, T.refresh, refresh, !!inFlight))),
+    h("Scroll", {grow: 1, minHeight: 0, fillWidth: true},
+      h("Column", {gap: 12, paddingX: 14, paddingBottom: 12, fillWidth: true},
+        h("Row", {alignItems: "start", gap: 8},
+          h("Column", {gap: 2, grow: 1},
+            h("Text", {fontSize: 10.5, textColor: "textMuted"}, T.price),
+            h("Row", {gap: 5, alignItems: "end"},
+              h("Text", {fontSize: 28, fontWeight: 600, letterSpacing: -0.5, fontFeatures: "tnum", textColor: color, contentTransition: {numeric: true}},
+                formatPrice(q.price, q.market)),
+              q.currency ? h("Text", {fontSize: 11.5, fontWeight: 500, textColor: "textMuted", paddingBottom: 5}, q.currency) : null),
+            h("Text", {fontSize: 12, fontWeight: 600, fontFeatures: "tnum", textColor: color}, `${formatChange(q)}  ${formatPercent(pct)}`)),
+          h("Column", {gap: 3, alignItems: "end", paddingTop: 14},
+            h("Row", {gap: 4, alignItems: "center"},
+              h("Box", {width: 5, height: 5, radius: 2.5, background: s === "open" || s === "24h" ? "#34C759" : "textMuted"}),
+              h("Text", {fontSize: 10.5, textColor: "textMuted"}, `${T.sessions[s]} · ${T.refreshEvery}`)),
+            h("Text", {fontSize: 10.5, textColor: "textMuted"}, delayText ? `${q.source} · ${delayText}` : q.source),
+            h("Text", {fontSize: 10.5, textColor: "textMuted", fontFeatures: "tnum"}, T.asOf(stale ? `${stale} ${quoteTime}` : quoteTime)))),
+        h("Divider", {}),
+        section(q.market === "crypto" ? T.last24h : stale ? `${T.intraday} · ${stale}` : T.intraday),
+        sparkline(q, color, 150, true),
+        h("Divider", {}),
+        section(T.marketData),
+        h("Grid", {columns: 3, gap: 10},
+          stat(T.open, q.open ? formatPrice(q.open, q.market) : "—"),
+          stat(T.high, q.high ? formatPrice(q.high, q.market) : "—"),
+          stat(T.low, q.low ? formatPrice(q.low, q.market) : "—"),
+          stat(T.prevClose, q.previousClose ? formatPrice(q.previousClose, q.market) : "—"),
+          stat(T.range, range),
+          stat(T.volume, formatVolume(q.volume))),
+        // Where the lite edition stops: point at what the full app adds for this ticker.
+        h("Row", {gap: 10, padding: 10, radius: 8, alignItems: "center", background: accentWash(),
+            hover: {background: accentWash(true)}, onClick: () => $metrix.openURL(PULSE_URL + "detail")},
+          h("Icon", {svg: LOGO, width: 18, height: 14, fontSize: 14, textColor: "accent", shrink: 0}),
+          h("Column", {gap: 2, grow: 1, basis: 0, minWidth: 0},
+            h("Text", {fontSize: 12, fontWeight: 600}, T.upsellTitle),
+            h("Text", {fontSize: 11, textColor: "textMuted", wrap: true}, T.upsellBody),
+            h("Row", {gap: 3, alignItems: "center", paddingTop: 2},
+              h("Text", {fontSize: 11, fontWeight: 600, textColor: "accent"}, T.upsellAction),
+              h("Icon", {svg: ICON.external, width: 10, height: 10, fontSize: 10, textColor: "accent", shrink: 0})))))));
+}
+
+function hint(text, props = {}) {
+  return h("Text", {fontSize: 11, textColor: "textMuted", wrap: true, ...props}, text);
+}
+
+function manageRow(entry, index) {
+  const q = quotes[entry.symbol];
+  return h("Row", {key: `m-${entry.symbol}`, gap: 6, paddingLeft: 8, paddingRight: 4, paddingY: 6, radius: 7, alignItems: "center", fillWidth: true,
+      hover: {background: "surfaceHover"}},
+    titleColumn(nameOf(entry.symbol), q ? q.market : marketOf(entry.symbol), entry.symbol, {grow: 1, basis: 0, minWidth: 0}),
+    index > 0 ? iconButton(ICON.up, T.moveUp, () => moveEntry(entry.symbol, index - 1), false, `up-${entry.symbol}`) : h("Box", {width: 24, height: 22}),
+    iconButton(ICON.close, T.remove, () => removeEntry(entry.symbol), false, `x-${entry.symbol}`));
+}
+
+function resultRow(r) {
+  const added = !!entryFor(r.symbol);
+  return h("Row", {key: `r-${r.symbol}`, gap: 8, paddingLeft: 8, paddingRight: 6, paddingY: 6, radius: 7, alignItems: "center", fillWidth: true,
+      hover: {background: "surfaceHover"}, pressed: {background: "surfacePressed"}, tooltip: added ? T.remove : T.addAsIs(r.symbol),
+      onClick: () => added ? removeEntry(r.symbol) : addEntry(r.symbol)},
+    titleColumn(r.name, r.market, r.symbol, {grow: 1, basis: 0, minWidth: 0}),
+    added
+      ? h("Row", {gap: 3, alignItems: "center", shrink: 0},
+          h("Icon", {svg: ICON.check, width: 11, height: 11, fontSize: 11, textColor: "success"}),
+          h("Text", {fontSize: 11, textColor: "textMuted"}, T.added))
+      : h("Column", {width: 24, height: 22, radius: 5, alignItems: "center", justify: "center", background: accentWash(), shrink: 0},
+          h("Icon", {svg: ICON.plus, width: 12, height: 12, fontSize: 12, textColor: "accent"})));
+}
+
+function addView() {
+  const q = query.trim();
+  let body;
+  if (!q) {
+    body = watchlist.length
+      ? h("Column", {gap: 1, paddingX: 4, paddingBottom: 6},
+          h("Column", {gap: 2, paddingX: 8, paddingTop: 2, paddingBottom: 4},
+            h("Text", {fontSize: 11.5, fontWeight: 600, textColor: "textMuted"}, T.yourList(watchlist.length)),
+            hint(T.firstInMenuBar)),
+          watchlist.map(manageRow))
+      : h("Column", {padding: [28, 20], alignItems: "center"}, hint(T.examples, {textAlign: "center"}));
+  } else if (!results.length) {
+    let symbol = null;
+    try { symbol = normalizeSymbol(q); } catch { /* not a ticker */ }
+    const loading = !catalog && catalogState === "loading";
+    body = h("Column", {padding: [28, 20], gap: 10, alignItems: "center"},
+      hint(loading ? T.loadingSymbols : catalog ? T.noResults(q) : T.searchFailed, {textAlign: "center"}),
+      !loading && symbol && !entryFor(symbol) ? h("Button", {onClick: () => { addEntry(symbol); setQuery(""); }}, T.addAsIs(symbol)) : null);
+  } else {
+    body = h("Column", {gap: 1, paddingX: 4, paddingBottom: 6}, results.map(resultRow));
+  }
+  return h("Column", {grow: 1, minHeight: 0, fillWidth: true},
+    h("Row", {alignItems: "center", gap: 6, paddingLeft: 8, paddingRight: 12, paddingTop: 14, paddingBottom: 8},
+      iconButton(ICON.back, T.done, closeAdd, false, "done"),
+      h("TextInput", {key: "search", grow: 1, minWidth: 0, autoFocus: true, value: query, placeholder: T.searchHint,
+        onChange: setQuery, onSubmit: submitQuery})),
+    notice ? h("Row", {paddingX: 14, paddingBottom: 6}, hint(notice, {textColor: "warning"})) : null,
+    h("Scroll", {grow: 1, minHeight: 0, fillWidth: true}, body));
+}
+
+// ---------------------------------------------------------------- worker
+
+export default {
+  async scheduled(env) {
+    adopt(env);
+    // Names in the reader's language come from the catalog; English ones also come with each quote.
+    if (READER !== "en") void ensureCatalog();
+    // A long watchlist keeps loading in the background; the hook returns within its budget.
+    await Promise.race([run(), sleep(10000)]);
+  },
+
+  render(env) {
+    const inputs = env.inputs || {};
+    redUp = inputs.colors === "red-up";
+    // Editing the setting replaces the list; fetch the new one outside render.
+    if (adopt(env)) setTimeout(() => { void run(); }, 0);
+    const refresh = () => { void run(); };
+
+    const first = watchlist.length ? quotes[watchlist[0].symbol] : null;
+    const trayText = first ? `${shortName(first)} ${formatPrice(first.price, first.market)} ${(() => {
+      const p = changePercent(first);
+      return p === null ? "" : `${p > 0 ? "▲" : p < 0 ? "▼" : "–"}${Math.abs(p).toFixed(2)}%`;
+    })()}`.trim() : "";
+    const showText = inputs.menubar !== "icon" && trayText;
+    const stale = roundError || (first && errors[first.symbol] ? errorText(errors[first.symbol]) : "");
+    const tray = {
+      ...(showText ? {title: trayText} : {icon: LOGO_URI, iconTemplate: true}),
+      tooltip: trayText || "Pulse",
+      error: stale || "",
+      menu: [
+        {label: T.refresh, onClick: refresh},
+        {separator: true},
+        {label: T.ctaMenu, onClick: () => $metrix.openURL(PULSE_URL + "menu")},
+      ],
+    };
+
+    const q = mode === "list" && selected && quotes[selected];
+    if (selected && !q) selected = null;
+    const rowsHeight = Math.max(watchlist.length, 3) * 47;
+    const listHeight = Math.min(Math.max(42 + 8 + rowsHeight + 26, 220), 600);
+    const height = q ? 600 : mode === "add" ? Math.max(listHeight, 420) : listHeight;
+    const escape = () => {
+      if (mode === "add") closeAdd();
+      else if (selected) { selected = null; $metrix.invalidate(); }
+    };
+    return {
+      tray,
+      panel: h("Column", {preferredWidth: WIDTH, preferredHeight: height, fill: true, minHeight: 0, safeArea: true,
+          shortcuts: {"CmdOrCtrl+R": refresh, "CmdOrCtrl+F": openAdd, "Escape": escape}},
+        mode === "add" ? addView() : q ? detailView(q, refresh) : [header(refresh), listView(refresh)],
+        footer(refresh)),
+    };
+  },
+
+  event(name, payload) {
+    if (name === "lifecycle" && payload && payload.type === "collapse") {
+      // Reopening the panel starts from the watchlist, as Pulse for Mac does.
+      selected = null;
+      if (mode !== "list") { mode = "list"; setQuery(""); }
+    }
+  },
+};
+  ]]></script>
+</bar>

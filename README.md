@@ -4,17 +4,29 @@
 
 [Website](https://www.pulseticker.app/) · [Mac App Store](https://apps.apple.com/app/id6812160110) · [Feedback](https://github.com/fatwang2/Pulse/issues)
 
-Pulse is available for Mac, Claude Code, opencode, Herdr, and Omarchy. The Mac app is closed source;
-this repository maintains the MIT-licensed Claude Code plugin, opencode plugin, Herdr mod and Omarchy edition.
+Pulse keeps stock, index and crypto prices where you already are: the macOS
+menu bar, your AI coding tools, your terminal and your desktop bar.
+**Pulse for Mac** is the full app, closed source. This repository holds the
+free, MIT-licensed editions for other tools, and the documentation for the MCP
+server built into Pulse for Mac.
 
-| Edition | Source | Get started |
-| --- | --- | --- |
-| **Pulse for Mac** | Closed source | [Website and downloads](https://www.pulseticker.app/) · [Mac App Store](https://apps.apple.com/app/id6812160110) |
-| **Pulse MCP** | Built into Pulse for Mac (docs only) | [Tools and client setup](mcp/README.md) |
-| **Pulse for Claude Code** | Open-source plugin, MIT | [Installation and commands](plugins/claude-code/README.md) |
-| **Pulse for opencode** | Open-source plugin, MIT | [Installation and commands](opencode/README.md) |
-| **Pulse for Herdr** | Open-source mod and layout, MIT | [Installation and features](herdr/README.md) |
-| **Pulse for Omarchy** | Open source, MIT | [Installation and features](omarchy/README.md) |
+## Editions
+
+| Edition | Runs in | What it does | Status | Get started |
+| --- | --- | --- | --- | --- |
+| **Pulse for Mac** | macOS menu bar | Named watchlists, intraday and candlestick charts, positions and P&L, MCP server | Closed source, paid, 30-day free trial | [Website](https://www.pulseticker.app/) · [App Store](https://apps.apple.com/app/id6812160110) |
+| **Pulse MCP** | Pulse for Mac | Quotes, symbol search, watchlists and positions for AI agents | Built into Pulse for Mac (docs only) | [Guide](mcp/README.md) |
+| **Pulse for Claude Code** | Claude Code, Claude Desktop's Code tab | Prices above the prompt, `/pulse` panel to manage tickers | Open source, MIT | [Guide](plugins/claude-code/README.md) |
+| **Pulse for opencode** | opencode | Sidebar watchlist with today's line and a detail view, quote band | Open source, MIT, on npm | [Guide](opencode/README.md) |
+| **Pulse for Herdr** | Herdr | Watchlist docked beside your agents, with a detail view | Open source, MIT | [Guide](herdr/README.md) |
+| **Pulse for Metrix.Bar** | Metrix.Bar menu bar | Ticker in the menu bar, watchlist with search and a detail view | Open source, MIT | [Guide](metrix/README.md) |
+| **Pulse for Omarchy** | Omarchy 4 bar (Linux) | Prices in the bar, named watchlists, search, charts | Open source, MIT | [Guide](omarchy/README.md) |
+| **Pulse for Raycast** | Raycast | Search any symbol by ticker or name, with its price and today's chart | Open source, MIT, in Raycast Store review | [Guide](raycast/README.md) |
+
+The open-source editions need no account or API key. Stocks and indices come
+from Yahoo Finance and crypto pairs from Binance's public Spot data; each
+guide describes its edition's data sources, storage and privacy.
+Positions, P&L and the MCP server are only in Pulse for Mac.
 
 ## Pulse for Mac
 
@@ -49,9 +61,8 @@ free installers remain available. See [historical Mac source and downloads](docs
 
 A Claude Code plugin that shows stock and crypto quotes with signed percentage
 changes above the prompt, with a `/pulse` panel for adding and removing tickers,
-refreshing prices, and pausing updates. Stocks and indices come from Yahoo
-Finance and crypto pairs from Binance's public Spot data. Requires Claude Code
-**2.1.287 or later**, with Mods enabled.
+refreshing prices, and pausing updates. Requires Claude Code **2.1.287 or
+later**, with Mods enabled.
 
 ![Pulse for Claude Code showing stock and crypto prices above the prompt](assets/readme/pulse-claude-code.png)
 
@@ -107,6 +118,26 @@ Read ~/.config/herdr-app/AGENTS.md, then add this layout: https://github.com/fat
 
 See the [Herdr guide](herdr/README.md) for the mod on its own, usage and privacy.
 
+## Pulse for Metrix.Bar
+
+A [Metrix.Bar](https://metrix.bar) dashboard: your first ticker in the menu
+bar, and a panel with your watchlist, today's line on every row and a detail
+view with the day's chart, open, high, low and previous close. Press **+** to
+search by ticker or company name in English, Chinese, Japanese or Korean;
+right-click a row to reorder or remove it.
+
+<img src="metrix/preview.png" alt="Pulse for Metrix.Bar panel" width="340">
+
+With [Metrix.Bar](https://metrix.bar/download) running, run this in Terminal
+(or open the link in a browser), then confirm in Metrix.Bar:
+
+```sh
+open "metrixbar://install/pulse?registry_url=https%3A%2F%2Fraw.githubusercontent.com%2Ffatwang2%2FPulse%2Fmain%2Fmetrix%2Findex.json"
+```
+
+Installed this way, Metrix.Bar offers new versions as they are published here.
+See the [Metrix.Bar guide](metrix/README.md) for usage, settings and privacy.
+
 ## Pulse for Omarchy
 
 An independent Pulse edition for Omarchy, with market data in the bar, named
@@ -126,17 +157,39 @@ The implementation is maintained in [`omarchy/`](omarchy/README.md).
 See the [Omarchy guide](omarchy/README.md) for features and local development,
 and [repository transition notes](docs/repository-transition.md) for migration details.
 
+## Pulse for Raycast
+
+A [Raycast](https://www.raycast.com) extension with one command, **Search
+Symbol**: look up any stock, ETF, index or crypto pair by ticker or by its name
+in English, Chinese, Japanese or Korean, and see its price, change and today's
+chart. Search runs on your Mac over Pulse's symbol list.
+
+The extension is in review for the Raycast Store
+([raycast/extensions#33098](https://github.com/raycast/extensions/pull/33098)).
+Until it is listed, run it from this repository with Raycast and Node.js
+installed ([development notes](docs/raycast.md)):
+
+```sh
+cd raycast
+npm install
+npm run dev
+```
+
+See the [Raycast guide](raycast/README.md) for markets, search and privacy.
+
 ## Contributing and feedback
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md). Each open-source edition has its
-own implementation and tests; development does not require building the Mac app.
+own folder, implementation and tests; development does not require building the
+Mac app. `make test` runs every edition's checks.
 Use [GitHub Issues](https://github.com/fatwang2/Pulse/issues) and identify the edition.
 Mac support is also available at [hello@pulseticker.app](mailto:hello@pulseticker.app).
 Report security issues privately to [sys@pulseticker.app](mailto:sys@pulseticker.app).
 
 ## License
 
-The Omarchy edition and Claude Code plugin retain their [MIT license](LICENSE)
-and any component notices. That license does not apply to the current commercial
-Mac binaries or provide rights to third-party market data. Historical Mac source
-retains its original license.
+The open-source editions (`plugins/claude-code`, `opencode`, `herdr`, `metrix`,
+`omarchy` and `raycast`) are released under the [MIT license](LICENSE), with any
+component notices in their folders. That license does not apply to the current
+commercial Mac binaries or provide rights to third-party market data. Historical
+Mac source retains its original license.

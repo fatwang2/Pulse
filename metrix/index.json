@@ -1,0 +1,27 @@
+{
+  "$schema": "https://metrix.bar/dashboards/schema.json",
+  "schema_version": 1,
+  "id": "pulse",
+  "name": "Pulse",
+  "dashboards": [
+    {
+      "id": "pulse",
+      "name": "Pulse for Metrix.Bar",
+      "protocol_version": "0",
+      "version": "1.0.0",
+      "category": "finance",
+      "placements": [
+        "menubar"
+      ],
+      "open_mode": "flyout",
+      "window_style": "standard",
+      "description": "A lightweight edition of Pulse for Mac: a stock and crypto watchlist with intraday charts, from Yahoo Finance and Binance.",
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjEzNCAyMTUgNzU2IDU4MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iNzIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE3MCA1MTJIMjkyQzMxNiA1MTIgMzI4IDQ3NiAzNDggNDc2QzM3MSA0NzYgMzgzIDUzNyA0MDUgNTM3QzQyNSA1MzcgNDQ0IDQyMyA0OTMgMjc4QzUwMiAyNTEgNTIwIDI1MSA1MjkgMjgwTDYyNyA3MjhDNjM0IDc1OSA2NTQgNzU5IDY2NiA3MzBMNzM4IDUyMEM3NDQgNTAzIDc1NiA0OTggNzc0IDQ5OEg4NTQiLz48L3N2Zz4=",
+      "license": "MIT",
+      "homepage": "https://www.pulseticker.app/",
+      "docs": "Pulse for Metrix.Bar shows a watchlist of stocks, indices and crypto pairs with today's line for each, and a detail view with the day's chart, open, high, low and previous close.\n\nPress + in the panel to search by ticker or company name in English, Chinese, Japanese or Korean (AAPL, Tencent, 腾讯, 600519, BTC) and add to the watchlist. Search runs on your computer over Pulse's symbol catalog, downloaded from pulseticker.app at most once a day; what you type is not sent anywhere. Right-click a row to move it to the top, reorder it or remove it; the first one is shown in the menu bar. The watchlist is kept on your computer. The \"Starting watchlist\" setting takes Yahoo Finance tickers (AAPL, 0700.HK, 600519.SS, 7203.T, ^GSPC, GC=F) or Binance Spot pairs written BASE/QUOTE (BTC/USDT); editing it replaces the panel's list.\n\nQuotes refresh every minute and may be delayed by the exchange. Stocks come from Yahoo Finance, crypto from Binance's public Spot data. Pulse for Metrix.Bar is a free, lightweight edition. The full experience is Pulse for Mac: positions with today's and total P&L, US pre-market and after-hours charts, 5-minute to monthly candlesticks with volume, a rotating menu bar ticker, named watchlists, and a local MCP server for AI agents. Every feature is free to try for 30 days: https://www.pulseticker.app/",
+      "file": "pulse.bar",
+      "sha256": "f94afe95fc3906e10d303469f15d7f38904eff9af9b3ce8b0762f7d2ad0634f1"
+    }
+  ]
+}

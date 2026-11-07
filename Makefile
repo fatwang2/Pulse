@@ -1,6 +1,6 @@
-.PHONY: test test-claude test-omarchy test-herdr test-opencode test-raycast validate
+.PHONY: test test-claude test-omarchy test-herdr test-opencode test-raycast test-metrix validate
 
-test: test-claude test-omarchy test-herdr test-opencode test-raycast
+test: test-claude test-omarchy test-herdr test-opencode test-raycast test-metrix
 
 test-claude:
 	claude plugin validate plugins/claude-code
@@ -15,6 +15,9 @@ test-herdr:
 
 test-opencode:
 	node --test opencode/tests/*.test.mjs
+
+test-metrix:
+	node --test metrix/tests/*.test.mjs
 
 test-raycast:
 	cd raycast && npm ci && npm test && npm run lint && npm run build && npm run typecheck

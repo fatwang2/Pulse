@@ -9,6 +9,7 @@ on:
       - 'plugins/**'
       - 'omarchy/**'
       - 'raycast/**'
+      - 'metrix/**'
       - 'Makefile'
       - '.github/workflows/open-source-checks.yml'
   push:
@@ -20,6 +21,7 @@ on:
       - 'plugins/**'
       - 'omarchy/**'
       - 'raycast/**'
+      - 'metrix/**'
       - 'Makefile'
       - '.github/workflows/open-source-checks.yml'
 
@@ -65,8 +67,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
-      - name: Test the Herdr mod and the opencode plugin (shared quote code)
-        run: make test-herdr test-opencode
+      - name: Test the Herdr mod, the opencode plugin (shared quote code) and the Metrix.Bar dashboard
+        run: make test-herdr test-opencode test-metrix
       - name: Build the opencode plugin
         working-directory: opencode
         run: npm ci --no-audit --no-fund && npm run build

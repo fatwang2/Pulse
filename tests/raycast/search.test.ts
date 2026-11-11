@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { SymbolIndex, displayName, fold, readerLanguage, type CatalogDocument } from "../src/lib/search";
-import { normalizeTypedSymbol, yahooSymbol } from "../src/lib/symbols";
+import { SymbolIndex, displayName, fold, readerLanguage, type CatalogDocument } from "../../raycast/src/lib/search";
+import { normalizeTypedSymbol, yahooSymbol } from "../../raycast/src/lib/symbols";
 
 const catalog: CatalogDocument = {
   schema: 1,

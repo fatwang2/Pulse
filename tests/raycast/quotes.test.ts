@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { chartSvg } from "../src/lib/chart";
-import { formatAxis, formatChange, formatNumber, formatPrice } from "../src/lib/format";
-import { decodeSpark, decodeYahooChart } from "../src/lib/quotes";
+import { chartSvg } from "../../raycast/src/lib/chart";
+import { formatAxis, formatChange, formatNumber, formatPrice } from "../../raycast/src/lib/format";
+import { decodeSpark, decodeYahooChart } from "../../raycast/src/lib/quotes";
 
 const now = Date.UTC(2026, 10, 2, 16, 0);
 const start = Date.UTC(2026, 10, 2, 14, 30) / 1000;

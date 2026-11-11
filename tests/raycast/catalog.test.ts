@@ -3,7 +3,7 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { CATALOG_URL, CatalogStore, DAY_MS } from "../src/lib/catalog";
+import { CATALOG_URL, CatalogStore, DAY_MS } from "../../raycast/src/lib/catalog";
 
 const catalog = (generatedAt: string, count: number) =>
   JSON.stringify({

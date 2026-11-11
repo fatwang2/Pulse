@@ -17,6 +17,9 @@
 - Follow Raycast's Store rules: US English UI, Title Case action titles,
   `CHANGELOG.md` with `{PR_MERGE_DATE}`, `package-lock.json` committed,
   `npm run lint` and `npm run build` clean before publishing.
+- Keep tests and other dev material out of `raycast/`: the Store reviewer
+  asked for only the extension, `README.md`, `CHANGELOG.md`, `media/` and
+  `metadata/`. Tests live in `tests/raycast/` and run with `npx tsx`.
 - Publish only from the owner's Mac mini (see Releasing). Never from CI or a
   fresh machine, and never store a GitHub token.
 
@@ -25,7 +28,7 @@
 ```sh
 npm install
 npm run dev      # opens the extension in Raycast
-npm test         # search, catalog and quote tests
+make -C .. test-raycast   # tests (in tests/raycast/, outside the Store folder), lint, build, typecheck
 npm run lint
 ```
 

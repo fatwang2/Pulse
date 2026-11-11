@@ -20,7 +20,7 @@ test-metrix:
 	node --test metrix/tests/*.test.mjs
 
 test-raycast:
-	cd raycast && npm ci && npm test && npm run lint && npm run build && npm run typecheck
+	cd raycast && npm ci && npx --yes tsx@4.23.15 --test ../tests/raycast/*.test.ts && npm run lint && npm run build && npm run typecheck
 
 validate: test
 	git diff --check

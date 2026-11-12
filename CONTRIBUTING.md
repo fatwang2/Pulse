@@ -1,6 +1,6 @@
 # Contributing to Pulse
 
-This repository holds six independent open-source editions of Pulse and the
+This repository holds seven independent open-source editions of Pulse and the
 documentation for Pulse MCP. Current commercial Mac and website development
 takes place elsewhere; historical Mac build instructions are linked from
 [the history guide](docs/history/README.md).
@@ -12,6 +12,7 @@ takes place elsewhere; historical Mac build instructions are linked from
 | Claude Code | `plugins/claude-code` | Claude Code 2.1.287+, with Mods enabled | `make test-claude` |
 | opencode | `opencode` | Node.js 22+; opencode 1.15+ or 2.x for runtime checks | `make test-opencode`, then `npm run build` in `opencode/` |
 | Herdr | `herdr` | Node.js 22+; Herdr for runtime checks | `make test-herdr` |
+| Rex | `rex` | Node.js 22+; Rex for runtime checks | `make test-rex` |
 | Metrix.Bar | `metrix` | Node.js 22+; Metrix.Bar with its local API for runtime checks | `make test-metrix` |
 | Omarchy | `omarchy` | Node.js 22+ for reducer tests; Omarchy 4 / Qt for runtime checks | `make test-omarchy` |
 | Raycast | `raycast` | Node.js 22+; Raycast for runtime checks | `make test-raycast` |
@@ -52,8 +53,9 @@ What the checks cover:
 - **Claude Code** tests use its native Mods harness with mocked host APIs and
   make no model calls. For type checking, follow its README's
   declaration-generation instructions.
-- **opencode** and **Herdr** test their shared quote and watchlist code with
-  `node --test`; the opencode copy must match Herdr's, and a test checks it.
+- **opencode**, **Herdr** and **Rex** test their shared quote and watchlist code
+  with `node --test`; the opencode and Rex copies must match Herdr's, and tests
+  check it. Rex also tests that every line it draws fits its pane.
 - **Metrix.Bar** tests check that `metrix/index.json` matches `pulse.bar` (its
   SHA-256 and version), the declared hosts, and the Worker's symbol, search and
   formatting rules. Rebuild the index after every change to `pulse.bar`; see
@@ -75,6 +77,7 @@ change works, try it there:
 | Claude Code | Load the plugin in Claude Code, and in Claude Desktop's Code tab if the change touches the panel |
 | opencode | Install the packed package in a real opencode v1 and v2, not only from a checkout |
 | Herdr | `herdr-app check` on the mod, then run it in Herdr; each `preview.png` is a real screenshot |
+| Rex | `rex config check` on an `init.lua` that loads `rex/lua/pulse.lua`, then `rex do <that file> --action pulse_open` and a look at the pane and its layer |
 | Metrix.Bar | `POST /v0/validate` and `POST /v0/check` with fixtures and steps, then the installed dashboard |
 | Omarchy | The bar and panel in an Omarchy 4 session |
 | Raycast | `npm run dev` in `raycast/`, then the command in Raycast |
@@ -88,7 +91,7 @@ acceptance.
 Each edition is released on its own; versions and changelogs stay separate.
 Existing `v0.*` tags belong to the historical Mac app and must not be reused
 for open-source releases. Release steps are in each edition's AGENTS.md; for
-example, opencode publishes to npm from an `opencode-v*` tag, Raycast is
+example, opencode and Rex publish to npm from `opencode-v*` and `rex-v*` tags, Raycast is
 submitted to the Store only from the owner's Mac, and Metrix.Bar users receive
 whatever `metrix/index.json` on `main` describes. See also the
 [transition notes](docs/repository-transition.md).
@@ -96,7 +99,7 @@ whatever `metrix/index.json` on `main` describes. See also the
 ## Issues and changes
 
 Name the edition when you report an issue: **Claude Code**, **opencode**,
-**Herdr**, **Metrix.Bar**, **Omarchy**, **Raycast**, **Pulse MCP**, **current
+**Herdr**, **Rex**, **Metrix.Bar**, **Omarchy**, **Raycast**, **Pulse MCP**, **current
 commercial Mac** or **historical Mac**. Include the relevant application and
 host versions and the steps to reproduce. Remove credentials and private
 financial information from logs and screenshots. Report security issues

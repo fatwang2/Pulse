@@ -19,6 +19,7 @@ server built into Pulse for Mac.
 | **Pulse for Claude Code** | Claude Code, Claude Desktop's Code tab | Prices above the prompt, `/pulse` panel to manage tickers | Open source, MIT | [Guide](plugins/claude-code/README.md) |
 | **Pulse for opencode** | opencode | Sidebar watchlist with today's line and a detail view, quote band | Open source, MIT, on npm | [Guide](opencode/README.md) |
 | **Pulse for Herdr** | Herdr | Watchlist docked beside your agents, with a detail view | Open source, MIT | [Guide](herdr/README.md) |
+| **Pulse for Rex** | Rex | Watchlist in a pane beside your agents, with the selected ticker's chart and a detail layer | Open source, MIT | [Guide](rex/README.md) |
 | **Pulse for Metrix.Bar** | Metrix.Bar menu bar | Ticker in the menu bar, watchlist with search and a detail view | Open source, MIT | [Guide](metrix/README.md) |
 | **Pulse for Omarchy** | Omarchy 4 bar (Linux) | Prices in the bar, named watchlists, search, charts | Open source, MIT | [Guide](omarchy/README.md) |
 | **Pulse for Raycast** | Raycast | Search any symbol by ticker or name, with its price and today's chart | Open source, MIT, in Raycast Store review | [Guide](raycast/README.md) |
@@ -117,6 +118,22 @@ Read ~/.config/herdr-app/AGENTS.md, then add this layout: https://github.com/fat
 ```
 
 See the [Herdr guide](herdr/README.md) for the mod on its own, usage and privacy.
+
+## Pulse for Rex
+
+A [Rex](https://www.superlogical.com/rex) pane: a stock and crypto watchlist
+beside your agents, with the selected ticker's day below the list, and a floating layer with its chart, open, high, low and
+previous close. Opened from Rex's command palette.
+
+<img src="rex/preview.png" alt="Pulse for Rex: the watchlist with the selected ticker's day below it" width="720">
+
+```sh
+npm install --global rex-pulse-ticker
+pulse-rex install
+```
+
+Then press **cmd+shift+p** in Rex and run **Pulse: Open Watchlist**. See the
+[Rex guide](rex/README.md) for usage and privacy.
 
 ## Pulse for Metrix.Bar
 

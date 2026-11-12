@@ -1,9 +1,9 @@
 # Pulse public repository
 
-This repository hosts Pulse for Omarchy, Pulse for Claude Code, Pulse for opencode, Pulse for Herdr, Pulse for Raycast and Pulse for Metrix.Bar. Current
+This repository hosts Pulse for Omarchy, Pulse for Claude Code, Pulse for opencode, Pulse for Herdr, Pulse for Rex, Pulse for Raycast and Pulse for Metrix.Bar. Current
 commercial Mac and website source belongs in the private Pulse repository.
 
-- Keep `omarchy`, `plugins/claude-code`, `opencode`, `herdr`, `raycast` and `metrix` independent; follow their
+- Keep `omarchy`, `plugins/claude-code`, `opencode`, `herdr`, `rex`, `raycast` and `metrix` independent; follow their
   scoped AGENTS.md instructions (Raycast's live in docs/raycast.md, since the
   Store ships everything in raycast/) and run checks appropriate to the changed edition.
 - Do not restore current Mac source, website source, signing material, private

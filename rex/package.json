@@ -1,0 +1,42 @@
+{
+  "name": "rex-pulse-ticker",
+  "version": "0.1.0",
+  "description": "Stock and crypto quotes in a Rex pane beside your agents, from the makers of Pulse for Mac",
+  "type": "module",
+  "license": "MIT",
+  "author": "fatwang2",
+  "homepage": "https://github.com/fatwang2/Pulse/tree/main/rex#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fatwang2/Pulse.git",
+    "directory": "rex"
+  },
+  "bugs": {
+    "url": "https://github.com/fatwang2/Pulse/issues"
+  },
+  "keywords": [
+    "rex",
+    "terminal",
+    "tui",
+    "stocks",
+    "crypto",
+    "ticker",
+    "watchlist"
+  ],
+  "bin": {
+    "pulse-rex": "bin/pulse-rex.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "lua",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  }
+}

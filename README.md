@@ -125,6 +125,8 @@ A [Rex](https://www.superlogical.com/rex) pane: a stock and crypto watchlist
 beside your agents, with the selected ticker's day below the list, and a floating layer with its chart, open, high, low and
 previous close. Opened from Rex's command palette.
 
+<img src="rex/preview.png" alt="Pulse for Rex: the watchlist with the selected ticker's day below it" width="720">
+
 ```sh
 npm install --global rex-pulse-ticker
 pulse-rex install

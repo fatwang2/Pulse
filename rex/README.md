@@ -10,6 +10,8 @@ in a floating layer. Stocks and indices come from Yahoo Finance, crypto pairs
 (`BTC/USDT`) from Binance's public Spot data. Squeezed to six rows or fewer,
 the pane draws a one-line quote band instead.
 
+![Pulse for Rex: the watchlist with the selected ticker's day below it](preview.png)
+
 ## Install
 
 Needs Node.js 18.17 or later and Rex's `rex` command on your `PATH`.

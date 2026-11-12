@@ -25,6 +25,7 @@
   the README); name no other edition. Links carry `utm_source=rex`.
 - Respect Yahoo cooldowns; never show cached data as fresh or unknown delay as
   real time. Crypto never waits on Yahoo.
+- `preview.png` must be a screenshot of the real pane running in Rex.
 - Test in a real Rex before release: `rex config check` on an `init.lua` that
   loads the Lua, `rex do <that file> --action pulse_open`, and a look at the
   pane, the layer and the band.

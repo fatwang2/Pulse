@@ -30,6 +30,7 @@
     "bin",
     "src",
     "lua",
+    "preview.png",
     "README.md",
     "LICENSE"
   ],

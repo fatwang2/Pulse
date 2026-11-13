@@ -22,7 +22,7 @@ server built into Pulse for Mac.
 | **Pulse for Rex** | Rex | Watchlist in a pane beside your agents, with the selected ticker's chart and a detail layer | Open source, MIT | [Guide](rex/README.md) |
 | **Pulse for Metrix.Bar** | Metrix.Bar menu bar | Ticker in the menu bar, watchlist with search and a detail view | Open source, MIT | [Guide](metrix/README.md) |
 | **Pulse for Omarchy** | Omarchy 4 bar (Linux) | Prices in the bar, named watchlists, search, charts | Open source, MIT | [Guide](omarchy/README.md) |
-| **Pulse for Raycast** | Raycast | Search any symbol by ticker or name, with its price and today's chart | Open source, MIT, in Raycast Store review | [Guide](raycast/README.md) |
+| **Pulse for Raycast** | Raycast | Search any symbol by ticker or name, with its price and today's chart | Open source, MIT, [Raycast Store](https://www.raycast.com/fatwang266/pulse) | [Guide](raycast/README.md) |
 
 The open-source editions need no account or API key. Stocks and indices come
 from Yahoo Finance and crypto pairs from Binance's public Spot data; each
@@ -181,16 +181,10 @@ Symbol**: look up any stock, ETF, index or crypto pair by ticker or by its name
 in English, Chinese, Japanese or Korean, and see its price, change and today's
 chart. Search runs on your Mac over Pulse's symbol list.
 
-The extension is in review for the Raycast Store
-([raycast/extensions#33098](https://github.com/raycast/extensions/pull/33098)).
-Until it is listed, run it from this repository with Raycast and Node.js
-installed ([development notes](docs/raycast.md)):
+Install it from the [Raycast Store](https://www.raycast.com/fatwang266/pulse).
+To run it from source instead, see the [development notes](docs/raycast.md).
 
-```sh
-cd raycast
-npm install
-npm run dev
-```
+![Pulse for Raycast: searching 腾讯 finds Tencent, with its price and today's chart](raycast/media/search-by-name.png)
 
 See the [Raycast guide](raycast/README.md) for markets, search and privacy.
 

@@ -4,6 +4,8 @@ Look up any stock, ETF, index or crypto pair from Raycast, by ticker or by its
 name in English, 简体中文, 繁體中文, 日本語 or 한국어, and see its price, change
 and today's chart.
 
+![Searching 腾讯 finds Tencent, with its price and today's chart against the previous close](media/search-by-name.png)
+
 - **Six stock markets**: United States, Hong Kong, China A-shares (Shanghai and
   Shenzhen), Japan, Korea (KOSPI and KOSDAQ) and Taiwan (TWSE and TPEx), plus
   the major indices and every Binance Spot pair.
@@ -18,6 +20,13 @@ and today's chart.
 
 Typing a ticker the list does not know, like `^FTSE` or `EURUSD=X`, looks it up
 on Yahoo Finance directly; a pair like `ETH/BTC` is priced on Binance.
+
+<p>
+  <img src="media/chart-taiwan.png" width="49%" alt="台積電 found by its Traditional Chinese name, with today's chart">
+  <img src="media/crypto.png" width="49%" alt="BTC/USDT on Binance with its 24-hour chart">
+  <img src="media/recent-and-indices.png" width="49%" alt="Recent symbols and the major indices with prices, shown when the search bar is empty">
+  <img src="media/filter-by-market.png" width="49%" alt="Searching bank with the Hong Kong filter, listing banks with prices and changes">
+</p>
 
 ## Data and privacy
 

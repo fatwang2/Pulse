@@ -88,10 +88,11 @@ export const register: Register = on => {
         const enabled = args[1] === 'on'
         await $.store.set(BACKDROP_KEY, { version: 1, enabled })
         if (!enabled) {
-          await $.theme.clear()
+          try { await $.theme.clear() } catch { /* No themes before Claude Code 2.1.319. */ }
           return { text: 'Backdrop off.' }
         }
         const set = await setBackdrop($)
+        if (!set) return { text: 'The backdrop needs Claude Code 2.1.323 or later.' }
         return { text: set.isDrawn ? 'Backdrop on: a glow tinted by your watchlist, behind the conversation.'
           : 'Backdrop on. It shows in Claude Desktop and the Claude mobile app; the terminal draws none.' }
       }
@@ -266,8 +267,13 @@ function changeColor(change: number | null): string | undefined {
   return change === null ? undefined : change >= 0 ? 'green' : 'red'
 }
 
-function setBackdrop($: EngineInterface) {
-  return $.theme.set({ backdrop: { scene: SCENE, glass: {} } })
+// Older Claude Code builds have no themes; the rest of Pulse still runs there.
+async function setBackdrop($: EngineInterface) {
+  try {
+    return await $.theme.set({ backdrop: { scene: SCENE, glass: {} } })
+  } catch {
+    return undefined
+  }
 }
 
 function startWatch($: EngineInterface, watch: Watchlist): Promise<void> {

@@ -105,7 +105,8 @@ corner, green when your watchlist is up on average, red when it is down, and
 blue when it is flat or has no fresh quotes. Stronger days glow a little
 stronger. The day's largest mover is set large and faint in the same corner.
 It uses the quotes the band already has, with no extra requests, and draws no
-chart. Cached quotes do not count toward the mood. The glow holds still when
+chart. Cached quotes do not count toward the mood. The backdrop needs Claude
+Code 2.1.323 or later; the band and panel keep working on older builds. The glow holds still when
 the system asks for reduced motion. The terminal draws no backdrop.
 
 It is off by default because a session holds one theme: turning it on replaces

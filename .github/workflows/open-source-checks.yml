@@ -44,7 +44,7 @@ jobs:
         with:
           node-version: '24'
       - name: Install the tested Claude Code CLI
-        run: npm install --global @anthropic-ai/claude-code@2.1.287
+        run: npm install --global @anthropic-ai/claude-code@2.1.325
       - name: Validate and test the native Mods plugin
         run: make test-claude
 

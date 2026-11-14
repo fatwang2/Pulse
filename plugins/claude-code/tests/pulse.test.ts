@@ -3,6 +3,8 @@ import type { Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import { SETTINGS_KEY } from '../hooks/watchlist'
 import { decodeQuote, formatBandPrice, formatPrice, formatStaleDate, normalizeSymbol, quotePath, YahooError } from '../hooks/yahoo'
+import { BACKDROP_KEY, backdropScene, readMood } from '../hooks/backdrop'
+import type { Quote } from '../hooks/yahoo'
 import { BinanceError, decodeTickers, isCryptoPair, tickersQuery } from '../hooks/binance'
 
 // The URL the mod's one Binance call builds from its fixed address.
@@ -535,4 +537,51 @@ test('Pulse for Mac links sit in the panel footer, under an empty list and in he
   expect(await band.find({ type: 'Link' })).toBe(undefined)
   expect(await band.find({ type: 'Text', text: /Pulse for Mac|pulseticker/ })).toBe(undefined)
   await band.unmount()
+})
+
+test('the backdrop is opt-in, follows the watchlist mood, and draws only the Pulse scene', async ($, on) => {
+  const { clock, saved } = host(on, ['AAPL', 'NVDA'])
+  const themes: unknown[] = []
+  on('theme.set', (_, e) => { themes.push(e); return { value: { isDrawn: true, requestId: 'backdrop' } } })
+  on('theme.clear', () => { themes.push('clear'); return { value: { isDrawn: false, reason: 'the theme is cleared' } } })
+  on('http.fetch', (_, e) => ({ value: e.url.includes('NVDA') ? response('NVDA', 104, 100) : response('AAPL', 101, 100) }))
+  await $.session.start(START)
+  await clock.settle()
+  await clock.advance(1000)
+  expect(themes).toEqual([])
+
+  expect((await command($, 'backdrop on')).text).toMatch(/^Backdrop on/)
+  expect(themes).toEqual([{ backdrop: { scene: 'pulse-mood', glass: {} } }])
+  expect(saved.get(BACKDROP_KEY)).toEqual({ version: 1, enabled: true })
+
+  const target = { plugin: PLUGIN, component: 'Backdrop', requestId: 'backdrop', viewport: { columns: 100, rows: 30 },
+    props: { scene: 'pulse-mood', plugin: PLUGIN, glass: { blur: 16, opacity: 0.6 } } } as const
+  const drawn = await $.ui.mount({ ...target, surface: 'desktop' })
+  const svg = await drawn.find({ type: 'Svg' })
+  expect(String(svg?.props.source)).toContain('#2FB36B')
+  expect(String(svg?.props.source)).toContain('NVDA +4.00%')
+  expect(String(svg?.props.source)).not.toMatch(/pulseticker|Pulse for Mac|<script/)
+  await drawn.unmount()
+
+  const other = await $.ui.mount({ ...target, surface: 'desktop', props: { ...target.props, plugin: 'someone-else' } })
+  expect(await other.find({ type: 'Svg' })).toBe(undefined)
+  await other.unmount()
+
+  // A new session restores it; turning it off clears it and stays off.
+  await $.session.start(START)
+  expect(themes.length).toBe(2)
+  expect((await command($, 'backdrop off')).text).toBe('Backdrop off.')
+  expect(themes[2]).toBe('clear')
+  await $.session.start(START)
+  expect(themes.length).toBe(3)
+})
+
+test('the backdrop mood ignores cached quotes and escapes symbols', () => {
+  const quote = (changePercent: number) => ({ changePercent }) as unknown as Quote
+  expect(readMood(['A', 'B'], { A: quote(-2), B: quote(5) }, { B: 'failed' })).toEqual({ average: -2, mover: { symbol: 'A', change: -2 } })
+  expect(readMood(['A'], {}, {})).toEqual({ average: null, mover: undefined })
+  const scene = backdropScene({ average: -1, mover: { symbol: 'A&<B', change: -1 } })
+  expect(scene).toContain('#E5484D')
+  expect(scene).toContain('A&#38;&#60;B')
+  expect(backdropScene({ average: null }).length).toBeLessThan(131072)
 })

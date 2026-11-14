@@ -2,9 +2,10 @@ import type { EngineInterface, Register } from 'claude-code'
 import { SETTINGS_KEY, Watchlist } from './watchlist'
 import { formatChange, formatPrice, formatBandPrice, formatStaleDate } from './yahoo'
 import { isCryptoPair } from './binance'
+import { BACKDROP_KEY, SCENE, backdropScene, readBackdrop, readMood, sceneAlt } from './backdrop'
 
 export const PANE = 'pulse-quotes'
-const HELP = '/pulse · /pulse add AAPL · /pulse remove AAPL · /pulse refresh · /pulse off · /pulse on\n' +
+const HELP = '/pulse · /pulse add AAPL · /pulse remove AAPL · /pulse refresh · /pulse off · /pulse on · /pulse backdrop on|off\n' +
   'Quotes in your Mac menu bar, with charts and positions: Pulse for Mac, pulseticker.app'
 // The site, tagged with where the click came from. Opened only when the person clicks.
 const SITE_PANEL = 'https://www.pulseticker.app/?utm_source=claude-code&utm_medium=plugin&utm_content=panel'
@@ -33,9 +34,12 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'pulse', description: 'Watch stock and crypto quotes above the prompt',
-      argumentHint: '[add <ticker> | remove <ticker> | refresh | off | on]',
+      argumentHint: '[add <ticker> | remove <ticker> | refresh | off | on | backdrop on|off]',
       immediate: true,
     })
+    // The backdrop is opt-in: a session holds one theme, and setting it would
+    // replace a theme the person chose. Neither reload nor --resume keeps it.
+    if (readBackdrop(await $.store.get(BACKDROP_KEY)).enabled) await setBackdrop($)
     interactive = e.isInteractive
     if (interactive) await startWatch($, watch)
     return next(e)
@@ -80,6 +84,17 @@ export const register: Register = on => {
       if (args[0] === 'remove' && args.length === 2) return { text: await watch.remove(args[1]) }
       if (args[0] === 'off' && args.length === 1) return { text: await watch.pause(true) }
       if (args[0] === 'on' && args.length === 1) return { text: await watch.pause(false) }
+      if (args[0] === 'backdrop' && args.length === 2 && (args[1] === 'on' || args[1] === 'off')) {
+        const enabled = args[1] === 'on'
+        await $.store.set(BACKDROP_KEY, { version: 1, enabled })
+        if (!enabled) {
+          await $.theme.clear()
+          return { text: 'Backdrop off.' }
+        }
+        const set = await setBackdrop($)
+        return { text: set.isDrawn ? 'Backdrop on: a glow tinted by your watchlist, behind the conversation.'
+          : 'Backdrop on. It shows in Claude Desktop and the Claude mobile app; the terminal draws none.' }
+      }
       if (args[0] === 'refresh' && args.length === 1) {
         // Refresh on a background timer, so a long watchlist never blocks input.
         $.clock.after(0, () => watch.refresh())
@@ -125,6 +140,15 @@ export const register: Register = on => {
       })}
       {visible.length < symbols.length && <Text dimColor>{`   +${symbols.length - visible.length} more`}</Text>}
     </Text></Box>
+  })
+
+  on('ui.render', { component: 'Backdrop' }, async ($, e, next) => {
+    // Every mod's backdrop asks here: draw only Pulse's own scene.
+    if (e.props.plugin !== $.plugin.name || e.props.scene !== SCENE) return next(e)
+    if (e.surface !== 'desktop' && e.surface !== 'mobile') return next(e)
+    const { Svg } = $.ui.resolve(e)
+    const mood = readMood(watch.preferences.symbols, watch.quotes, watch.errors)
+    return <Svg source={backdropScene(mood)} alt={sceneAlt(mood)} isInteractive />
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
@@ -242,6 +266,10 @@ function changeColor(change: number | null): string | undefined {
   return change === null ? undefined : change >= 0 ? 'green' : 'red'
 }
 
+function setBackdrop($: EngineInterface) {
+  return $.theme.set({ backdrop: { scene: SCENE, glass: {} } })
+}
+
 function startWatch($: EngineInterface, watch: Watchlist): Promise<void> {
   return watch.start({
     load: () => $.store.get(SETTINGS_KEY),
@@ -251,10 +279,10 @@ function startWatch($: EngineInterface, watch: Watchlist): Promise<void> {
     after: (ms, callback) => $.clock.after(ms, callback),
     // The only two hosts the mod contacts, each written whole at its call.
     fetchYahoo: path => $.http.fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${path}`, {
-      headers: { 'User-Agent': 'Pulse-CC/0.5.0', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.6.0', Accept: 'application/json' },
     }),
     fetchBinance: query => $.http.fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?${query}`, {
-      headers: { 'User-Agent': 'Pulse-CC/0.5.0', Accept: 'application/json' },
+      headers: { 'User-Agent': 'Pulse-CC/0.6.0', Accept: 'application/json' },
     }),
     redraw: () => $.ui.invalidate('ui.render'),
   })

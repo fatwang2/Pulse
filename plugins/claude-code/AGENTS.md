@@ -4,6 +4,10 @@
   removed the Mac mode, its bundled MCP server and token option. Do not
   reintroduce MCP calls, commands or credentials. Keep a compact quote band and
   a management panel; do not display charts or mini trends.
+- The backdrop (`/pulse backdrop on`, Desktop and mobile only) stays opt-in:
+  `$.theme.set` replaces any other mod's theme. It shows mood only (a glow
+  and the largest mover in a corner), never charts, links or branding, and
+  only redraws from quotes the band already has.
 - Use Claude Code Mods APIs, not Node imports or direct filesystem/network
   access. Write each host call explicitly in `hooks/register.tsx` so the
   host's static analyzer can inventory it, with each fetch's https origin and

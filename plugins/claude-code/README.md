@@ -65,6 +65,8 @@ watchlists and position P&L. Free for 30 days, then a one-time purchase.
 | `/pulse refresh` | Request one refresh round, including while paused |
 | `/pulse off` | Pause automatic refresh; keep the watchlist and cached quotes |
 | `/pulse on` | Resume automatic refresh |
+| `/pulse backdrop on` | Put the market-mood backdrop behind the conversation (Claude Desktop and the Claude mobile app) |
+| `/pulse backdrop off` | Take the backdrop off |
 | `/pulse help` | Show command usage |
 
 The panel header shows the watchlist size with Refresh and Pause beside it and
@@ -94,6 +96,21 @@ losses red, and percentages always include their sign. USD is omitted in this
 compact band; other currencies remain visible. The panel includes currency.
 Neither surface displays charts or mini trends. Opening the panel does not
 trigger an extra quote request.
+
+## Backdrop
+
+In Claude Desktop's **Code** tab and the Claude mobile app, `/pulse backdrop on`
+puts a quiet backdrop behind the conversation: a slow glow in the top-right
+corner, green when your watchlist is up on average, red when it is down, and
+blue when it is flat or has no fresh quotes. Stronger days glow a little
+stronger. The day's largest mover is set large and faint in the same corner.
+It uses the quotes the band already has, with no extra requests, and draws no
+chart. Cached quotes do not count toward the mood. The glow holds still when
+the system asks for reduced motion. The terminal draws no backdrop.
+
+It is off by default because a session holds one theme: turning it on replaces
+another mod's colors or backdrop, and `/pulse backdrop off` clears the session's
+theme. The setting is saved, so new sessions start with it.
 
 Pulse CC refreshes 60 seconds **after each round**. Stock requests are spaced
 at least one second apart, so a large watchlist takes longer to complete a
@@ -136,7 +153,8 @@ rights to Yahoo's market data. These quotes are for informational use.
 ## Local data and privacy
 
 The plugin saves Yahoo ticker symbols, Binance pairs and the paused setting in
-Claude Code's local plugin store (`watchlist.v1`). That store is shared by your
+Claude Code's local plugin store (`watchlist.v1`), and the backdrop setting
+in `backdrop.v1`. That store is shared by your
 local sessions. Edits in one session are picked up by another at its next
 refresh; concurrent writes across processes are last-writer-wins. Quote caches
 are in memory and are fetched again in a new session.
@@ -160,18 +178,21 @@ and every host call is written out in that one file.
 
 ### What each hook does
 
-- `session.start`: registers the `/pulse` command and, in a terminal session,
-  starts the quote refresh.
+- `session.start`: registers the `/pulse` command, sets the backdrop if you
+  turned it on, and, in a terminal session, starts the quote refresh.
 - `session.attach` and `session.detach` (Claude Desktop only): start the refresh
   when a Desktop window attaches and stop it when the last one detaches.
 - `session.end`: stops the refresh.
 - `command.run`, matched to `/pulse` only: the one call it sees is the person
   typing `/pulse`. It reads the arguments (`add`, `remove`, `refresh`, `off`,
-  `on`, `help` or none), updates the watchlist in the plugin store or opens and
+  `on`, `backdrop on|off`, `help` or none), updates the watchlist in the plugin store or opens and
   closes the panel, and answers with one short line such as `Added AAPL.`. It
   never runs, rewrites or forwards the command, and never sees other commands.
 - `ui.render` for `AbovePrompt` and for its own `pulse-quotes` pane: draws the
   quote band above the prompt and the `/pulse` panel.
+- `ui.render` for `Backdrop`, its own `pulse-mood` scene only: draws the
+  backdrop as a self-contained SVG with no script and no links. It leaves
+  another mod's backdrop alone.
 
 It has no hook on Claude's tool calls, prompts, permission checks or messages,
 so it never sees, changes or approves them.
